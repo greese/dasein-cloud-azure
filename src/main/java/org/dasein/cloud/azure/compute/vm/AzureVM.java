@@ -2,7 +2,6 @@ package org.dasein.cloud.azure.compute.vm;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
@@ -32,12 +31,10 @@ import org.w3c.dom.NodeList;
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.servlet.http.HttpServletResponse;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
@@ -49,15 +46,67 @@ import java.util.Locale;
  * @version 2012.04.1
  */
 public class AzureVM implements VirtualMachineSupport {
+    static private final Logger logger = Azure.getLogger(AzureVM.class);
+
     static private final String HOSTED_SERVICES = "/services/hostedservices";
+    
+    /**
+     * As the operation for VM requires to the service name and virtual machine name
+     * , therefore to handle the VM easily, the virtual machine id is equal to
+     * "hostedservice name" + "_&_" + "virtual machine name"
+     */
+    static public final String SERVICE_VM_NAME_SPLIT = "_&_";
+    static private final String VM_ROLE_SERVICES= "/roleInstances";
+    static private final String SERVICE_NAME_KEY = "Servcie_NAME";
+
 
     private Azure provider;
 
     public AzureVM(Azure provider) { this.provider = provider; }
 
     @Override
-    public void boot(@Nonnull String vmId) throws InternalException, CloudException {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void start(@Nonnull String vmId) throws InternalException, CloudException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureVM.class.getName() + ".Boot()");
+        }
+        
+        if(!vmId.contains(SERVICE_VM_NAME_SPLIT)){
+        	logger.trace(" No such VM");
+        	return;
+        }
+       	String[] serviceVMName = vmId.split(SERVICE_VM_NAME_SPLIT);
+     	String resourceDir = HOSTED_SERVICES + "/" + serviceVMName[0] + "/deployments" + "/" +  serviceVMName[0] + VM_ROLE_SERVICES+"/" + serviceVMName[1] + "/Operations";
+     	
+        try{
+            AzureMethod method = new AzureMethod(provider);
+           
+        	StringBuilder xml = new StringBuilder();
+        	xml.append("<StartRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\"");
+        	xml.append(" ");
+        	xml.append("xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+        	xml.append("\n");
+        	xml.append("<OperationType>StartRoleOperation</OperationType>");
+        	xml.append("\n");
+        	xml.append("</StartRoleOperation>");
+        	xml.append("\n");
+        	
+            if( logger.isDebugEnabled() ) {
+                try {
+                    method.parseResponse(xml.toString(), false);
+                }
+                catch( Exception e ) {
+                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
+                    logger.warn("XML:");
+                    logger.warn(xml.toString());
+                }
+            }
+          	method.post(provider.getContext().getAccountNumber(), resourceDir, xml.toString());
+        	
+        }finally {
+        	if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureVM.class.getName() + ".launch()");
+            }
+        }
     }
 
     @Override
@@ -88,7 +137,7 @@ public class AzureVM implements VirtualMachineSupport {
     @Override
     public @Nullable VirtualMachineProduct getProduct(@Nonnull String productId) throws InternalException, CloudException {
         for( VirtualMachineProduct product : listProducts(Architecture.I64) ) {
-            if( product.getProviderProductId().equals(productId) ) {
+            if( product.getProviderProductId().equals(productId) ) {            	
                 return product;
             }
         }
@@ -100,9 +149,35 @@ public class AzureVM implements VirtualMachineSupport {
         return "virtual machine";
     }
 
+    private @Nonnull Iterable<VirtualMachine> getVirtualMachines(String serviceName) throws InternalException, CloudException {
+       ArrayList<VirtualMachine> list = new ArrayList<VirtualMachine>();
+       
+       for( VirtualMachine vm : toVirtualMachines(provider.getContext(), serviceName)) {
+        	if( vm.getProviderVirtualMachineId().startsWith(serviceName) ) {
+            	list.add(vm);
+            }
+        }      
+        return list;
+    }
+    
+    private @Nullable VirtualMachine getVirtualMachine(@Nonnull String vmId, String serviceName) throws InternalException, CloudException {
+    	 
+    	 if(serviceName == null){
+    		return this.getVirtualMachine(vmId);
+    	 }
+    	 for( VirtualMachine vm : getVirtualMachines(serviceName)) {        	
+            if( vmId.equals(vm.getProviderVirtualMachineId()) ) {
+                return vm;
+            }
+        }
+        return null;
+    }
+
+    
     @Override
     public @Nullable VirtualMachine getVirtualMachine(@Nonnull String vmId) throws InternalException, CloudException {
         for( VirtualMachine vm : listVirtualMachines() ) {
+        	
             if( vmId.equals(vm.getProviderVirtualMachineId()) ) {
                 return vm;
             }
@@ -112,6 +187,16 @@ public class AzureVM implements VirtualMachineSupport {
 
     public @Nullable VirtualMachine getVirtualMachine(@Nonnull String vmId, @Nullable String user, @Nullable String password) throws InternalException, CloudException {
         VirtualMachine vm = getVirtualMachine(vmId);
+        
+        if( vm == null ) {
+            return null;
+        }
+        vm.setRootUser(user);
+        vm.setRootPassword(password);
+        return vm;
+    }
+    public @Nullable VirtualMachine getVirtualMachine(@Nonnull String vmId, @Nonnull String serviceName,  @Nullable String user, @Nullable String password) throws InternalException, CloudException {
+        VirtualMachine vm = getVirtualMachine(vmId,serviceName);
         
         if( vm == null ) {
             return null;
@@ -175,11 +260,10 @@ public class AzureVM implements VirtualMachineSupport {
     public boolean isUserDataSupported() throws CloudException, InternalException {
         return false;
     }
+    
 
     @Override
     public @Nonnull VirtualMachine launch(VMLaunchOptions options) throws CloudException, InternalException {
-        Logger logger = Azure.getLogger(AzureVM.class, "std");
-
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".launch(" + options + ")");
         }
@@ -312,7 +396,25 @@ public class AzureVM implements VirtualMachineSupport {
             }
 
             method.post(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + id + "/deployments", xml.toString());
-            return getVirtualMachine(id, "dasein", password);
+            
+            String VMId =  id + SERVICE_VM_NAME_SPLIT+ id + "Role";
+            VirtualMachine vm = null ;
+            int atemptTime = 10;
+            try {            	
+            	while(atemptTime >0){
+            		vm = getVirtualMachine(VMId, id, "dasein", password);
+                	if(vm == null){            	
+    					Thread.sleep(10000L);
+    					atemptTime--;
+                	}else{
+                		return vm;
+                	}
+            	}
+            } catch (InterruptedException e) {
+            	logger.trace("interupt error while wating the VM to start: " + e.getMessage());
+            	atemptTime--;
+			}
+            return vm;
         }
         finally {
             if( logger.isTraceEnabled() ) {
@@ -384,7 +486,19 @@ public class AzureVM implements VirtualMachineSupport {
         if( architecture.equals(Architecture.I32) ) {
             return Collections.emptyList();
         }
+        
+        ArrayList<VirtualMachineProduct> list = new ArrayList<VirtualMachineProduct>();
         VirtualMachineProduct product = new VirtualMachineProduct();
+
+        product.setCpuCount(1);
+        product.setDescription("Extra Small");
+        product.setRootVolumeSize(new Storage<Gigabyte>(15, Storage.GIGABYTE));
+        product.setName("Extra Small");
+        product.setProviderProductId("Extra Small");
+        product.setRamSize(new Storage<Gigabyte>(1, Storage.GIGABYTE));
+        list.add(product);
+        
+        product = new VirtualMachineProduct();
 
         product.setCpuCount(1);
         product.setDescription("Small");
@@ -392,7 +506,39 @@ public class AzureVM implements VirtualMachineSupport {
         product.setName("Small");
         product.setProviderProductId("Small");
         product.setRamSize(new Storage<Gigabyte>(2, Storage.GIGABYTE));
-        return Collections.singletonList(product);
+        list.add(product);
+        
+        product = new VirtualMachineProduct();
+
+        product.setCpuCount(2);
+        product.setDescription("Medium");
+        product.setRootVolumeSize(new Storage<Gigabyte>(15, Storage.GIGABYTE));
+        product.setName("Medium");
+        product.setProviderProductId("Medium");
+        product.setRamSize(new Storage<Gigabyte>(4, Storage.GIGABYTE)); //3.5G
+        list.add(product);
+        
+        product = new VirtualMachineProduct();
+
+        product.setCpuCount(4);
+        product.setDescription("Large");
+        product.setRootVolumeSize(new Storage<Gigabyte>(15, Storage.GIGABYTE));
+        product.setName("Large");
+        product.setProviderProductId("Large");
+        product.setRamSize(new Storage<Gigabyte>(7, Storage.GIGABYTE)); //3.5G
+        list.add(product);
+        
+        product = new VirtualMachineProduct();
+
+        product.setCpuCount(8);
+        product.setDescription("Extra Large");
+        product.setRootVolumeSize(new Storage<Gigabyte>(15, Storage.GIGABYTE));
+        product.setName("Extra Large");
+        product.setProviderProductId("Extra Large");
+        product.setRamSize(new Storage<Gigabyte>(14, Storage.GIGABYTE)); //3.5G
+        list.add(product);
+        
+        return Collections.unmodifiableList(list);
     }
 
     @Override
@@ -419,22 +565,113 @@ public class AzureVM implements VirtualMachineSupport {
 
         for( int i=0; i<entries.getLength(); i++ ) {
             Node entry = entries.item(i);
-            VirtualMachine vm = toVirtualMachine(ctx, entry);
+            ArrayList<VirtualMachine> vmRoles = (ArrayList<VirtualMachine>) toVirtualMachines(ctx, entry);
 
-            if( vm != null ) {
-                vms.add(vm);
+            if( vmRoles != null ) {
+                vms.addAll(vmRoles);
             }
         }
         return vms;
     }
 
     @Override
-    public void pause(@Nonnull String vmId) throws InternalException, CloudException {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void stop(@Nonnull String vmId) throws InternalException, CloudException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureVM.class.getName() + ".Boot()");
+        }
+        
+        if(!vmId.contains(SERVICE_VM_NAME_SPLIT)){
+        	logger.trace(" No such VM");
+        	return;
+        }
+       	String[] serviceVMName = vmId.split(SERVICE_VM_NAME_SPLIT);
+     	String resourceDir = HOSTED_SERVICES + "/" + serviceVMName[0] + "/deployments" + "/" +  serviceVMName[0] + VM_ROLE_SERVICES+"/" + serviceVMName[1] + "/Operations";
+     	
+        try{
+            AzureMethod method = new AzureMethod(provider);
+           
+        	StringBuilder xml = new StringBuilder();
+        	xml.append("<ShutdownRoleOperation  xmlns=\"http://schemas.microsoft.com/windowsazure\"");
+        	xml.append(" ");
+        	xml.append("xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+        	xml.append("\n");
+        	xml.append("<OperationType>ShutdownRoleOperation </OperationType>");
+        	xml.append("\n");
+        	xml.append("</ShutdownRoleOperation>");
+        	xml.append("\n");
+        	
+            if( logger.isDebugEnabled() ) {
+                try {
+                    method.parseResponse(xml.toString(), false);
+                }
+                catch( Exception e ) {
+                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
+                    logger.warn("XML:");
+                    logger.warn(xml.toString());
+                }
+            }
+          	method.post(provider.getContext().getAccountNumber(), resourceDir, xml.toString());
+        	
+        }finally {
+        	if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureVM.class.getName() + ".launch()");
+            }
+        }
     }
 
     @Override
     public void reboot(@Nonnull String vmId) throws CloudException, InternalException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureVM.class.getName() + ".reboot()");
+        }
+        
+        if(!vmId.contains(SERVICE_VM_NAME_SPLIT)){
+        	logger.trace(" No such VM");
+        	return;
+        }
+       	String[] serviceVMName = vmId.split(SERVICE_VM_NAME_SPLIT);
+     	String resourceDir = HOSTED_SERVICES + "/" + serviceVMName[0] + "/deployments" + "/" +  serviceVMName[0] + VM_ROLE_SERVICES+"/" + serviceVMName[1] + "/Operations";
+     	
+        try{
+            AzureMethod method = new AzureMethod(provider);
+           
+        	StringBuilder xml = new StringBuilder();
+        	xml.append("<RestartRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\"");
+        	xml.append(" ");
+        	xml.append("xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+        	xml.append("\n");
+        	xml.append("<OperationType>RestartRoleOperation</OperationType>");
+        	xml.append("\n");
+        	xml.append("</RestartRoleOperation>");
+        	xml.append("\n");
+        	
+            if( logger.isDebugEnabled() ) {
+                try {
+                    method.parseResponse(xml.toString(), false);
+                }
+                catch( Exception e ) {
+                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
+                    logger.warn("XML:");
+                    logger.warn(xml.toString());
+                }
+            }
+          	method.post(provider.getContext().getAccountNumber(), resourceDir, xml.toString());
+        	
+        }finally {
+        	if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureVM.class.getName() + ".reboot()");
+            }
+        }
+    
+    }
+
+    @Override
+    public void resume(@Nonnull String vmId) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void pause(@Nonnull String vmId) throws InternalException, CloudException {
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
@@ -444,9 +681,64 @@ public class AzureVM implements VirtualMachineSupport {
     }
 
     @Override
-    public void terminate(@Nonnull String vmId) throws InternalException, CloudException {
+    public boolean supportsPauseUnpause(@Nonnull VirtualMachine vm) {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public boolean supportsStartStop(@Nonnull VirtualMachine vm) {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public boolean supportsSuspendResume(@Nonnull VirtualMachine vm) {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void suspend(@Nonnull String vmId) throws CloudException, InternalException {
         //To change body of implemented methods use File | Settings | File Templates.
     }
+
+    @Override
+    public void terminate(@Nonnull String vmId) throws InternalException, CloudException {
+    	if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureVM.class.getName() + ".terminate()");
+        }
+        
+        if(!vmId.contains(SERVICE_VM_NAME_SPLIT)){
+        	logger.trace(" No such VM");
+        	return;
+        }
+       	String[] serviceVMName = vmId.split(SERVICE_VM_NAME_SPLIT);     	
+       	String resourceDir = HOSTED_SERVICES + "/" + serviceVMName[0] + "/deployments" + "/" +  serviceVMName[0] + "/roles"+"/" + serviceVMName[1] ;
+     	
+        ArrayList<VirtualMachine> list = (ArrayList<VirtualMachine>) getVirtualMachines(serviceVMName[0]);
+       	if(list == null ){
+       		logger.trace(" No VM found under the services !!!!");       		
+       	}else{
+       		if(list.size()== 1){
+       			logger.trace(" Directly delete deployment " + serviceVMName[0] + "/deployments" + "/" +  serviceVMName[0]);
+       			resourceDir = HOSTED_SERVICES + "/" + serviceVMName[0]+ "/deployments" + "/" +  serviceVMName[0] ;
+       		}
+       	}        
+        try{        	
+            AzureMethod method = new AzureMethod(provider);
+           
+          	method.invoke("DELETE", provider.getContext().getAccountNumber(), resourceDir, null);
+        	
+        }finally {
+        	if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureVM.class.getName() + ".terminate()");
+            }
+        }    
+    }
+
+    @Override
+    public void unpause(@Nonnull String vmId) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
 
     @Nonnull
     @Override
@@ -454,7 +746,229 @@ public class AzureVM implements VirtualMachineSupport {
         return new String[0];  //To change body of implemented methods use File | Settings | File Templates.
     }
     
-    private @Nullable VirtualMachine toVirtualMachine(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
+      
+    private @Nullable Iterable<VirtualMachine> toVirtualMachines(@Nonnull ProviderContext ctx, String serviceName) throws CloudException, InternalException {
+       
+        String regionId = ctx.getRegionId();
+
+        if( regionId == null ) {
+            throw new AzureConfigException("No region ID was specified for this request");
+        }
+        
+        ArrayList<VirtualMachine> list = new ArrayList<VirtualMachine>();
+        
+        ArrayList<VirtualMachine> tempList = new ArrayList<VirtualMachine>();       	
+    	
+        VirtualMachine vm = new VirtualMachine();
+
+        NodeList attributes;
+        HashMap<String,String> tags = new HashMap<String, String>();
+          
+        if( serviceName == null ) { 
+            return null;
+        }
+        AzureMethod method = new AzureMethod(provider);
+        
+        String resourceDir =  HOSTED_SERVICES + "/"+ serviceName + "/deployments" + "/" + serviceName;
+        Document doc = method.getAsXML(ctx.getAccountNumber(),resourceDir);
+
+        if( doc == null ) {
+            return null;
+        }
+        NodeList entries = doc.getElementsByTagName("Deployment");
+
+        if( entries.getLength() < 1 ) {
+            return null;
+        }      
+        
+        for( int i=0; i<entries.getLength(); i++ ) {
+            Node detail = entries.item(i);
+
+            attributes = detail.getChildNodes();
+            for( int j=0; j<attributes.getLength(); j++ ) {
+                Node attribute = attributes.item(j);
+                if(attribute.getNodeType() == Node.TEXT_NODE) continue;
+                
+                if( attribute.getNodeName().equalsIgnoreCase("deploymentslot") && attribute.hasChildNodes() ) {
+                    tags.put("DeploymentSlot", attribute.getFirstChild().getNodeValue().trim());
+                }
+                else if( attribute.getNodeName().equalsIgnoreCase("privateid") && attribute.hasChildNodes() ) {
+                    tags.put("DeploymentID", attribute.getFirstChild().getNodeValue().trim());
+                }
+                else if( attribute.getNodeName().equalsIgnoreCase("status") && attribute.hasChildNodes() ) {
+                   // status = attribute.getFirstChild().getNodeValue().trim();
+                }
+                else if( attribute.getNodeName().equalsIgnoreCase("url") && attribute.hasChildNodes() ) {
+                    try {
+                        URI u = new URI(attribute.getFirstChild().getNodeValue().trim());
+                        
+                        vm.setPublicDnsAddress(u.getHost());
+                    }
+                    catch( URISyntaxException e ) {
+                        // ignore
+                    }
+                }
+                else if( attribute.getNodeName().equalsIgnoreCase("roleinstancelist") && attribute.hasChildNodes() ) {
+                    NodeList roleInstances = attribute.getChildNodes();
+                                        
+                    for( int k=0; k<roleInstances.getLength(); k++ ) {
+                        Node roleInstance = roleInstances.item(k);
+                        if(roleInstance.getNodeType() == Node.TEXT_NODE) continue;
+                       
+                        if( roleInstance.getNodeName().equalsIgnoreCase("roleinstance") && roleInstance.hasChildNodes() ) {
+                        	VirtualMachine role = new VirtualMachine();
+ 
+                        	role.setArchitecture(Architecture.I64);
+                        	role.setClonable(false);
+                        	role.setCurrentState(VmState.TERMINATED);
+                        	role.setImagable(false);
+                        	role.setPersistent(true);
+                        	role.setPlatform(Platform.UNKNOWN);
+                        	role.setProviderDataCenterId(regionId + "-a");
+                        	role.setProviderOwnerId(ctx.getAccountNumber());
+                        	role.setProviderRegionId(regionId);
+                        	
+                        	//obtain value from vm
+                        	role.setCreationTimestamp(vm.getCreationTimestamp());
+                        	role.setPublicDnsAddress(vm.getPublicDnsAddress());
+                        	
+                        	NodeList roleAttributes = roleInstance.getChildNodes();
+                            
+                            for( int l=0; l<roleAttributes.getLength(); l++ ) {
+                                Node roleAttribute = roleAttributes.item(l);                               
+                                if(roleAttribute.getNodeType() == Node.TEXT_NODE) continue;
+                                
+                                if( roleAttribute.getNodeName().equalsIgnoreCase("RoleName") && roleAttribute.hasChildNodes() ) {
+                                  
+                                    String vmId  = serviceName + SERVICE_VM_NAME_SPLIT + roleAttribute.getFirstChild().getNodeValue().trim();                                   
+                                    
+                                    role.setProviderVirtualMachineId(vmId);
+                                    role.setName(roleAttribute.getFirstChild().getNodeValue().trim());
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("InstanceStatus") && roleAttribute.hasChildNodes() ) {
+                                	//TODO
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("instancesize") && roleAttribute.hasChildNodes() ) {
+                                	role.setProductId(roleAttribute.getFirstChild().getNodeValue().trim());
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("instanceupgradedomain") && roleAttribute.hasChildNodes() ) {
+                                    tags.put("UpgradeDomain", roleAttribute.getFirstChild().getNodeValue().trim());
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("instanceerrorcode") && roleAttribute.hasChildNodes() ) {
+                                    tags.put("ErrorCode", roleAttribute.getFirstChild().getNodeValue().trim());
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("instancefaultdomain") && roleAttribute.hasChildNodes() ) {
+                                    tags.put("FaultDomain", roleAttribute.getFirstChild().getNodeValue().trim());
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("fqdn") && roleAttribute.hasChildNodes() ) {
+                                	role.setPrivateDnsAddress(roleAttribute.getFirstChild().getNodeValue().trim());
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("ipaddress") && roleAttribute.hasChildNodes() ) {
+                                	role.setPrivateIpAddresses(new String[] { roleAttribute.getFirstChild().getNodeValue().trim() });
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("PowerState") && roleAttribute.hasChildNodes() ) {
+                                	String powerStatus = roleAttribute.getFirstChild().getNodeValue().trim();
+                                	
+                                	if("Started".equalsIgnoreCase(powerStatus)){
+                                		role.setCurrentState(VmState.RUNNING);                                		
+                                	}
+                                	else if("Stopped".equalsIgnoreCase(powerStatus)){
+                                		role.setCurrentState(VmState.PAUSED);  
+                                	}
+                                }                               
+                            }
+                           
+                            if( role.getName() == null ) {
+                            	role.setName(role.getProviderVirtualMachineId());
+                            }
+                            if( role.getDescription() == null ) {
+                            	role.setDescription(role.getName());
+                            }
+                            if( role.getPlatform().equals(Platform.UNKNOWN) ) {
+                                String descriptor = (role.getProviderVirtualMachineId() + " " + role.getName() + " " + role.getDescription() + " " + role.getProviderMachineImageId()).replaceAll("_", " ");
+
+                                role.setPlatform(Platform.guess(descriptor));
+                            }
+                            else if( role.getPlatform().equals(Platform.UNIX) ) {
+                                String descriptor = (role.getProviderVirtualMachineId() + " " + role.getName() + " " + role.getDescription() + " " + role.getProviderMachineImageId()).replaceAll("_", " ");
+                                Platform p = Platform.guess(descriptor);
+                                
+                                if( p.isUnix() ) {
+                                	role.setPlatform(p);
+                                }
+                            }
+                            role.setTags(tags);
+                            
+                            list.add(role);                            
+                        }                       
+                    }
+                }
+                //Contain the information about disk and firewall;
+                else if( attribute.getNodeName().equalsIgnoreCase("rolelist") && attribute.hasChildNodes() ) {
+
+                    NodeList roles = attribute.getChildNodes();                    
+                    for( int k=0; k<roles.getLength(); k++ ) {
+                        Node role = roles.item(k);
+
+                        if( role.getNodeName().equalsIgnoreCase("role") && role.hasChildNodes() ) {
+                            if( role.hasAttributes() ) {
+                                Node n = role.getAttributes().getNamedItem("i:type");
+                            
+                                if( n != null ) {
+                                    String val = n.getNodeValue();                                    
+                                    if( !"PersistentVMRole".equalsIgnoreCase(val) ) {
+                                        return null;
+                                    }
+                                }
+                            }
+                            NodeList roleAttributes = role.getChildNodes();                         
+                            VirtualMachine roleVM = new VirtualMachine();
+                            for( int l=0; l<roleAttributes.getLength(); l++ ) {
+                                Node roleAttribute = roleAttributes.item(l);
+                                if(roleAttribute.getNodeType() == Node.TEXT_NODE) continue;
+                                
+                                if( roleAttribute.getNodeName().equalsIgnoreCase("osvirtualharddisk") && roleAttribute.hasChildNodes() ) {
+                                    NodeList diskAttributes = roleAttribute.getChildNodes();
+
+                                    for( int m=0; m<diskAttributes.getLength(); m++ ) {
+                                        Node diskAttribute = diskAttributes.item(m);
+
+                                        if( diskAttribute.getNodeName().equalsIgnoreCase("SourceImageName") && diskAttribute.hasChildNodes() ) {
+                                        	roleVM.setProviderMachineImageId(diskAttribute.getFirstChild().getNodeValue().trim());
+                                        }
+                                        else if( diskAttribute.getNodeName().equalsIgnoreCase("MediaLink") && diskAttribute.hasChildNodes() ) {
+                                        	roleVM.setTag(Azure.RESOURCE_MEDIA_LINK_KEY, diskAttribute.getFirstChild().getNodeValue().trim());
+                                        } 
+                                    }
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("RoleName") && roleAttribute.hasChildNodes() ) {
+                                    
+                                    String vmId  = serviceName + SERVICE_VM_NAME_SPLIT + roleAttribute.getFirstChild().getNodeValue().trim();
+                                    roleVM.setProviderVirtualMachineId(vmId);                                    
+                                }
+                            }
+                            tempList.add(roleVM); 
+                        }                        
+                    }                    
+                }
+            }
+        }
+        // Obtain the properties from tempList
+        if(list != null && tempList != null){
+        	for(VirtualMachine finalVM : list){
+        		for(VirtualMachine tempVM : tempList){
+        			if(finalVM.getProviderVirtualMachineId().equals(tempVM.getProviderVirtualMachineId())){
+        				finalVM.setProviderMachineImageId(tempVM.getProviderMachineImageId());
+        				finalVM.getTags().putAll(tempVM.getTags());
+        				break;
+        			}
+        		}        		
+        	}       	
+        }        
+        return list;
+    }
+    
+    private @Nullable Iterable<VirtualMachine> toVirtualMachines(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
         if( entry == null ) {
             return null;
         }
@@ -463,35 +977,39 @@ public class AzureVM implements VirtualMachineSupport {
         if( regionId == null ) {
             throw new AzureConfigException("No region ID was specified for this request");
         }
+        
+        ArrayList<VirtualMachine> list = new ArrayList<VirtualMachine>();
+        
+        ArrayList<VirtualMachine> tempList = new ArrayList<VirtualMachine>();       	
+    	
         VirtualMachine vm = new VirtualMachine();
 
-        vm.setArchitecture(Architecture.I64);
-        vm.setClonable(false);
-        vm.setCurrentState(VmState.TERMINATED);
-        vm.setImagable(false);
-        vm.setPersistent(true);
-        vm.setPlatform(Platform.UNKNOWN);
-        vm.setProviderDataCenterId(regionId + "-a");
-        vm.setProviderOwnerId(ctx.getAccountNumber());
-        vm.setProviderRegionId(regionId);
         NodeList attributes = entry.getChildNodes();
         String uri = null;
+        String serviceName = null;
+        
+        HashMap<String,String> tags = new HashMap<String, String>();
         
         for( int i=0; i<attributes.getLength(); i++ ) {
-            Node attribute = attributes.item(i);
+            Node attribute = attributes.item(i);            
+            if(attribute.getNodeType() == Node.TEXT_NODE) continue;
 
             if( attribute.getNodeName().equalsIgnoreCase("url") && attribute.hasChildNodes() ) {
                 uri = attribute.getFirstChild().getNodeValue().trim();
+                
             }
             else if( attribute.getNodeName().equalsIgnoreCase("servicename") && attribute.hasChildNodes() ) {
-                vm.setProviderVirtualMachineId(attribute.getFirstChild().getNodeValue().trim());
+            	//vm.setProviderVirtualMachineId(attribute.getFirstChild().getNodeValue().trim());
+            	serviceName = attribute.getFirstChild().getNodeValue().trim();
+            	tags.put(SERVICE_NAME_KEY, serviceName);
             }
             else if( attribute.getNodeName().equalsIgnoreCase("hostedserviceproperties") && attribute.hasChildNodes() ) {
                 NodeList properties = attribute.getChildNodes();
                 
                 for( int j=0; j<properties.getLength(); j++ ) {
                     Node property = properties.item(j);
-
+                    if(property.getNodeType() == Node.TEXT_NODE) continue;
+                    
                     if( property.getNodeName().equalsIgnoreCase("location") && property.hasChildNodes() ) {
                         if( !regionId.equals(property.getFirstChild().getNodeValue().trim()) ) {
                             return null;
@@ -506,12 +1024,13 @@ public class AzureVM implements VirtualMachineSupport {
         if( uri == null ) {
             return null;
         }
-        if( vm.getProviderVirtualMachineId() == null ) {
+        if( serviceName == null ) { 
             return null;
         }
         AzureMethod method = new AzureMethod(provider);
-
-        Document doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + vm.getProviderVirtualMachineId() + "?embed-detail=true");
+        
+        String resourceDir =  HOSTED_SERVICES + "/"+ serviceName + "/deployments" + "/" + serviceName;
+        Document doc = method.getAsXML(ctx.getAccountNumber(),resourceDir);
 
         if( doc == null ) {
             return null;
@@ -520,16 +1039,15 @@ public class AzureVM implements VirtualMachineSupport {
 
         if( entries.getLength() < 1 ) {
             return null;
-        }
-        HashMap<String,String> tags = new HashMap<String, String>();
+        }      
         
         for( int i=0; i<entries.getLength(); i++ ) {
             Node detail = entries.item(i);
-            String status = null;
 
             attributes = detail.getChildNodes();
             for( int j=0; j<attributes.getLength(); j++ ) {
                 Node attribute = attributes.item(j);
+                if(attribute.getNodeType() == Node.TEXT_NODE) continue;
                 
                 if( attribute.getNodeName().equalsIgnoreCase("deploymentslot") && attribute.hasChildNodes() ) {
                     tags.put("DeploymentSlot", attribute.getFirstChild().getNodeValue().trim());
@@ -538,7 +1056,7 @@ public class AzureVM implements VirtualMachineSupport {
                     tags.put("DeploymentID", attribute.getFirstChild().getNodeValue().trim());
                 }
                 else if( attribute.getNodeName().equalsIgnoreCase("status") && attribute.hasChildNodes() ) {
-                    status = attribute.getFirstChild().getNodeValue().trim();
+                   // status = attribute.getFirstChild().getNodeValue().trim();
                 }
                 else if( attribute.getNodeName().equalsIgnoreCase("url") && attribute.hasChildNodes() ) {
                     try {
@@ -552,18 +1070,46 @@ public class AzureVM implements VirtualMachineSupport {
                 }
                 else if( attribute.getNodeName().equalsIgnoreCase("roleinstancelist") && attribute.hasChildNodes() ) {
                     NodeList roleInstances = attribute.getChildNodes();
-                    
+                                        
                     for( int k=0; k<roleInstances.getLength(); k++ ) {
                         Node roleInstance = roleInstances.item(k);
-                        
+                        if(roleInstance.getNodeType() == Node.TEXT_NODE) continue;
+                       
                         if( roleInstance.getNodeName().equalsIgnoreCase("roleinstance") && roleInstance.hasChildNodes() ) {
-                            NodeList roleAttributes = roleInstance.getChildNodes();
+                        	VirtualMachine role = new VirtualMachine();
+ 
+                        	role.setArchitecture(Architecture.I64);
+                        	role.setClonable(false);
+                        	role.setCurrentState(VmState.TERMINATED);
+                        	role.setImagable(false);
+                        	role.setPersistent(true);
+                        	role.setPlatform(Platform.UNKNOWN);
+                        	role.setProviderDataCenterId(regionId + "-a");
+                        	role.setProviderOwnerId(ctx.getAccountNumber());
+                        	role.setProviderRegionId(regionId);
+                        	
+                        	//obtain value from vm
+                        	role.setCreationTimestamp(vm.getCreationTimestamp());
+                        	role.setPublicDnsAddress(vm.getPublicDnsAddress());
+                        	
+                        	NodeList roleAttributes = roleInstance.getChildNodes();
                             
                             for( int l=0; l<roleAttributes.getLength(); l++ ) {
-                                Node roleAttribute = roleAttributes.item(l);
-
-                                if( roleAttribute.getNodeName().equalsIgnoreCase("instancesize") && roleAttribute.hasChildNodes() ) {
-                                    vm.setProductId(roleAttribute.getFirstChild().getNodeValue().trim());
+                                Node roleAttribute = roleAttributes.item(l);                               
+                                if(roleAttribute.getNodeType() == Node.TEXT_NODE) continue;
+                                
+                                if( roleAttribute.getNodeName().equalsIgnoreCase("RoleName") && roleAttribute.hasChildNodes() ) {
+                                  
+                                    String vmId  = serviceName + SERVICE_VM_NAME_SPLIT + roleAttribute.getFirstChild().getNodeValue().trim();                                   
+                                    
+                                    role.setProviderVirtualMachineId(vmId);
+                                    role.setName(roleAttribute.getFirstChild().getNodeValue().trim());
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("InstanceStatus") && roleAttribute.hasChildNodes() ) {
+                                	//TODO
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("instancesize") && roleAttribute.hasChildNodes() ) {
+                                	role.setProductId(roleAttribute.getFirstChild().getNodeValue().trim());
                                 }
                                 else if( roleAttribute.getNodeName().equalsIgnoreCase("instanceupgradedomain") && roleAttribute.hasChildNodes() ) {
                                     tags.put("UpgradeDomain", roleAttribute.getFirstChild().getNodeValue().trim());
@@ -575,18 +1121,52 @@ public class AzureVM implements VirtualMachineSupport {
                                     tags.put("FaultDomain", roleAttribute.getFirstChild().getNodeValue().trim());
                                 }
                                 else if( roleAttribute.getNodeName().equalsIgnoreCase("fqdn") && roleAttribute.hasChildNodes() ) {
-                                    vm.setPrivateDnsAddress(roleAttribute.getFirstChild().getNodeValue().trim());
+                                	role.setPrivateDnsAddress(roleAttribute.getFirstChild().getNodeValue().trim());
                                 }
                                 else if( roleAttribute.getNodeName().equalsIgnoreCase("ipaddress") && roleAttribute.hasChildNodes() ) {
-                                    vm.setPrivateIpAddresses(new String[] { roleAttribute.getFirstChild().getNodeValue().trim() });
+                                	role.setPrivateIpAddresses(new String[] { roleAttribute.getFirstChild().getNodeValue().trim() });
+                                }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("PowerState") && roleAttribute.hasChildNodes() ) {
+                                	String powerStatus = roleAttribute.getFirstChild().getNodeValue().trim();
+                                	
+                                	if("Started".equalsIgnoreCase(powerStatus)){
+                                		role.setCurrentState(VmState.RUNNING);                                		
+                                	}
+                                	else if("Stopped".equalsIgnoreCase(powerStatus)){
+                                		role.setCurrentState(VmState.PAUSED);  
+                                	}
+                                }                               
+                            }
+                           
+                            if( role.getName() == null ) {
+                            	role.setName(role.getProviderVirtualMachineId());
+                            }
+                            if( role.getDescription() == null ) {
+                            	role.setDescription(role.getName());
+                            }
+                            if( role.getPlatform().equals(Platform.UNKNOWN) ) {
+                                String descriptor = (role.getProviderVirtualMachineId() + " " + role.getName() + " " + role.getDescription() + " " + role.getProviderMachineImageId()).replaceAll("_", " ");
+
+                                role.setPlatform(Platform.guess(descriptor));
+                            }
+                            else if( role.getPlatform().equals(Platform.UNIX) ) {
+                                String descriptor = (role.getProviderVirtualMachineId() + " " + role.getName() + " " + role.getDescription() + " " + role.getProviderMachineImageId()).replaceAll("_", " ");
+                                Platform p = Platform.guess(descriptor);
+                                
+                                if( p.isUnix() ) {
+                                	role.setPlatform(p);
                                 }
                             }
-                        }
+                            role.setTags(tags);
+                            
+                            list.add(role);                            
+                        }                       
                     }
                 }
+                //Contain the information about disk and firewall;
                 else if( attribute.getNodeName().equalsIgnoreCase("rolelist") && attribute.hasChildNodes() ) {
-                    NodeList roles = attribute.getChildNodes();
 
+                    NodeList roles = attribute.getChildNodes();                    
                     for( int k=0; k<roles.getLength(); k++ ) {
                         Node role = roles.item(k);
 
@@ -595,18 +1175,18 @@ public class AzureVM implements VirtualMachineSupport {
                                 Node n = role.getAttributes().getNamedItem("i:type");
                             
                                 if( n != null ) {
-                                    String val = n.getNodeValue();
-                                    
+                                    String val = n.getNodeValue();                                    
                                     if( !"PersistentVMRole".equalsIgnoreCase(val) ) {
                                         return null;
                                     }
                                 }
                             }
-                            NodeList roleAttributes = role.getChildNodes();
-
+                            NodeList roleAttributes = role.getChildNodes();                         
+                            VirtualMachine roleVM = new VirtualMachine();
                             for( int l=0; l<roleAttributes.getLength(); l++ ) {
                                 Node roleAttribute = roleAttributes.item(l);
-
+                                if(roleAttribute.getNodeType() == Node.TEXT_NODE) continue;
+                                
                                 if( roleAttribute.getNodeName().equalsIgnoreCase("osvirtualharddisk") && roleAttribute.hasChildNodes() ) {
                                     NodeList diskAttributes = roleAttribute.getChildNodes();
 
@@ -614,67 +1194,38 @@ public class AzureVM implements VirtualMachineSupport {
                                         Node diskAttribute = diskAttributes.item(m);
 
                                         if( diskAttribute.getNodeName().equalsIgnoreCase("SourceImageName") && diskAttribute.hasChildNodes() ) {
-                                            vm.setProviderMachineImageId(diskAttribute.getFirstChild().getNodeValue().trim());
+                                        	roleVM.setProviderMachineImageId(diskAttribute.getFirstChild().getNodeValue().trim());
                                         }
-                                        else if( diskAttribute.getNodeName().equalsIgnoreCase("OS") && diskAttribute.hasChildNodes() ) {
-                                            String os = diskAttribute.getFirstChild().getNodeValue().trim();
-
-                                            if( os.equalsIgnoreCase("linux") ) {
-                                                vm.setPlatform(Platform.UNIX);
-                                            }
-                                            else if( os.equalsIgnoreCase("windows") ) {
-                                                vm.setPlatform(Platform.WINDOWS);
-                                            }
-                                        }
+                                        else if( diskAttribute.getNodeName().equalsIgnoreCase("MediaLink") && diskAttribute.hasChildNodes() ) {
+                                        	roleVM.setTag(Azure.RESOURCE_MEDIA_LINK_KEY, diskAttribute.getFirstChild().getNodeValue().trim());
+                                        } 
                                     }
                                 }
+                                else if( roleAttribute.getNodeName().equalsIgnoreCase("RoleName") && roleAttribute.hasChildNodes() ) {
+                                    
+                                    String vmId  = serviceName + SERVICE_VM_NAME_SPLIT + roleAttribute.getFirstChild().getNodeValue().trim();
+                                    roleVM.setProviderVirtualMachineId(vmId);                                    
+                                }
                             }
-                        }
-                    }
-                }
-            }
-            if( status != null ) {
-                if( "running".equalsIgnoreCase(status) ) {
-                    vm.setCurrentState(VmState.RUNNING);
-                    break;
-                }
-                else {
-                    if( "suspended".equalsIgnoreCase(status) ) {
-                        vm.setCurrentState(VmState.PAUSED);
-                    }
-                    else if( "runningtransitioning".equalsIgnoreCase(status)  || "starting".equalsIgnoreCase(status) || "deploying".equalsIgnoreCase(status) || "deleting".equalsIgnoreCase(status) ) {
-                        vm.setCurrentState(VmState.PENDING);
-                    }
-                    else if( "suspendedtransitioning".equalsIgnoreCase(status) || "suspending".equalsIgnoreCase(status) ) {
-                        vm.setCurrentState(VmState.STOPPING);
-                    }
-                    else {
-                        System.out.println("Unknown VM status: " + status);
-                    }
+                            tempList.add(roleVM); 
+                        }                        
+                    }                    
                 }
             }
         }
-        if( vm.getName() == null ) {
-            vm.setName(vm.getProviderVirtualMachineId());
-        }
-        if( vm.getDescription() == null ) {
-            vm.setDescription(vm.getName());
-        }
-        if( vm.getPlatform().equals(Platform.UNKNOWN) ) {
-            String descriptor = (vm.getProviderVirtualMachineId() + " " + vm.getName() + " " + vm.getDescription() + " " + vm.getProviderMachineImageId()).replaceAll("_", " ");
-
-            vm.setPlatform(Platform.guess(descriptor));
-        }
-        else if( vm.getPlatform().equals(Platform.UNIX) ) {
-            String descriptor = (vm.getProviderVirtualMachineId() + " " + vm.getName() + " " + vm.getDescription() + " " + vm.getProviderMachineImageId()).replaceAll("_", " ");
-            Platform p = Platform.guess(descriptor);
-            
-            if( p.isUnix() ) {
-                vm.setPlatform(p);
-            }
-        }
-        vm.setTags(tags);
-        return vm;
+        // Obtain the properties from tempList
+        if(list != null && tempList != null){
+        	for(VirtualMachine finalVM : list){
+        		for(VirtualMachine tempVM : tempList){
+        			if(finalVM.getProviderVirtualMachineId().equals(tempVM.getProviderVirtualMachineId())){
+        				finalVM.setProviderMachineImageId(tempVM.getProviderMachineImageId());
+        				finalVM.getTags().putAll(tempVM.getTags());
+        				break;
+        			}
+        		}        		
+        	}       	
+        }        
+        return list;
     }
     
     private @Nonnull String toUniqueId(String name) throws CloudException, InternalException {

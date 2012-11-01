@@ -1,6 +1,7 @@
 package org.dasein.cloud.azure.compute;
 
 import org.dasein.cloud.azure.Azure;
+import org.dasein.cloud.azure.compute.disk.AzureDisk;
 import org.dasein.cloud.azure.compute.image.AzureOSImage;
 import org.dasein.cloud.azure.compute.vm.AzureVM;
 import org.dasein.cloud.compute.AbstractComputeServices;
@@ -27,5 +28,10 @@ public class AzureComputeServices extends AbstractComputeServices {
     @Override
     public AzureVM getVirtualMachineSupport() {
         return new AzureVM(provider);
+    }
+    
+    @Override
+    public AzureDisk getVolumeSupport() {
+        return new AzureDisk(provider);
     }
 }

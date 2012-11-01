@@ -5,8 +5,9 @@ import org.dasein.cloud.AbstractCloud;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.azure.compute.AzureComputeServices;
+import org.dasein.cloud.azure.network.AzureNetworkServices;
+import org.dasein.cloud.azure.storage.AzureStorageServices;
 
-import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.text.ParseException;
@@ -20,6 +21,10 @@ import java.util.Random;
  * @version 2012.04.1
  */
 public class Azure extends AbstractCloud {
+    static private final Logger logger = Azure.getLogger(Azure.class);
+	
+	static public final String RESOURCE_MEDIA_LINK_KEY = "MediaLink";
+
     static private @Nonnull String getLastItem(@Nonnull String name) {
         int idx = name.lastIndexOf('.');
 
@@ -32,17 +37,22 @@ public class Azure extends AbstractCloud {
         return name.substring(idx+1);
     }
 
-    static public @Nonnull Logger getLogger(@Nonnull Class<?> cls, @Nonnull String type) {
+    static public @Nonnull Logger getLogger(@Nonnull Class<?> cls) {
         String pkg = getLastItem(cls.getPackage().getName());
 
-        if( pkg.equals("os") ) {
+        if( pkg.equals("azure") ) {
             pkg = "";
         }
         else {
             pkg = pkg + ".";
         }
-        return Logger.getLogger("dasein.cloud.azure." + type + "." + pkg + getLastItem(cls.getName()));
+        return Logger.getLogger("dasein.cloud.azure.std." + pkg + getLastItem(cls.getName()));
     }
+
+    static public @Nonnull Logger getWireLogger(@Nonnull Class<?> cls) {
+        return Logger.getLogger("dasein.cloud.azure.wire." + getLastItem(cls.getPackage().getName()) + "." + getLastItem(cls.getName()));
+    }
+
 
     public Azure() { }
 
@@ -70,12 +80,16 @@ public class Azure extends AbstractCloud {
         }
         return token.toString();
     }
-    
+  
     @Override
     public @Nonnull String getCloudName() {
         return "Azure";
     }
 
+    public String getDataCenterId(String regionId){
+    	return regionId;
+    }
+    
     @Override
     public @Nonnull AzureComputeServices getComputeServices() {
         return new AzureComputeServices(this);
@@ -85,6 +99,19 @@ public class Azure extends AbstractCloud {
     public @Nonnull AzureLocation getDataCenterServices() {
         return new AzureLocation(this);
     }
+    
+    @Override
+    public @Nonnull AzureNetworkServices getNetworkServices() {
+    	return null;
+    	//Not ready yet
+    	//return new AzureNetworkServices(this);
+    }
+    
+    @Override
+    public @Nonnull AzureStorageServices getStorageServices() {
+        return new AzureStorageServices(this);
+    }
+    
     
     @Override
     public @Nonnull String getProviderName() {
@@ -116,8 +143,6 @@ public class Azure extends AbstractCloud {
 
     @Override
     public @Nullable String testContext() {
-        Logger logger = getLogger(Azure.class, "std");
-        
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + Azure.class.getName() + ".testContext()");
         }

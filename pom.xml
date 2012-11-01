@@ -1,33 +1,16 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <!--
-        Copyright (C) 2008-2012 enStratus Networks Inc (http://www.enstratus.com)
-
-        ====================================================================
-        Licensed under the Apache License, Version 2.0 (the "License");
-        you may not use this file except in compliance with the License.
-        You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-        Unless required by applicable law or agreed to in writing, software
-        distributed under the License is distributed on an "AS IS" BASIS,
-        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-        See the License for the specific language governing permissions and
-        limitations under the License.
-        ====================================================================
-    -->
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.dasein</groupId>
     <artifactId>dasein-cloud-azure</artifactId>
-    <version>2012.04.1-SNAPSHOT</version>
+    <version>2012.09-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>dasein-cloud-azure</name>
     <description>
         Implementation of the Dasein Cloud API for Microsoft Azure.
     </description>
-    <url>http://dasein-cloud.sf.net</url>
+    <url>https://github.org/greese/dasein-cloud-azure</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -46,9 +29,9 @@
     </organization>
 
     <scm>
-        <connection>scm:svn:https://dasein-cloud.svn.sourceforge.net/svnroot/dasein-cloud/trunk/dasein-cloud-azure</connection>
-        <developerConnection>scm:svn:https://dasein-cloud.svn.sourceforge.net/svnroot/dasein-cloud/trunk/dasein-cloud-azure</developerConnection>
-        <url>https://dasein-cloud.svn.sourceforge.net/svnroot/dasein-cloud/trunk/dasein-cloud-azure</url>
+        <connection>scm:git:git://github.com/greese/dasein-cloud-azure.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/greese/dasein-cloud-azure.git</developerConnection>
+        <url>http://github.com/greese/dasein-cloud-azure</url>
     </scm>
 
     <parent>
@@ -58,24 +41,18 @@
     </parent>
 
     <dependencies>
+        <!-- Compile -->
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-core</artifactId>
-            <version>2012.07-SNAPSHOT</version>
+            <version>2012.09</version>
             <scope>compile</scope>
             <optional>false</optional>
         </dependency>
         <dependency>
             <groupId>org.dasein</groupId>
-            <artifactId>dasein-cloud-test</artifactId>
-            <version>2012.07-SNAPSHOT</version>
-            <scope>test</scope>
-            <optional>false</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.dasein</groupId>
             <artifactId>dasein-util</artifactId>
-            <version>2012.02</version>
+            <version>2012.08</version>
             <scope>compile</scope>
             <optional>false</optional>
         </dependency>
@@ -88,12 +65,6 @@
             <groupId>bouncycastle</groupId>
             <artifactId>bcprov-jdk14</artifactId>
             <version>138</version>
-        </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.9</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>log4j</groupId>
@@ -114,6 +85,22 @@
             <version>20090211</version>
             <scope>compile</scope>
         </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.9</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.dasein</groupId>
+            <artifactId>dasein-cloud-test</artifactId>
+            <version>2012.09.8</version>
+            <scope>test</scope>
+            <optional>false</optional>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -169,7 +156,7 @@
                         <exclude>**/LICENSE-APACHE.txt</exclude>
                     </excludes>
                     <properties>
-                        <year>2009-2012</year>
+                        <year>2012</year>
                         <copyrightHolder>enStratus Networks Inc</copyrightHolder>
                     </properties>
                 </configuration>
@@ -192,9 +179,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-release-plugin</artifactId>
                 <version>2.1</version>
-                <configuration>
-                    <tagBase>https://dasein-cloud.svn.sourceforge.net/svnroot/dasein-cloud/tags/dasein-cloud-azure</tagBase>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
