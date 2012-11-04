@@ -27,6 +27,7 @@ import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.compute.vm.AzureVM;
 import org.dasein.cloud.compute.Platform;
+import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.Volume;
 import org.dasein.cloud.compute.VolumeCreateOptions;
 import org.dasein.cloud.compute.VolumeProduct;
@@ -86,12 +87,9 @@ public class AzureDisk implements VolumeSupport {
             }
             
            	//dsn2260-dsn2260Role-0-20120619044615
-            if(!toServer.contains(AzureVM.SERVICE_VM_NAME_SPLIT)){
-            	logger.trace(" No such VM");
-            	return;
-            }
-           	String[] serviceVMName = toServer.split(AzureVM.SERVICE_VM_NAME_SPLIT);
-         	String resourceDir = HOSTED_SERVICES + "/" + serviceVMName[0] + "/deployments" + "/" +  serviceVMName[0] + "/roles"+"/" + serviceVMName[1] + "/DataDisks";
+            VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(toServer);
+
+         	String resourceDir = HOSTED_SERVICES + "/" +server.getTag("serviceName") + "/deployments" + "/" +  server.getProviderVirtualMachineId() + "/roles"+"/" + server.getProviderVirtualMachineId() + "/DataDisks";
          	                                
             AzureMethod method = new AzureMethod(provider);
             StringBuilder xml = new StringBuilder();    
@@ -241,7 +239,12 @@ public class AzureDisk implements VolumeSupport {
             }
             
            	String providerVirtualMachineId = disk.getProviderVirtualMachineId();
-            if(providerVirtualMachineId == null || !providerVirtualMachineId.contains(AzureVM.SERVICE_VM_NAME_SPLIT)){ 
+            VirtualMachine vm = null;
+
+            if( providerVirtualMachineId != null ) {
+                vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(providerVirtualMachineId);
+            }
+            if( vm != null ) {
             	logger.trace("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + "Or the VM id is not having the desired format !!!");
             	throw new InternalException("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + "Or the VM id is not having the desired format !!!");
             }
@@ -251,8 +254,7 @@ public class AzureDisk implements VolumeSupport {
             	logger.trace("Can not identify the lun number");
             	throw new InternalException("logical unit number of disk is null, detach operation can not be continue!");
            	}
-            String[] serviceVMName = providerVirtualMachineId.split(AzureVM.SERVICE_VM_NAME_SPLIT);
-         	String resourceDir = HOSTED_SERVICES + "/" + serviceVMName[0] + "/deployments" + "/" +  serviceVMName[0] + "/roles"+"/" + serviceVMName[1] + "/DataDisks" + "/" + lun;
+         	String resourceDir = HOSTED_SERVICES + "/" + vm.getTag("serviceName") + "/deployments" + "/" +  vm.getProviderVirtualMachineId() + "/roles"+"/" + vm.getProviderVirtualMachineId() + "/DataDisks" + "/" + lun;
          	                                
             AzureMethod method = new AzureMethod(provider);
             
@@ -267,12 +269,10 @@ public class AzureDisk implements VolumeSupport {
     private String getDiskLun(String providerVolumeId, String providerVirtualMachineId) throws InternalException, CloudException {
     	
         AzureMethod method = new AzureMethod(provider);
-        
-        if(!providerVirtualMachineId.contains(AzureVM.SERVICE_VM_NAME_SPLIT)){
-        	return null;
-        }
-       	String[] serviceVMName = providerVirtualMachineId.split(AzureVM.SERVICE_VM_NAME_SPLIT);
-     	String resourceDir =  HOSTED_SERVICES + "/"+ serviceVMName[0] + "/deployments" + "/" + serviceVMName[0];
+
+        VirtualMachine vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(providerVirtualMachineId);
+
+     	String resourceDir =  HOSTED_SERVICES + "/"+ vm.getTag("serviceName") + "/deployments" + "/" + vm.getProviderVirtualMachineId();
      	
      	Document doc = method.getAsXML(provider.getContext().getAccountNumber(),resourceDir);
 		
@@ -489,7 +489,7 @@ public class AzureDisk implements VolumeSupport {
             	 * VM ID = hostedServiceName +  AzureVM.SERVICE_VM_NAME_SPLIT + roleName
             	 */
             	if(hostedServiceName != null && vmRoleName != null){
-            		disk.setProviderVirtualMachineId(hostedServiceName + AzureVM.SERVICE_VM_NAME_SPLIT + vmRoleName);
+            		disk.setProviderVirtualMachineId(vmRoleName);
             	}
             }
             else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {            	

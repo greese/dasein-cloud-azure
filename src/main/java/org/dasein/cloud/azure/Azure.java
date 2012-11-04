@@ -3,10 +3,14 @@ package org.dasein.cloud.azure;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.AbstractCloud;
 import org.dasein.cloud.CloudException;
+import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.azure.compute.AzureComputeServices;
 import org.dasein.cloud.azure.network.AzureNetworkServices;
 import org.dasein.cloud.azure.storage.AzureStorageServices;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -34,7 +38,7 @@ public class Azure extends AbstractCloud {
         else if( idx == (name.length()-1) ) {
             return "";
         }
-        return name.substring(idx+1);
+        return name.substring(idx + 1);
     }
 
     static public @Nonnull Logger getLogger(@Nonnull Class<?> cls) {
@@ -70,7 +74,8 @@ public class Azure extends AbstractCloud {
         }
         int length = ((maxLength == minLength) ? minLength : random.nextInt(maxLength-minLength) + minLength);
         StringBuilder token = new StringBuilder();
-        
+
+        token.append('A' + random.nextInt(20));
         while( token.length() < length ) {
             char c = (char)random.nextInt(256);
             
@@ -78,7 +83,7 @@ public class Azure extends AbstractCloud {
                 token.append(c);
             }
         }
-        return token.toString();
+        return (token.toString() + (System.currentTimeMillis()%1000));
     }
   
     @Override
@@ -106,7 +111,47 @@ public class Azure extends AbstractCloud {
     	//Not ready yet
     	//return new AzureNetworkServices(this);
     }
-    
+
+    private transient String storageEndpoint;
+
+    public @Nonnull String getStorageEndpoint() throws CloudException, InternalException {
+        if( storageEndpoint == null ) {
+            ProviderContext ctx = getContext();
+
+            if( ctx == null ) {
+                throw new AzureConfigException("No configuration was set for this request");
+            }
+            AzureMethod method = new AzureMethod(this);
+
+            Document xml = method.getAsXML(ctx.getAccountNumber(), "/services/storageservices");
+
+            if( xml == null ) {
+                throw new CloudException("Unable to identify the blob endpoint");
+            }
+            NodeList endpoints = xml.getElementsByTagName("Endpoint");
+
+            for( int i=0; i<endpoints.getLength(); i++ ) {
+                Node node = endpoints.item(i);
+
+                if( node.hasChildNodes() ) {
+                    String endpoint = node.getFirstChild().getNodeValue().trim();
+
+                    if( endpoint.contains("blob") ) {
+                        if( !endpoint.endsWith("/") ) {
+                            endpoint = endpoint + "/";
+                        }
+                        storageEndpoint = endpoint;
+                        break;
+                    }
+                }
+            }
+            if( storageEndpoint == null ) {
+                throw new CloudException("There is no blob endpoint");
+            }
+        }
+        return storageEndpoint;
+    }
+
     @Override
     public @Nonnull AzureStorageServices getStorageServices() {
         return new AzureStorageServices(this);

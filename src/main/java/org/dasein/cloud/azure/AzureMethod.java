@@ -21,11 +21,11 @@ import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
-import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.params.HttpParams;
 import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HTTP;
@@ -56,14 +56,13 @@ import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
-import java.util.Map;
 import java.util.Properties;
 
 /**
  * Handles connectivity to Microsoft Azure services.
  * @author George Reese (george.reese@imaginary.com)
- * @since 2012.04.1
- * @version 2012.04.1
+ * @version 2012.07 initial version
+ * @since 2012.07
  */
 public class AzureMethod {
     static private final Logger logger = Azure.getLogger(AzureMethod.class);
@@ -381,6 +380,8 @@ public class AzureMethod {
         HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
         HttpProtocolParams.setContentCharset(params, HTTP.UTF_8);
         HttpProtocolParams.setUserAgent(params, "Dasein Cloud");
+        params.setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 10000);
+        params.setParameter(CoreConnectionPNames.SO_TIMEOUT, 300000);
 
         Properties p = ctx.getCustomProperties();
 
@@ -447,7 +448,6 @@ public class AzureMethod {
                 sb.append("\n");
             }
             in.close();
-            System.out.println("result -> " + sb.toString());
             return parseResponse(sb.toString(), withWireLogging);
         }
         catch( IOException e ) {
@@ -466,7 +466,7 @@ public class AzureMethod {
         try {
             HttpClient client = getClient();
             String url = endpoint + account + resource;
-            System.out.println("URL -> " + url);
+
             HttpPost post = new HttpPost(url);
           
             post.addHeader("x-ms-version", "2012-03-01");
@@ -543,7 +543,6 @@ public class AzureMethod {
                 }
                 try {
                     body = EntityUtils.toString(entity);
-                    System.out.println("response -> " + body);
                 }
                 catch( IOException e ) {
                     throw new AzureException(CloudErrorType.GENERAL, status.getStatusCode(), status.getReasonPhrase(), e.getMessage());
@@ -605,7 +604,7 @@ public class AzureMethod {
         try {
             HttpClient client = getClient();
             String url = endpoint + account + resource;
-            System.out.println("URL -> " + url);
+
             HttpRequestBase httpMethod = getMethod(method, url);
 
             httpMethod.addHeader("Content-Type", "application/xml;charset=UTF-8");
@@ -678,7 +677,6 @@ public class AzureMethod {
                 }
                 try {
                     body = EntityUtils.toString(entity);
-                    System.out.println("response -> " + body);
                 }
                 catch( IOException e ) {
                     throw new AzureException(CloudErrorType.GENERAL, status.getStatusCode(), status.getReasonPhrase(), e.getMessage());

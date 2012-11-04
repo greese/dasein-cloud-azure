@@ -1,8 +1,10 @@
 package org.dasein.cloud.azure;
 
+import org.apache.commons.codec.binary.Base64;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
+import org.dasein.cloud.azure.compute.image.AzureMachineImage;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.dc.DataCenterServices;
 import org.dasein.cloud.dc.Region;
@@ -12,6 +14,7 @@ import org.w3c.dom.NodeList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -132,12 +135,13 @@ public class AzureLocation implements DataCenterServices {
             return Collections.emptyList();
         }
         DataCenter dc = new DataCenter();
-        
+
         dc.setActive(true);
         dc.setAvailable(true);
-        dc.setName(region.getName() + " (A)");
+        dc.setName(region.getName() + " (DC)");
         dc.setProviderDataCenterId(providerRegionId);
         dc.setRegionId(providerRegionId);
+
         return Collections.singletonList(dc);
     }
 
