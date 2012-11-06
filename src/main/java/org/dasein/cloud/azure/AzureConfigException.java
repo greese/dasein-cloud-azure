@@ -1,15 +1,8 @@
 package org.dasein.cloud.azure;
 
-import org.dasein.cloud.InternalException;
+import org.dasein.cloud.CloudException;
 
-/**
- * Created by IntelliJ IDEA.
- * User: greese
- * Date: 5/19/12
- * Time: 7:52 AM
- * To change this template use File | Settings | File Templates.
- */
-public class AzureConfigException extends InternalException {
+public class AzureConfigException extends CloudException {
     public AzureConfigException(String message) {
         super(message);
     }

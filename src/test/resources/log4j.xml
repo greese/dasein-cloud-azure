@@ -43,11 +43,6 @@
     <appender name="ASYNCWIRE" class="org.apache.log4j.AsyncAppender">
         <appender-ref ref="WIRE" />
     </appender>
-
-    <category name="org.dasein">
-        <priority value="DEBUG" />
-        <appender-ref ref="ASYNCDASEIN" />
-    </category>
     
     <category name="org.dasein.cloud.test">
         <priority value="DEBUG" />

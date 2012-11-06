@@ -151,6 +151,35 @@ public class Azure extends AbstractCloud {
         }
         return storageEndpoint;
     }
+    private transient String storageService;
+
+    public @Nullable String getStorageService() throws CloudException, InternalException {
+        if( storageService == null ) {
+            ProviderContext ctx = getContext();
+
+            if( ctx == null ) {
+                throw new AzureConfigException("No configuration was set for this request");
+            }
+            AzureMethod method = new AzureMethod(this);
+
+            Document xml = method.getAsXML(ctx.getAccountNumber(), "/services/storageservices");
+
+            if( xml == null ) {
+                throw new CloudException("Unable to identify the blob endpoint");
+            }
+            NodeList names = xml.getElementsByTagName("ServiceName");
+
+            for( int i=0; i<names.getLength(); i++ ) {
+                Node node = names.item(i);
+
+                if( node.hasChildNodes() ) {
+                    storageService = node.getFirstChild().getNodeValue().trim();
+                    break;
+                }
+            }
+        }
+        return storageService;
+    }
 
     @Override
     public @Nonnull AzureStorageServices getStorageServices() {

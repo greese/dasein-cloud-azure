@@ -76,7 +76,7 @@ public class AzureMethod {
     private String endpoint;
     private Azure provider;
     
-    public AzureMethod(Azure azure) throws InternalException {
+    public AzureMethod(Azure azure) throws CloudException {
         provider = azure;
         ProviderContext ctx = provider.getContext();
         
@@ -329,7 +329,7 @@ public class AzureMethod {
         }
     }
     
-    protected @Nonnull HttpClient getClient() throws InternalException {
+    protected @Nonnull HttpClient getClient() throws CloudException, InternalException {
         ProviderContext ctx = provider.getContext();
 
         if( ctx == null ) {

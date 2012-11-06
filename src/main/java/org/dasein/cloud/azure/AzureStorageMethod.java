@@ -34,6 +34,8 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -66,10 +68,12 @@ import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * Handles connectivity to Microsoft Azure Storage services.
@@ -82,23 +86,17 @@ public class AzureStorageMethod {
     static private final Logger logger = Azure.getLogger(AzureStorageMethod.class);
     static private final Logger wire = Azure.getWireLogger(AzureStorageMethod.class);
 
-    static public class AzureResponse {
-        public int httpCode;
-        public Object body;
-    }
-    
-    private String endpoint;
-    private String account;
-    private static Azure provider;
+    static public final String VERSION = "2009-09-19";
+    //static public final String VERSION = "2012-02-12";
 
-    
-    private String BLOB_SUFFIX = ".blob.core.windows.net";
-    private String Header_Prefix_MS = "x-ms-";  
+    private String Header_Prefix_MS = "x-ms-";
     
     public static final String  Storage_OPERATION_DELETE = "DELETE";
     public static final String  Storage_OPERATION_PUT = "PUT";
     public static final String  Storage_OPERATION_GET = "GET";
-    
+
+    private Azure  provider;
+
     public AzureStorageMethod(Azure azure) throws AzureConfigException {
         provider = azure;
         ProviderContext ctx = provider.getContext();
@@ -106,86 +104,278 @@ public class AzureStorageMethod {
         if( ctx == null ) {
             throw new AzureConfigException("No context was provided for this request");
         }        
-        endpoint = ctx.getStorageEndpoint();        
-        account = ctx.getStorageAccountNumber();
-        if( endpoint == null ) {
-        	if(account != null){
-        		endpoint = "http://" + account + BLOB_SUFFIX;
-        	}else{
-        		throw new AzureConfigException("No endpoint was provided for this request");
-        	}
+    }
+
+    private void fetchKeys() throws CloudException, InternalException {
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was set for this request");
         }
-        if( !endpoint.endsWith("/") ) {
-            endpoint = endpoint + "/";
+
+        if( ctx.getStoragePrivate() == null ) {
+            AzureMethod method = new AzureMethod(provider);
+
+            Document doc = method.getAsXML(ctx.getAccountNumber(), "/services/storageservices/" + provider.getStorageService() + "/keys");
+
+            if( doc == null ) {
+                throw new CloudException("Unable to identify the storage keys for this account");
+            }
+            NodeList keys = doc.getElementsByTagName("StorageServiceKeys");
+
+            for( int i=0; i<keys.getLength(); i++ ) {
+                Node key = keys.item(i);
+
+                if( key.getNodeName().equalsIgnoreCase("StorageServiceKeys") && key.hasChildNodes() ) {
+                    NodeList parts = key.getChildNodes();
+                    String p = null, s = null;
+
+                    for( int j=0; j<parts.getLength(); j++ ) {
+                        Node part = parts.item(j);
+
+                        if( part.getNodeName().equalsIgnoreCase("primary") && part.hasChildNodes() ) {
+                            p = part.getFirstChild().getNodeValue().trim();
+                        }
+                        else if( part.getNodeName().equalsIgnoreCase("secondary") && part.hasChildNodes() ) {
+                            s = part.getFirstChild().getNodeValue().trim();
+                        }
+                    }
+                    if( p != null ) {
+                        try {
+                            ctx.setStoragePrivate(p.getBytes("utf-8"));
+                        }
+                        catch( UnsupportedEncodingException e ) {
+                            logger.error("UTF-8 not supported: " + e.getMessage());
+                            throw new InternalException(e);
+                        }
+                        break;
+                    }
+                    else if( s != null ) {
+                        try {
+                            ctx.setStoragePrivate(s.getBytes("utf-8"));
+                        }
+                        catch( UnsupportedEncodingException e ) {
+                            logger.error("UTF-8 not supported: " + e.getMessage());
+                            throw new InternalException(e);
+                        }
+                        break;
+                    }
+                }
+            }
         }
     }
-    
-	private String createAuthorizationHeader(HttpRequestBase method,  String serviceResource, Map<String, String> queries, String contentLength) throws  CloudException, InternalException {
+
+    private String getStorageAccount() throws CloudException, InternalException {
+        return provider.getStorageService();
+    }
+
+    private String calculatedSharedKeyLiteSignature(@Nonnull HttpRequestBase method, @Nonnull Map<String, String> queryParams) throws  CloudException, InternalException {
+        fetchKeys();
+
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
+        Header h = method.getFirstHeader("content-type");
+        String contentType = (h == null ? null : h.getValue());
+
+        if( contentType == null ) {
+            contentType = "";
+        }
+        StringBuilder stringToSign = new StringBuilder();
+
+        stringToSign.append(method.getMethod().toUpperCase()).append("\n");
+        stringToSign.append("\n"); // content-md5
+        stringToSign.append(contentType).append("\n");
+        stringToSign.append(method.getFirstHeader("date").getValue()).append("\n");
+
+        Header[] headers = method.getAllHeaders();
+        TreeSet<String> keys = new TreeSet<String>();
+
+        for( Header header  : headers ) {
+            if( header.getName().startsWith(Header_Prefix_MS) ) {
+                keys.add(header.getName().toLowerCase());
+            }
+        }
+
+        for( String key : keys ) {
+            Header header = method.getFirstHeader(key);
+
+            if( header != null ) {
+                Header[] all = method.getHeaders(key);
+
+                stringToSign.append(key.toLowerCase().trim()).append(":");
+                if( all != null && all.length > 0 ) {
+                    for( Header current : all ) {
+                        String v = (current.getValue() != null ? current.getValue() : "");
+
+                        stringToSign.append(v.trim().replaceAll("\n", " ")).append(",");
+                    }
+                }
+                stringToSign.deleteCharAt(stringToSign.lastIndexOf(","));
+            }
+            else {
+                stringToSign.append(key.toLowerCase().trim()).append(":");
+            }
+            stringToSign.append("\n");
+        }
+
+        stringToSign.append("/").append(getStorageAccount()).append(method.getURI().getPath());
+
+        keys.clear();
+        for( String key : queryParams.keySet() ) {
+            if( key.equalsIgnoreCase("comp") ) {
+                key = key.toLowerCase();
+                keys.add(key);
+            }
+        }
+        if( !keys.isEmpty() ) {
+            stringToSign.append("?");
+            for( String key : keys ) {
+                String value = queryParams.get(key);
+
+                if( value == null ) {
+                    value = "";
+                }
+                stringToSign.append(key).append("=").append(value).append("&");
+            }
+            stringToSign.deleteCharAt(stringToSign.lastIndexOf("&"));
+        }
+        try {
+            if( logger.isDebugEnabled() ) {
+                logger.debug("BEGIN STRING TO SIGN");
+                logger.debug(stringToSign.toString());
+                logger.debug("END STRING TO SIGN");
+            }
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(Base64.decodeBase64(ctx.getStoragePrivate()), "HmacSHA256"));
+
+            String signature = new String(Base64.encodeBase64(mac.doFinal(stringToSign.toString().getBytes("UTF-8"))));
+
+            if( logger.isDebugEnabled() ) {
+                logger.debug("signature=" + signature);
+            }
+            return signature;
+        }
+        catch( UnsupportedEncodingException e ) {
+            logger.error("UTF-8 not supported: " + e.getMessage());
+            throw new InternalException(e);
+        }
+        catch( NoSuchAlgorithmException e ) {
+            logger.error("No such algorithm: " + e.getMessage());
+            throw new InternalException(e);
+        }
+        catch( InvalidKeyException e ) {
+            logger.error("Invalid key: " + e.getMessage());
+            throw new InternalException(e);
+        }
+    }
+
+    /* SharedKey
+	private String calculatedSharedKeySignature(HttpRequestBase method,  String serviceResource, Map<String, String> queries, String contentLength) throws  CloudException, InternalException {
+        fetchKeys();
+
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
+        Header h = method.getFirstHeader("content-type");
+        String contentType = "", encoding = "";
+
+        if( h != null && h.getValue() != null ) {
+            contentType = h.getValue();
+            if( contentType == null ) {
+                contentType = "";
+            }
+        }
+        h = method.getFirstHeader("content-encoding");
+        if( h != null ) {
+            encoding = h.getValue();
+            if( encoding == null ) {
+                encoding = "";
+            }
+        }
+        if( contentLength == null ) {
+            contentLength = "";
+        }
+        StringBuilder stringToSign = new StringBuilder();
+
+        stringToSign.append(method.getMethod().toUpperCase()).append("\n");
+        stringToSign.append("\n"); // content encoding
+        stringToSign.append("\n"); // content-language
+        stringToSign.append("").append("\n"); // content-length
+        stringToSign.append("\n"); // content-md5
+        stringToSign.append(contentType).append("\n");
+        stringToSign.append("\n"); // date ignored since we specify x-ms-date
+        stringToSign.append("\n"); // if-modified-since
+        stringToSign.append("\n"); // if-match
+        stringToSign.append("\n"); // if-none-match
+        stringToSign.append("\n"); // if-unmodified-since
+        stringToSign.append("\n"); // range
+
 		Header[] headers = method.getAllHeaders();
-		StringBuffer stringToSign = new StringBuffer();
-		String httpVerb = method.getMethod();
-		String contentType = method.getFirstHeader("content-type").getValue();
-		Header contentHeader = method.getFirstHeader("content-length");
-		
-		if(contentHeader != null){
-			contentLength =  contentHeader.getValue();	
-		}
-		
-		String basicString = httpVerb +"\n"
-		          +"\n"               		/*Content-Encoding*///contentMD5
-		          +"\n";      				/*Content-Language*/
-		if(contentLength !=null && !contentLength.equals("0")){			
-			basicString += contentLength; /*Content-Length*/
-		}else if(contentLength.equals("0") && httpVerb.equals("PUT")){
-			basicString += contentLength;
-		}
-		
-		basicString += "\n"	;	
-		basicString += "\n"						/*Content-MD5*/
-		          + contentType + "\n"		/*Content-Type*/
-		          +"\n"						/*Date*/
-		          +"\n"						/*If-Modified-Since*/
-		          +"\n"				/*If-Match*/
-		          +"\n"				/*If-None-Match*/
-		          +"\n"				/*If-Unmodified-Since*/
-		          +"\n";			/*Range*/		          
-						
-		stringToSign.append(basicString);
+        TreeSet<String> keys = new TreeSet<String>();
 
-		for(Header header  : headers){
-			if (header.getName().startsWith(Header_Prefix_MS)){
-				stringToSign.append(header.getName() + ":" + header.getValue() + "\n");
-			}	        
-	    }
+        for( Header header  : headers ) {
+            if( header.getName().startsWith(Header_Prefix_MS) ) {
+                keys.add(header.getName().toLowerCase());
+            }
+        }
+        for( String key : keys ) {
+            Header header = method.getFirstHeader(key);
 
-		//Canonicalized Resources
-		stringToSign.append("/" + account + "/" );
-		if(serviceResource != null && !serviceResource.equals("null") ){
-			stringToSign.append(serviceResource);
+            if( header != null ) {
+                Header[] all = method.getHeaders(key);
+
+                stringToSign.append(key.toLowerCase().trim()).append(":");
+                if( all != null && all.length > 0 ) {
+                    for( Header current : all ) {
+                        String v = (current.getValue() != null ? current.getValue() : "");
+
+                       stringToSign.append(v.trim().replaceAll("\n", " ")).append(",");
+                    }
+                }
+                stringToSign.deleteCharAt(stringToSign.lastIndexOf(","));
+            }
+            else {
+                stringToSign.append(key.toLowerCase().trim()).append(":");
+            }
+            stringToSign.append("\n");
+        }
+
+        stringToSign.append("/").append(getStorageAccount()).append(method.getURI().getPath()).append("\n");
+
+        keys.clear();
+        for( String key : queries.keySet() ) {
+            String value = queries.get(key);
+
+            queries.remove(key);
+            key = key.toLowerCase();
+            queries.put(key, value);
+            keys.add(key);
+        }
+        for( String key : keys ) {
+            String value = queries.get(key);
+
+            if( value == null ) {
+                value = "";
+            }
+            stringToSign.append(key).append(":").append(value).append("\n");
 		}
-		stringToSign.append("\n");
-		
-		if(queries != null){			
-			for(String key: queries.keySet()){
-				stringToSign.append(key + ":" + queries.get(key) + "\n");
-			}
-		}		
 	
 		try {
-			
-			byte[] dataToMac = stringToSign.substring(0, stringToSign.length() -1).getBytes("UTF-8");
-		
-			Mac mac = Mac.getInstance("HmacSHA256");
-			SecretKeySpec spec = new SecretKeySpec(Base64.decodeBase64(provider.getContext().getStoragePrivate()), "HmacSHA256");
-			mac.init(spec);
-		    
-			byte[] rawMac = mac.doFinal(dataToMac);
-			byte[] codedBase = Base64.encodeBase64(rawMac);
-			String codeString = new String(codedBase);
-			
-			return codeString;
-			
-		}catch (UnsupportedEncodingException e) {
+            System.out.println("String to sign:\n---\n" + stringToSign.toString() + "---");
+
+
+
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(Base64.decodeBase64(ctx.getStoragePrivate()), "HmacSHA256"));
+
+            return new String(Base64.encodeBase64(mac.doFinal(stringToSign.toString().getBytes("UTF-8"))));
+        }
+        catch (UnsupportedEncodingException e) {
 			throw new InternalException(e.getMessage());
 		}
 		catch (NoSuchAlgorithmException e) {
@@ -195,9 +385,10 @@ public class AzureStorageMethod {
 			throw new InternalException(e.getMessage());
 		}	
 	}
-	
-	public static String createSignatureString(Map<String, String> signatureMap)  throws InternalException{
-		
+	*/
+
+	public String createSignatureString(Map<String, String> signatureMap)  throws CloudException, InternalException{
+		fetchKeys();
 		String StringToSign =  signatureMap.get("signedpermissions")  + "\n"
 				 + signatureMap.get("signedstart")  + "\n"
 				 + signatureMap.get("signedexpiry")   + "\n"
@@ -253,27 +444,25 @@ public class AzureStorageMethod {
 	}
 	
 	@SuppressWarnings("deprecation")
-	public Document getAsDoc(@Nonnull String strMethod, @Nonnull String resource, Map<String, String> queries, String body, Map<String, String> headerMap, boolean authorization) throws CloudException, InternalException {
+	public Document getAsDoc(@Nonnull String httpVerb, @Nonnull String resource, @Nullable Map<String, String> queries, @Nullable String body, @Nullable Map<String, String> headerMap, boolean authorization) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
-            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + account + "," + resource + ")");
+            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + httpVerb + "(" + getStorageAccount() + "," + resource + ")");
         }
+        String endpoint = provider.getStorageEndpoint();
+
         if( wire.isDebugEnabled() ) {
-            wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + account + resource);
+            wire.debug(httpVerb + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
         }
         try {
             HttpClient client =  getClient();
- 
-            String contentLength = null;
-            if(body != null){        	
-            	contentLength = String.valueOf(body.length());            	
-            }else{
-            	contentLength = "0";        	
+
+            if( headerMap == null ) {
+                headerMap = new HashMap<String,String>();
             }
-  
-            HttpRequestBase method = getMethod(strMethod, 
-            		buildUrl(resource, queries), account, resource,queries, contentLength, headerMap, authorization);
-     	                        
+
+            HttpRequestBase method = getMethod(httpVerb, buildUrl(resource, queries), queries, headerMap, authorization);
+
             if( wire.isDebugEnabled() ) {
                 wire.debug(method.getRequestLine().toString());
                 for( Header header : method.getAllHeaders() ) {
@@ -331,7 +520,7 @@ public class AzureStorageMethod {
                 return null;
             }
             if( status.getStatusCode() != HttpServletResponse.SC_OK && status.getStatusCode() != HttpServletResponse.SC_NON_AUTHORITATIVE_INFORMATION ) {
-                logger.error(strMethod + "(): Expected OK for " + strMethod + "request, got " + status.getStatusCode());
+                logger.error(httpVerb + "(): Expected OK for " + httpVerb + "request, got " + status.getStatusCode());
                 
                 HttpEntity entity = response.getEntity();
                 String result;
@@ -355,7 +544,7 @@ public class AzureStorageMethod {
                     return null;
                 }
 
-                logger.error(strMethod + "(): [" + status.getStatusCode() + " : " + items.message + "] " + items.details);
+                logger.error(httpVerb + "(): [" + status.getStatusCode() + " : " + items.message + "] " + items.details);
                 throw new AzureException(items);
             }
             else {
@@ -371,7 +560,7 @@ public class AzureStorageMethod {
                     input = entity.getContent();
                 }
                 catch( IOException e ) {
-                    logger.error(strMethod + "(): Failed to read response error due to a cloud I/O error: " + e.getMessage());
+                    logger.error(httpVerb + "(): Failed to read response error due to a cloud I/O error: " + e.getMessage());
                     if( logger.isTraceEnabled() ) {
                         e.printStackTrace();
                     }
@@ -395,12 +584,13 @@ public class AzureStorageMethod {
 	       
 	
 	
-    public @Nullable InputStream getAsStream(@Nonnull String strMethod, @Nonnull String resource, Map<String, String> queries, String body,  Map<String, String> headerMap, boolean authorization) throws CloudException, InternalException {
+    public @Nullable InputStream getAsStream(@Nonnull String strMethod, @Nonnull String resource, @Nonnull Map<String, String> queries, @Nullable String body,  @Nullable Map<String, String> headerMap, boolean authorization) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
-            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + account + "," + resource + ")");
+            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + getStorageAccount() + "," + resource + ")");
         }
+        String endpoint = provider.getStorageEndpoint();
         if( wire.isDebugEnabled() ) {
-            wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + account + resource);
+            wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
         }
         try {
@@ -414,8 +604,7 @@ public class AzureStorageMethod {
             	contentLength = "0";        	
             }
   
-            HttpRequestBase method = getMethod(strMethod, 
-            		buildUrl(resource, queries), account, resource,queries, contentLength, headerMap, authorization);
+            HttpRequestBase method = getMethod(strMethod, buildUrl(resource, queries),queries, headerMap, authorization);
   
             if( wire.isDebugEnabled() ) {
                 wire.debug(method.getRequestLine().toString());
@@ -537,16 +726,13 @@ public class AzureStorageMethod {
         } 
     }
 
-    protected @Nonnull HttpClient getClient() throws InternalException {
+    protected @Nonnull HttpClient getClient() throws InternalException, CloudException {
         ProviderContext ctx = provider.getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was defined for this request");
         }
-        
-        if( endpoint == null ) {
-            throw new AzureConfigException("No cloud endpoint was defined");
-        }
+        String endpoint = provider.getStorageEndpoint();
         boolean ssl = endpoint.startsWith("https");
         int targetPort;
 
@@ -650,13 +836,14 @@ public class AzureStorageMethod {
     }
     
 	public String buildUrl(String resource, Map<String, String> queries) throws InternalException, CloudException {
-		 
+        String endpoint = provider.getStorageEndpoint();
+
         StringBuilder str = new StringBuilder();       
         str.append(endpoint);
         
         if(!endpoint.endsWith("/")){
         	str.append("/");
-        } 
+        }
         if(resource != null && !resource.equalsIgnoreCase("null")){
         	str.append(resource);	
         }        
@@ -695,27 +882,25 @@ public class AzureStorageMethod {
     }
 	
 	
-    public String getBlobProperty(@Nonnull String strMethod, @Nonnull String resource, Map<String, String> queries, String body, Map<String, String> headerMap, boolean authorization, String propertyName) throws CloudException, InternalException {
+    public String getBlobProperty(@Nonnull String strMethod, @Nonnull String resource, @Nonnull Map<String, String> queries, String body, @Nullable Map<String, String> headerMap, boolean authorization, String propertyName) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
-            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + account + "," + resource + ")");
+            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + getStorageAccount() + "," + resource + ")");
         }
+        String endpoint = provider.getStorageEndpoint();
+
         if( wire.isDebugEnabled() ) {
-            wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + account + resource);
+            wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
         }
         try {
 
             HttpClient client =  getClient();
-  
-            String contentLength = null;
-            if(body != null){        	
-            	contentLength = String.valueOf(body.length());            	
-            }else{
-            	contentLength = "0";        	
+
+            if( headerMap == null ) {
+                headerMap = new HashMap<String, String>();
             }
   
-            HttpRequestBase method = getMethod(strMethod, 
-            		buildUrl(resource, queries), account, resource,queries, contentLength, headerMap, authorization );
+            HttpRequestBase method = getMethod(strMethod, buildUrl(resource, queries), queries, headerMap, authorization );
      	
             if( wire.isDebugEnabled() ) {
                 wire.debug(method.getRequestLine().toString());
@@ -770,7 +955,9 @@ public class AzureStorageMethod {
                 }
                 wire.debug("");
             }
- 
+            if( status.getStatusCode() == HttpServletResponse.SC_NOT_FOUND ) {
+                return null;
+            }
             if((status.getStatusCode() != HttpServletResponse.SC_CREATED
             		&& status.getStatusCode() != HttpServletResponse.SC_ACCEPTED 
             		&& status.getStatusCode() != HttpServletResponse.SC_OK ) 
@@ -825,27 +1012,24 @@ public class AzureStorageMethod {
         } 
     }
     
-    public void invoke(@Nonnull String strMethod, @Nonnull String resource, Map<String, String> queries, String body, Map<String, String> headerMap, boolean authorization) throws CloudException, InternalException {
+    public void invoke(@Nonnull String strMethod, @Nonnull String resource, @Nonnull Map<String, String> queries, @Nullable String body, @Nullable Map<String, String> headerMap, boolean authorization) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
-            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + account + "," + resource + ")");
+            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + getStorageAccount() + "," + resource + ")");
         }
+        String endpoint = provider.getStorageEndpoint();
+
         if( wire.isDebugEnabled() ) {
-            wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + account + resource);
+            wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
         }
         try {
             HttpClient client =  getClient();
             
-            String contentLength = null;
-            if(body != null){        	
-            	contentLength = String.valueOf(body.length());            	
-            }else{
-            	contentLength = "0";        	
+            if( headerMap == null ) {
+                headerMap = new HashMap<String, String>();
             }
- 
- 
-            HttpRequestBase method = getMethod(strMethod, 
-            		buildUrl(resource, queries), account, resource,queries, contentLength, headerMap, authorization );
+
+            HttpRequestBase method = getMethod(strMethod, buildUrl(resource, queries), queries, headerMap, authorization );
      	
             if( wire.isDebugEnabled() ) {
                 wire.debug(method.getRequestLine().toString());
@@ -924,8 +1108,14 @@ public class AzureStorageMethod {
                 }
                 wire.debug("");
                 AzureException.ExceptionItems items = AzureException.parseException(status.getStatusCode(), result);
-                logger.error(strMethod + "(): [" + status.getStatusCode() + " : " + items.message + "] " + items.details);
-                throw new AzureException(items);
+
+                if( items != null ) {
+                    logger.error(strMethod + "(): [" + status.getStatusCode() + " : " + items.message + "] " + items.details);
+                    throw new AzureException(items);
+                }
+                else {
+                    throw new AzureException(CloudErrorType.GENERAL, status.getStatusCode(), "UnknownError", result);
+                }
             }
         } catch (UnsupportedEncodingException e) {			
         	throw new CloudException(e);
@@ -943,10 +1133,12 @@ public class AzureStorageMethod {
     
     public void putWithFile(@Nonnull String strMethod, @Nonnull String resource, Map<String, String> queries, File file, Map<String, String> headerMap, boolean authorization) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
-            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + account + "," + resource + ")");
+            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + getStorageAccount() + "," + resource + ")");
         }
+        String endpoint = provider.getStorageEndpoint();
+
         if( wire.isDebugEnabled() ) {
-            wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + account + resource);
+            wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
         }
         
@@ -963,8 +1155,7 @@ public class AzureStorageMethod {
             	contentLength = "0";        	
             }
  
-            HttpRequestBase method = getMethod(strMethod, 
-            		buildUrl(resource, queries), account, resource,queries, contentLength, headerMap, authorization );
+            HttpRequestBase method = getMethod(strMethod, buildUrl(resource, queries), queries, headerMap, authorization );
      	
             if( wire.isDebugEnabled() ) {
                 wire.debug(method.getRequestLine().toString());
@@ -1064,10 +1255,12 @@ public class AzureStorageMethod {
   
     public void putWithBytes(@Nonnull String strMethod, @Nonnull String resource, Map<String, String> queries, byte[] body, Map<String, String> headerMap, boolean authorization) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
-            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + account + "," + resource + ")");
+            logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + getStorageAccount() + "," + resource + ")");
         }
+        String endpoint = provider.getStorageEndpoint();
+
         if( wire.isDebugEnabled() ) {
-            wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + account + resource);
+            wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
         }
         try {
@@ -1081,8 +1274,7 @@ public class AzureStorageMethod {
             	contentLength = "0";        	
             }
  
-            HttpRequestBase method = getMethod(strMethod, 
-            		buildUrl(resource, queries), account, resource,queries, contentLength, headerMap, authorization );
+            HttpRequestBase method = getMethod(strMethod, buildUrl(resource, queries), queries, headerMap, authorization );
      	
             if( wire.isDebugEnabled() ) {
                 wire.debug(method.getRequestLine().toString());
@@ -1178,68 +1370,54 @@ public class AzureStorageMethod {
     }
        
        
-    protected HttpRequestBase getMethod(String httpMethod,String urlStr, String account,  String serviceResource, Map<String, String> queries, String contentLength, Map<String, String> headers, boolean authorization) {
-    	HttpRequestBase method = null;
-        if(httpMethod.equals("GET")){
-        	method = new HttpGet(urlStr);
-        }else if(httpMethod.equals("POST")){
-        	 method = new HttpPost(urlStr);
-        }else if(httpMethod.equals("PUT")){
-            method = new HttpPut(urlStr);	        	
-        }else if(httpMethod.equals("DELETE")){
-        	method = new HttpDelete(urlStr);
-        }else if(httpMethod.equals("HEAD")){
-        	 method = new HttpHead(urlStr);
-        }else if(httpMethod.equals("OPTIONS")){
-        	 method = new HttpOptions(urlStr);
-        }else if(httpMethod.equals("HEAD")){
-        	method = new HttpTrace(urlStr);
-        }else{
-        	method = new HttpGet(urlStr);
+    protected HttpRequestBase getMethod(@Nonnull String httpMethod, @Nonnull String endpoint, @Nonnull Map<String, String> queryParams, @Nullable Map<String, String> headers, boolean authorization) throws CloudException, InternalException {
+    	HttpRequestBase method;
+
+        if( httpMethod.equals("GET") ) {
+        	method = new HttpGet(endpoint);
+        }
+        else if(httpMethod.equals("POST")){
+        	 method = new HttpPost(endpoint);
+        }
+        else if(httpMethod.equals("PUT")){
+            method = new HttpPut(endpoint);
+        }
+        else if(httpMethod.equals("DELETE")){
+        	method = new HttpDelete(endpoint);
+        }
+        else if(httpMethod.equals("HEAD")){
+        	 method = new HttpHead(endpoint);
+        }
+        else if(httpMethod.equals("OPTIONS")){
+        	 method = new HttpOptions(endpoint);
+        }
+        else if(httpMethod.equals("HEAD")){
+        	method = new HttpTrace(endpoint);
+        }
+        else {
+        	method = new HttpGet(endpoint);
         }        
-        if(! authorization){
+        if( !authorization ) {
         	return method;
-        }    
-        
-        String HeaderDate = Header_Prefix_MS + "date";
- 		String RFC1123_PATTERN =
-		        "EEE, dd MMM yyyy HH:mm:ss z";
-		DateFormat rfc1123Format =
-		        new SimpleDateFormat(RFC1123_PATTERN);
+        }
+        if(headers == null) {
+            headers = new TreeMap<String, String>();
+        }
+
+        String RFC1123_PATTERN = "EEE, dd MMM yyyy HH:mm:ss z";
+		DateFormat rfc1123Format = new SimpleDateFormat(RFC1123_PATTERN);
+
 		rfc1123Format.setTimeZone(TimeZone.getTimeZone("GMT"));
-  		if(headers == null){
-  			headers = new TreeMap<String, String>();
-  		}
-		
-        headers.put(HeaderDate, rfc1123Format.format(new Date()));
-        
-        headers.put(Header_Prefix_MS + "version", "2012-02-12"); //2012-02-12 2009-09-19
-		
-        if(headers != null){			
-			for(String key: headers.keySet()){
-				method.addHeader(key, headers.get(key));
-			}
+        headers.put("Date", rfc1123Format.format(new Date()));
+        headers.put(Header_Prefix_MS + "version", VERSION);
+        for(String key: headers.keySet() ){
+            method.addHeader(key, headers .get(key));
 		}
         
-        if(method.getFirstHeader("content-type") == null){
-        	method.addHeader("content-type", "application/xml;charset=UTF-8"); 
+        if(method.getFirstHeader("content-type") == null && !httpMethod.equals("GET") ) {
+        	method.addHeader("content-type", "application/xml;charset=utf-8");
         }
-                
-        if(!contentLength.equals("0")  && (!httpMethod.equals("PUT"))){ //contentLength.equals("0") && 
-        	method.addHeader("content-length",contentLength );         	
-        }
-           
-        try {
-			String authHeader = createAuthorizationHeader(method, serviceResource, queries, contentLength);
-	
-			method.addHeader("Authorization", "SharedKey " + account
-			            + ":" + authHeader);		    
-		} catch (CloudException e) {
-			e.printStackTrace();
-		} catch (InternalException e) {
-			e.printStackTrace();
-		}
-		return method;
-       
+        method.addHeader("Authorization", "SharedKeyLite " + getStorageAccount() + ":" + calculatedSharedKeyLiteSignature(method, queryParams));
+        return method;
     }
 }
