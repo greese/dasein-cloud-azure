@@ -30,6 +30,7 @@ import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.storage.AbstractBlobStoreSupport;
 import org.dasein.cloud.storage.Blob;
 import org.dasein.cloud.storage.FileTransfer;
+import org.dasein.util.CalendarWrapper;
 import org.dasein.util.Jiterator;
 import org.dasein.util.JiteratorPopulator;
 import org.dasein.util.PopulatorThread;
@@ -860,6 +861,49 @@ public class BlobStore extends AbstractBlobStoreSupport {
         AzureStorageMethod method = new AzureStorageMethod(provider);
 
         method.invoke(AzureStorageMethod.Storage_OPERATION_PUT, resource, queries, AzureStorageMethod.convertDomToString(doc), headers, true);
+    }
+
+    public void copyFile(@Nullable String sourceBucket, @Nonnull String sourceObject, @Nullable String targetBucket, @Nonnull String targetObject) throws InternalException, CloudException {
+        logger.debug("ENTER - " + BlobStore.class.getName() + ".copyFile(" + sourceBucket + "," + sourceObject + "," + targetBucket + "," + targetObject + ")");
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new AzureConfigException("No context was set for this request");
+            }
+            String regionId = ctx.getRegionId();
+
+            if( regionId == null ) {
+                throw new AzureConfigException("No region ID was specified for this request");
+            }
+            HashMap<String,String> headers = new HashMap<String,String>();
+
+            headers.put("x-ms-copy-source", "/" + provider.getStorageService() + "/" + sourceBucket + "/" + sourceObject);
+            TreeMap <String, String> queryParams = new TreeMap <String, String>();
+            AzureStorageMethod method = new AzureStorageMethod(provider);
+
+            method.invoke(AzureStorageMethod.Storage_OPERATION_PUT, targetBucket + "/" + targetObject, queryParams, null, headers, true);
+
+            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 30L);
+
+            while( timeout > System.currentTimeMillis() ) {
+                try {
+                    Blob blob = getObject(targetBucket, targetObject);
+
+                    if( blob != null ) {
+                        return;
+                    }
+                }
+                catch( Throwable ignore ) {
+                    // ignore
+                }
+                try { Thread.sleep(60000L); }
+                catch( InterruptedException ignore ) { }
+            }
+        }
+        finally {
+            logger.debug("EXIT - " + BlobStore.class.getName() + ".copyFile()");
+        }
     }
 
     @Override

@@ -53,7 +53,7 @@ import java.util.Locale;
 public class AzureVM implements VirtualMachineSupport {
     static private final Logger logger = Azure.getLogger(AzureVM.class);
 
-    static private final String HOSTED_SERVICES = "/services/hostedservices";
+    static public final String HOSTED_SERVICES = "/services/hostedservices";
 
     private Azure provider;
 
@@ -323,7 +323,7 @@ public class AzureVM implements VirtualMachineSupport {
             xml.append("<OSVirtualHardDisk>");
             xml.append("<HostCaching>ReadWrite</HostCaching>");
             xml.append("<DiskLabel>OS</DiskLabel>");
-            xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("/vhds/").append(hostName).append(".vhd</MediaLink>");
+            xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(hostName).append(".vhd</MediaLink>");
             xml.append("<SourceImageName>").append(options.getMachineImageId()).append("</SourceImageName>");
             xml.append("</OSVirtualHardDisk>");
             xml.append("<RoleSize>").append(options.getStandardProductId()).append("</RoleSize>");
@@ -337,7 +337,8 @@ public class AzureVM implements VirtualMachineSupport {
             VirtualMachine vm = null ;
 
             while( timeout > System.currentTimeMillis() ) {
-                vm = getVirtualMachine(hostName + ":" + hostName);
+                try { vm = getVirtualMachine(hostName + ":" + hostName); }
+                catch( Throwable ignore ) { }
                 if( vm != null ) {
                     vm.setRootUser("dasein");
                     vm.setRootPassword(password);
@@ -348,6 +349,9 @@ public class AzureVM implements VirtualMachineSupport {
             }
             if( vm == null ) {
                 throw new CloudException("System timed out waiting for virtual machine to appear");
+            }
+            if( VmState.STOPPED.equals(vm.getCurrentState()) ) {
+                start(vm.getProviderVirtualMachineId());
             }
             return vm;
         }
@@ -511,6 +515,7 @@ public class AzureVM implements VirtualMachineSupport {
         String dnsName = null;
         String vmRoleName = null;
         String imageId = null;
+        String mediaLink = null;
 
         for( int i=0; i<attributes.getLength(); i++ ) {
             Node attribute = attributes.item(i);
@@ -642,6 +647,7 @@ public class AzureVM implements VirtualMachineSupport {
                                 }
                                 else if( "Stopped".equalsIgnoreCase(powerStatus)){
                                     role.setCurrentState(VmState.STOPPED);
+                                    role.setImagable(true);
                                 }
                                 else if( "Stopping".equalsIgnoreCase(powerStatus)){
                                     role.setCurrentState(VmState.STOPPING);
@@ -717,6 +723,9 @@ public class AzureVM implements VirtualMachineSupport {
                                     if( diskAttribute.getNodeName().equalsIgnoreCase("SourceImageName") && diskAttribute.hasChildNodes() ) {
                                         imageId = diskAttribute.getFirstChild().getNodeValue().trim();
                                     }
+                                    else if( diskAttribute.getNodeName().equalsIgnoreCase("medialink") && diskAttribute.hasChildNodes() ) {
+                                        mediaLink = diskAttribute.getFirstChild().getNodeValue().trim();
+                                    }
                                 }
                             }
                             else if( roleAttribute.getNodeName().equalsIgnoreCase("RoleName") && roleAttribute.hasChildNodes() ) {
@@ -760,6 +769,9 @@ public class AzureVM implements VirtualMachineSupport {
                     }
                 }
                 vm.setTag("serviceName", serviceName);
+                if( mediaLink != null ) {
+                    vm.setTag("mediaLink", mediaLink);
+                }
                 virtualMachines.add(vm);
             }
         }

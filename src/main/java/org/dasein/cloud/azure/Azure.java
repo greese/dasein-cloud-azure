@@ -27,8 +27,6 @@ import java.util.Random;
 public class Azure extends AbstractCloud {
     static private final Logger logger = Azure.getLogger(Azure.class);
 	
-	static public final String RESOURCE_MEDIA_LINK_KEY = "MediaLink";
-
     static private @Nonnull String getLastItem(@Nonnull String name) {
         int idx = name.lastIndexOf('.');
 

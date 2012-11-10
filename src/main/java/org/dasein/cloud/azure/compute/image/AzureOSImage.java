@@ -13,8 +13,7 @@ import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.AzureService;
-import org.dasein.cloud.azure.compute.disk.AzureDisk;
-import org.dasein.cloud.azure.storage.BlobStore;
+import org.dasein.cloud.azure.compute.vm.AzureVM;
 import org.dasein.cloud.compute.Architecture;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.MachineImageFormat;
@@ -24,7 +23,6 @@ import org.dasein.cloud.compute.MachineImageType;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.VmState;
-import org.dasein.cloud.compute.Volume;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.util.Jiterator;
 import org.dasein.util.JiteratorPopulator;
@@ -54,9 +52,8 @@ public class AzureOSImage implements MachineImageSupport {
     static private final Logger logger = Azure.getLogger(AzureOSImage.class);
 
     static private final String IMAGES = "/services/images";
-    static private final String Azure_MICROSOFT_IMAGE_ID = "--microsoft--";
-    static private final String Azure_BLOB_IMAGE_CONTAINER = "vhds";
-   
+    static private final String MICROSOFT = "--microsoft--";
+
     private Azure provider;
     
     public AzureOSImage(Azure provider) { this.provider = provider; }
@@ -80,7 +77,7 @@ public class AzureOSImage implements MachineImageSupport {
         populator = new PopulatorThread<MachineImage>(new JiteratorPopulator<MachineImage>() {
             public void populate(@Nonnull Jiterator<MachineImage> iterator) throws CloudException, InternalException {
                 try {
-                    populateImages(ctx, iterator, "--microsoft--", ctx.getAccountNumber(), "--public--");
+                    populateImages(ctx, iterator, MICROSOFT, ctx.getAccountNumber(), "--public--");
                 }
                 finally {
                     provider.release();
@@ -109,9 +106,12 @@ public class AzureOSImage implements MachineImageSupport {
 
     @Override
     public @Nonnull AsynchronousTask<String> imageVirtualMachine(String vmId, String name, String description) throws CloudException, InternalException {
-        final VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(vmId);
-        
-        if( !server.getCurrentState().equals(VmState.PAUSED) ) {
+        @SuppressWarnings("ConstantConditions") final VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(vmId);
+
+        if( server == null ) {
+            throw new CloudException("No such virtual machine: " + vmId);
+        }
+        if( !server.getCurrentState().equals(VmState.STOPPED) ) {
             throw new CloudException("The server must be paused in order to create an image.");
         }
         final AsynchronousTask<String> task = new AsynchronousTask<String>();
@@ -134,113 +134,59 @@ public class AzureOSImage implements MachineImageSupport {
         t.start();
         return task;
     }
-    
-    private String imageVirtualMachine(VirtualMachine vm, String name, String description, AsynchronousTask<String> task) throws CloudException, InternalException {
+
+    private String imageVirtualMachine(@Nonnull VirtualMachine vm, @Nonnull String name, @Nonnull String description, @Nonnull AsynchronousTask<String> task) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
-            logger.trace("ENTER: " + AzureOSImage.class.getName() + ".imageVirtualMachine(" + "" + ")");
+            logger.trace("ENTER: " + AzureOSImage.class.getName() + ".Boot()");
         }
         try {
             ProviderContext ctx = provider.getContext();
 
             if( ctx == null ) {
-                throw new AzureConfigException("No context was specified for this request");
+                throw new AzureConfigException("No context was set for this request");
             }
-            
-            String storageEndpoint = ctx.getStorageEndpoint();
-            if(storageEndpoint == null){
-            	 throw new AzureConfigException("No Storage endpoint was specified for this request");
-            }
-            if( !storageEndpoint.startsWith("http") ) {
-            	storageEndpoint =  "http://";
-            }
-            if( !storageEndpoint.endsWith("/") ) {
-            	storageEndpoint = storageEndpoint + "/";
-            }
-            
-            String sourceMediaLink = (String) vm.getTag(Azure.RESOURCE_MEDIA_LINK_KEY); 
-                     
-            if(sourceMediaLink == null || !sourceMediaLink.endsWith(".vhd")){
-            	logger.error("Sorry. Can not image the VM because did not find the VM media link!!!");
-            	throw new CloudException("Sorry. Can not image the VM because did not find the VM media link!!!");
-            }
-            int index = sourceMediaLink.lastIndexOf("/");   
-            
-            String blobName = null;
-            if(index > 0){
-            	blobName = sourceMediaLink.substring(index+1);               
-            }
-            if(blobName == null){
-            	logger.error("Sorry. Can not image the VM because did not find the VM media link!!!");
-            	throw new CloudException("Sorry. Can not image the VM because did not find the VM media link!!!");
-            }
-          
-            String imageBlobName = name+".vhd";
-            BlobStore blobSupport = new BlobStore(provider);
-            logger.trace("Begin to copy the image disk to a new blob named as " + name + ".vhd");
-
-            // TODO: what is the proper replacement here?
-            //blobSupport.copyFile(Azure_BLOB_IMAGE_CONTAINER, blobName, imageBlobName, Azure_BLOB_IMAGE_CONTAINER);
-            
-            String mediaLink = storageEndpoint 
-            				+ Azure_BLOB_IMAGE_CONTAINER + "/"
-            				+ imageBlobName;
-            
-            AzureMethod method = new AzureMethod(provider);
-            StringBuilder xml = new StringBuilder();
-
             String label;
 
             try {
-                label = new String(Base64.encodeBase64(name.getBytes("utf-8")));
+                label = new String(Base64.encodeBase64(description.getBytes("utf-8")));
             }
             catch( UnsupportedEncodingException e ) {
                 throw new InternalException(e);
             }
-                 
-                      
-            xml.append("<OSImage xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-            xml.append("<Label>" + label + "</Label>");
-            xml.append("<MediaLink>" + mediaLink+"</MediaLink>");
-            xml.append("<Name>" + name + "</Name>");
-            //<OS>Linux|Windows</OS>
-            Platform platform = vm.getPlatform();
-            if(platform.isWindows()){
-            	xml.append("<OS>Windows</OS>");
-            }else{
-            	xml.append("<OS>Linux</OS>");
-            }
-                        
-            xml.append("</OSImage>");      
 
-            if( logger.isDebugEnabled() ) {
-                try {
-                    method.parseResponse(xml.toString(), false);
-                }
-                catch( Exception e ) {
-                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
-                    logger.warn("XML:");
-                    logger.warn(xml.toString());
-                }
+            String vmId = vm.getProviderVirtualMachineId();
+            String[] parts = vmId.split(":");
+            String serviceName, roleName;
+
+            if( parts.length == 2 ) {
+                serviceName = parts[0];
+                roleName = parts[1];
             }
-            
-            try{
-            	 method.post(ctx.getAccountNumber(), IMAGES, xml.toString());
-            	 return name;
+            else {
+                serviceName = vmId;
+                roleName = vmId;
             }
-            catch (InternalException e){             	
-            	e.printStackTrace();
-            }
-            catch (CloudException e){
-            	e.printStackTrace();
-            }
+            String resourceDir = AzureVM.HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  serviceName + "/roleInstances/" + roleName + "/Operations";
+
+            AzureMethod method = new AzureMethod(provider);
+            StringBuilder xml = new StringBuilder();
+
+            xml.append("<CaptureRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+            xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
+            xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
+            xml.append("<TargetImageLabel>").append(label).append("</TargetImageLabel>\n");
+            xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
+            xml.append("</CaptureRoleOperation>\n");
+
+            task.setPercentComplete(2.0);
+            method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
+            return name;
         }
         finally {
             if( logger.isTraceEnabled() ) {
-                logger.trace("EXIT: " + AzureDisk.class.getName() + ".launch()");
+                logger.trace("EXIT: " + AzureOSImage.class.getName() + ".launch()");
             }
         }
-        return null;
-		
     }
     
 
@@ -258,7 +204,7 @@ public class AzureOSImage implements MachineImageSupport {
     public boolean isImageSharedWithPublic(@Nonnull String machineImageId) throws CloudException, InternalException {
         MachineImage img = getMachineImage(machineImageId);
         
-        return (img != null && ("--microsoft--".equals(img.getProviderOwnerId()) || "--public--".equals(img.getProviderOwnerId())) );
+        return (img != null && (MICROSOFT.equals(img.getProviderOwnerId()) || "--public--".equals(img.getProviderOwnerId())) );
     }
 
     @Override
@@ -280,7 +226,7 @@ public class AzureOSImage implements MachineImageSupport {
         populator = new PopulatorThread<MachineImage>(new JiteratorPopulator<MachineImage>() {
             public void populate(@Nonnull Jiterator<MachineImage> iterator) throws CloudException, InternalException {
                 try {
-                    populateImages(ctx, iterator,owner,Azure_MICROSOFT_IMAGE_ID);
+                    populateImages(ctx, iterator,owner);
                 }
                 finally {
                     provider.release();
@@ -293,6 +239,7 @@ public class AzureOSImage implements MachineImageSupport {
 
     @Override
     public @Nonnull Iterable<MachineImage> listMachineImagesOwnedBy(String accountId) throws CloudException, InternalException {
+        final String[] accounts = (accountId == null ? new String[] { MICROSOFT, "--public--"} : new String[] { accountId });
         final ProviderContext ctx = provider.getContext();
 
         if( ctx == null ) {
@@ -300,13 +247,12 @@ public class AzureOSImage implements MachineImageSupport {
         }
 
         PopulatorThread<MachineImage> populator;
-        final String acct = accountId;
 
         provider.hold();
         populator = new PopulatorThread<MachineImage>(new JiteratorPopulator<MachineImage>() {
             public void populate(@Nonnull Jiterator<MachineImage> iterator) throws CloudException, InternalException {
                 try {
-                    populateImages(ctx, iterator, acct);
+                    populateImages(ctx, iterator, accounts);
                 }
                 finally {
                     provider.release();
@@ -328,9 +274,6 @@ public class AzureOSImage implements MachineImageSupport {
     }
 
     private void populateImages(@Nonnull ProviderContext ctx, @Nonnull Jiterator<MachineImage> iterator, @Nullable String ... accounts) throws CloudException, InternalException {
-        if( accounts == null ) {
-            accounts = new String[] { ctx.getAccountNumber() };
-        }
         AzureMethod method = new AzureMethod(provider);
 
         Document doc = method.getAsXML(ctx.getAccountNumber(), IMAGES);
@@ -352,72 +295,12 @@ public class AzureOSImage implements MachineImageSupport {
                             break;
             			}
             		}            	
-            	}else{
+            	}
+                else if( image.getProviderOwnerId() == null || MICROSOFT.equals(image.getProviderOwnerId()) || "--public--".equals(image.getProviderOwnerId()) ) {
             		iterator.push(image);
             	}         
             }
         }        
-  
-        //Add the images in the disk
-        ArrayList<MachineImage> list = (ArrayList<MachineImage>) listImagesInDisk(ctx);
-        if(list == null) return;
-        for(MachineImage image: list){
-        	iterator.push(image);
-        }
-    }
-    
-    private Iterable<MachineImage> listImagesInDisk(@Nonnull ProviderContext ctx) throws CloudException, InternalException {
-    	ArrayList<MachineImage> list = new ArrayList<MachineImage>();
-        
-        //List the images in the disk
-        AzureDisk diskSupport = new AzureDisk(provider);
-        
-        ArrayList<Volume> disks = (ArrayList<Volume>) diskSupport.listVolumes();
-      
-        if(disks != null){
-        	for(Volume disk : disks){
-        		AzureMachineImage image = new AzureMachineImage();
-        		
-        		if(disk.getGuestOperatingSystem().equals(Platform.UNKNOWN)){
-        			continue;
-        		}else{
-        			image.setPlatform(disk.getGuestOperatingSystem());
-        		}     		 		
-        		  
-        		image.setCurrentState(MachineImageState.ACTIVE);
-        		image.setProviderRegionId(ctx.getRegionId());
-        		image.setProviderOwnerId(provider.getContext().getAccountNumber());
-        		image.setArchitecture(Architecture.I64);
-        		  
-        		image.setProviderMachineImageId(disk.getProviderVolumeId());
-       		      		  
-        		image.setMediaLink(disk.getMediaLink());
-        		  
-        	    if( image.getProviderMachineImageId() == null ){
-        	    	continue;
-        	    }
-        	    if( image.getName() == null ) {
-        	    	image.setName(image.getProviderMachineImageId());
-        	    }
-        	    if( image.getDescription() == null ) {
-        	    	image.setDescription(image.getName());
-        	    }
-        	    String descriptor = image.getProviderMachineImageId() + " " + image.getName() + " " + image.getDescription();
-        	    
-        	    if( image.getPlatform() == null || image.getPlatform().equals(Platform.UNIX) ) {
-    	            Platform p = Platform.guess(descriptor);
-    	            
-    	            if( image.getPlatform() == null || !Platform.UNKNOWN.equals(p) ) {
-    	                image.setPlatform(p);
-    	            }
-    	        }
-    	        image.setSoftware(descriptor.contains("SQL Server") ? "SQL Server" : "");
-    	        image.setTags(new HashMap<String, String>());
-    	        image.setType(MachineImageType.STORAGE);    	        
-    	        list.add(image);   		  
-        	}
-        }
-        return list;        
     }
     
     @Override
@@ -436,30 +319,22 @@ public class AzureOSImage implements MachineImageSupport {
             if( ctx == null ) {
                 throw new AzureConfigException("No context was specified for this request");
             }
-                       
-            AzureMethod method = new AzureMethod(provider);
-            
-            MachineImage image = this.getMachineImage(machineImageId);
-          
+
+            MachineImage image = getMachineImage(machineImageId);
+
+            if( image == null ) {
+                throw new CloudException("No such machine image: " + machineImageId);
+            }
             String imageLabel = image.getName();
             StringBuilder xml = new StringBuilder();
 
             xml.append("<OSImage xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-            xml.append("<Label>" + imageLabel + "</Label>");
+            xml.append("<Label>").append(imageLabel).append("</Label>");
             xml.append("</OSImage>");
-            
-            if( logger.isDebugEnabled() ) {
-                try {
-                    method.parseResponse(xml.toString(), false);
-                }
-                catch( Exception e ) {
-                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
-                    logger.warn("XML:");
-                    logger.warn(xml.toString());
-                }
-            }
 
-            method.invoke("DELETE",ctx.getAccountNumber(), IMAGES+"/" + machineImageId,xml.toString());
+            AzureMethod method = new AzureMethod(provider);
+
+            method.invoke("DELETE",ctx.getAccountNumber(), IMAGES + "/" + machineImageId, xml.toString());
             //TODO need to delete the image disk blob?             
         }
         finally {
@@ -485,7 +360,7 @@ public class AzureOSImage implements MachineImageSupport {
         populator = new PopulatorThread<MachineImage>(new JiteratorPopulator<MachineImage>() {
             public void populate(@Nonnull Jiterator<MachineImage> iterator) throws CloudException, InternalException {
                 try {
-                    populateImages(ctx, iterator, "--microsoft--", ctx.getAccountNumber(), "--public--");
+                    populateImages(ctx, iterator, MICROSOFT, ctx.getAccountNumber(), "--public--");
                 }
                 finally {
                     provider.release();
@@ -540,7 +415,7 @@ public class AzureOSImage implements MachineImageSupport {
 
     @Override
     public boolean supportsCustomImages() {
-        return false; 
+        return true;
     }
 
     @Override
@@ -560,7 +435,7 @@ public class AzureOSImage implements MachineImageSupport {
 
     @Override
     public @Nonnull String[] mapServiceAction(@Nonnull ServiceAction action) {
-        return new String[0]; // not applicable in Azure
+        return new String[0];
     }
     
     private @Nullable AzureMachineImage toImage(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
@@ -573,7 +448,7 @@ public class AzureOSImage implements MachineImageSupport {
 
         image.setCurrentState(MachineImageState.ACTIVE);
         image.setProviderRegionId(ctx.getRegionId());
-        image.setProviderOwnerId(Azure_MICROSOFT_IMAGE_ID);
+        image.setProviderOwnerId(MICROSOFT);
         image.setArchitecture(Architecture.I64);
 
         NodeList attributes = entry.getChildNodes();
@@ -593,7 +468,7 @@ public class AzureOSImage implements MachineImageSupport {
                     image.setProviderOwnerId(ctx.getAccountNumber());
                 }
                 else if( "microsoft".equalsIgnoreCase(c) ) {
-                    image.setProviderOwnerId("--microsoft--");
+                    image.setProviderOwnerId(MICROSOFT);
                 }
                 else if( "partner".equalsIgnoreCase(c) ) {
                     image.setProviderOwnerId("--public--");

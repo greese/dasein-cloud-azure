@@ -385,7 +385,6 @@ public class AzureStorageMethod {
 			throw new InternalException(e.getMessage());
 		}	
 	}
-	*/
 
 	public String createSignatureString(Map<String, String> signatureMap)  throws CloudException, InternalException{
 		fetchKeys();
@@ -411,8 +410,9 @@ public class AzureStorageMethod {
 			throw new InternalException(e.getMessage());
 		}
 	}
-	
-	public static Document createDoc() throws InternalException{
+		*/
+
+    public static Document createDoc() throws InternalException{
 		try {
 			return DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
 		} catch (ParserConfigurationException e) {
