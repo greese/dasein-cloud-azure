@@ -273,10 +273,11 @@ public class AzureVM implements VirtualMachineSupport {
             if( image.getPlatform().isWindows() ) {
                 xml.append("<WindowsProvisioningConfigurationSet>");
                 xml.append("<ComputerName>").append(hostName).append("</ComputerName>");
-                xml.append("<AdminPassword></AdminPassword>");
+                xml.append("<AdminPassword>").append(password).append("</AdminPassword>");
                 xml.append("<ResetPasswordOnFirstLogon>true</ResetPasswordOnFirstLogon>");
                 xml.append("<EnableAutomaticUpdate>true</EnableAutomaticUpdate>");
                 xml.append("<TimeZone>UTC</TimeZone>");
+                /*
                 if( options.getBootstrapKey() != null ) {
                     xml.append("<StoredCertificateSettings>");
                     xml.append("<CertificateSetting>");
@@ -286,27 +287,30 @@ public class AzureVM implements VirtualMachineSupport {
                     xml.append("</CertificateSetting");
                     xml.append("</StoredCertificateSettings>");
                 }
+                */
                 xml.append("</WindowsProvisioningConfigurationSet>");
             }
             else {
                 xml.append("<ConfigurationSet i:type=\"LinuxProvisioningConfigurationSet\">");
                 xml.append("<HostName>").append(hostName).append("</HostName>");
-                if( options.getBootstrapKey() == null && options.getBootstrapUser() == null ) {
+                if( options.getBootstrapUser() == null ) {
                     xml.append("<UserName>dasein</UserName>");
                     xml.append("<UserPassword>").append(password).append("</UserPassword>");
                     xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
                 }
-                else if( options.getBootstrapUser() != null ) {
+                else {
                     xml.append("<UserName>").append(options.getBootstrapUser()).append("</UserName>");
                     xml.append("<UserPassword>").append(password).append("</UserPassword>");
                     xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
                 }
+                /*
                 else {
                     xml.append("<DisableSshPasswordAuthentication>true</DisableSshPasswordAuthentication>");
                     xml.append("<SSH><PublicKeys><PublicKey><FingerPrint>");
                     xml.append(options.getBootstrapKey());
                     xml.append("</FingerPrint><Path>/etc/ssh/root</Path></PublicKey></PublicKeys></SSH>");
                 }
+                */
                 xml.append("</ConfigurationSet>");
             }
             xml.append("<ConfigurationSet i:type=\"NetworkConfigurationSet\">");

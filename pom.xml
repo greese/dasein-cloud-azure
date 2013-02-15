@@ -3,7 +3,7 @@
 
     <groupId>org.dasein</groupId>
     <artifactId>dasein-cloud-azure</artifactId>
-    <version>2012.09-SNAPSHOT</version>
+    <version>2013.04-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>dasein-cloud-azure</name>
@@ -45,21 +45,21 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-core</artifactId>
-            <version>2012.09</version>
+            <version>2013.04-SNAPSHOT</version>
             <scope>compile</scope>
             <optional>false</optional>
         </dependency>
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-util</artifactId>
-            <version>2012.08</version>
+            <version>2013.02</version>
             <scope>compile</scope>
             <optional>false</optional>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.2</version>
+            <version>4.2.1</version>
         </dependency>
         <dependency>
             <groupId>bouncycastle</groupId>
@@ -74,16 +74,18 @@
             <optional>false</optional>
         </dependency>
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>servlet-api</artifactId>
-            <version>2.5</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
             <version>20090211</version>
             <scope>compile</scope>
+        </dependency>
+
+        <!-- Provided -->
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>servlet-api</artifactId>
+            <version>2.5</version>
+            <scope>provided</scope>
         </dependency>
 
         <!-- Test -->
@@ -96,7 +98,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-test</artifactId>
-            <version>2012.09.8</version>
+            <version>2013.04-SNAPSHOT</version>
             <scope>test</scope>
             <optional>false</optional>
         </dependency>
@@ -132,7 +134,8 @@
                     <quiet>true</quiet>
                     <links>
                         <link>http://java.sun.com/javase/6/docs/api/</link>
-                        <link>http://java.sun.com/javaee/6/docs/api/</link>
+                        <link>http://www.dasein.org/api/dasein-utils/</link>
+                        <link>http://www.dasein.org/api/dasein-cloud-2013-04/</link>
                     </links>
                     <stylesheetfile>dasein-javadoc.css</stylesheetfile>
                     <footer />
