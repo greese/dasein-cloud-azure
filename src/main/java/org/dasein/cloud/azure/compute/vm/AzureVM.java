@@ -13,13 +13,13 @@ import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.AzureService;
 import org.dasein.cloud.azure.compute.image.AzureMachineImage;
+import org.dasein.cloud.compute.AbstractVMSupport;
 import org.dasein.cloud.compute.Architecture;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VMLaunchOptions;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.VirtualMachineProduct;
-import org.dasein.cloud.compute.VirtualMachineSupport;
 import org.dasein.cloud.compute.VmState;
 import org.dasein.cloud.compute.VmStatistics;
 import org.dasein.cloud.identity.ServiceAction;
@@ -50,14 +50,17 @@ import java.util.Locale;
  * @version 2012.04.1
  * @version 2012.09 updated for model changes
  */
-public class AzureVM implements VirtualMachineSupport {
+public class AzureVM extends AbstractVMSupport {
     static private final Logger logger = Azure.getLogger(AzureVM.class);
 
     static public final String HOSTED_SERVICES = "/services/hostedservices";
 
     private Azure provider;
 
-    public AzureVM(Azure provider) { this.provider = provider; }
+    public AzureVM(Azure provider) {
+        super(provider);
+        this.provider = provider;
+    }
 
     @Override
     public void start(@Nonnull String vmId) throws InternalException, CloudException {
@@ -918,11 +921,12 @@ public class AzureVM implements VirtualMachineSupport {
     }
 
     @Override
-    public void stop(@Nonnull String vmId) throws InternalException, CloudException {
+    public void stop(@Nonnull String vmId, boolean force) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".Boot()");
         }
         try {
+            // TODO: force vs not force
             ProviderContext ctx = provider.getContext();
 
             if( ctx == null ) {
@@ -968,11 +972,6 @@ public class AzureVM implements VirtualMachineSupport {
                 logger.trace("EXIT: " + AzureVM.class.getName() + ".launch()");
             }
         }
-    }
-
-    @Override
-    public boolean supportsAnalytics() throws CloudException, InternalException {
-        return false;
     }
 
     @Override

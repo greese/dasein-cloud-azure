@@ -14,6 +14,7 @@ import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.AzureService;
 import org.dasein.cloud.azure.compute.vm.AzureVM;
+import org.dasein.cloud.compute.AbstractImageSupport;
 import org.dasein.cloud.compute.Architecture;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.MachineImageFormat;
@@ -48,7 +49,7 @@ import java.util.Locale;
  * @since 2012.04.1
  * @version 2012.04.1
  */
-public class AzureOSImage implements MachineImageSupport {
+public class AzureOSImage extends AbstractImageSupport {
     static private final Logger logger = Azure.getLogger(AzureOSImage.class);
 
     static private final String IMAGES = "/services/images";
@@ -56,7 +57,10 @@ public class AzureOSImage implements MachineImageSupport {
 
     private Azure provider;
     
-    public AzureOSImage(Azure provider) { this.provider = provider; }
+    public AzureOSImage(Azure provider) {
+        super(provider);
+        this.provider = provider;
+    }
     
     @Override
     public void downloadImage(@Nonnull String machineImageId, @Nonnull OutputStream toOutput) throws CloudException, InternalException {

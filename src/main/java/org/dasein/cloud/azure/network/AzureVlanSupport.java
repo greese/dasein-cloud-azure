@@ -18,6 +18,7 @@ import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.identity.ServiceAction;
+import org.dasein.cloud.network.AbstractVLANSupport;
 import org.dasein.cloud.network.IPVersion;
 import org.dasein.cloud.network.NICCreateOptions;
 import org.dasein.cloud.network.NetworkInterface;
@@ -29,7 +30,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public class AzureVlanSupport implements VLANSupport {
+public class AzureVlanSupport extends AbstractVLANSupport {
     static private final Logger logger = Azure.getLogger(AzureVlanSupport.class);
 
 	
@@ -37,7 +38,10 @@ public class AzureVlanSupport implements VLANSupport {
 
     private Azure provider;
 
-    public AzureVlanSupport(Azure provider) { this.provider = provider; }
+    public AzureVlanSupport(Azure provider) {
+        super(provider);
+        this.provider = provider;
+    }
 	
 
 	@Override

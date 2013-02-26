@@ -26,6 +26,7 @@ import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.compute.vm.AzureVM;
+import org.dasein.cloud.compute.AbstractVolumeSupport;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.Volume;
@@ -54,7 +55,7 @@ import java.util.Locale;
  * @version 2012-06
  * @since 2012-06
  */
-public class AzureDisk implements VolumeSupport {
+public class AzureDisk extends AbstractVolumeSupport {
     static private final Logger logger = Azure.getLogger(AzureDisk.class);
 
     static private final String DISK_SERVICES = "/services/disks";
@@ -62,7 +63,10 @@ public class AzureDisk implements VolumeSupport {
     
     private Azure provider;
 
-    public AzureDisk(Azure provider) { this.provider = provider; }
+    public AzureDisk(Azure provider) {
+        super(provider);
+        this.provider = provider;
+    }
     
     @Override
     public void attach(@Nonnull String volumeId, @Nonnull String toServer, @Nonnull String device) throws InternalException, CloudException {
@@ -125,22 +129,6 @@ public class AzureDisk implements VolumeSupport {
             }
         }
     	
-    }
-
-   // static private final Random random = new Random();
-    
-    @Override
-    public @Nonnull String create(@Nullable String fromSnapshot, @Nonnegative int sizeInGb, @Nonnull String inZone) throws InternalException, CloudException {
-        String name = "dsn" + System.currentTimeMillis();
-        VolumeCreateOptions options;
-
-        if( fromSnapshot == null ) {
-            options = VolumeCreateOptions.getInstance(new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE), name, name).inDataCenter(inZone);
-        }
-        else {
-            options = VolumeCreateOptions.getInstanceForSnapshot(fromSnapshot,new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE), name, name).inDataCenter(inZone);
-        }
-        return createVolume(options);
     }
 
     @Override
@@ -217,7 +205,7 @@ public class AzureDisk implements VolumeSupport {
     }
     
     @Override
-    public void detach(@Nonnull String volumeId) throws InternalException, CloudException {
+    public void detach(@Nonnull String volumeId, boolean force) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureDisk.class.getName() + ".deattach(" + volumeId+")");
         }

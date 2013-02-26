@@ -3,13 +3,13 @@ package org.dasein.cloud.azure.network;
 import javax.annotation.Nonnull;
 
 import org.dasein.cloud.azure.Azure;
+import org.dasein.cloud.network.AbstractNetworkServices;
 import org.dasein.cloud.network.DNSSupport;
 import org.dasein.cloud.network.FirewallSupport;
 import org.dasein.cloud.network.IpAddressSupport;
 import org.dasein.cloud.network.LoadBalancerSupport;
-import org.dasein.cloud.network.NetworkServices;
 
-public class AzureNetworkServices implements NetworkServices {
+public class AzureNetworkServices extends AbstractNetworkServices {
 	
 	private Azure provider;
 
