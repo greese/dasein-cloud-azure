@@ -244,7 +244,7 @@
 
                     </systemProperties>
                     <includes>
-                        <include>**/AzureTestSuite.java</include>
+                        <!-- <include>**/AzureTestSuite.java</include> -->
                     </includes>
                 </configuration>
             </plugin>
