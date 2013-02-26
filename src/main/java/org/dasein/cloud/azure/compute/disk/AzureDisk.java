@@ -22,6 +22,7 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
@@ -30,6 +31,7 @@ import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.Volume;
 import org.dasein.cloud.compute.VolumeCreateOptions;
+import org.dasein.cloud.compute.VolumeFormat;
 import org.dasein.cloud.compute.VolumeProduct;
 import org.dasein.cloud.compute.VolumeState;
 import org.dasein.cloud.compute.VolumeSupport;
@@ -266,6 +268,12 @@ public class AzureDisk implements VolumeSupport {
             }
         }
     }
+
+    @Override
+    public void detach(@Nonnull String volumeId, boolean force) throws InternalException, CloudException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
     private String getDiskLun(String providerVolumeId, String providerVirtualMachineId) throws InternalException, CloudException {
     	
         AzureMethod method = new AzureMethod(provider);
@@ -373,9 +381,21 @@ public class AzureDisk implements VolumeSupport {
 
     @Nonnull
     @Override
+    public Iterable<VolumeFormat> listSupportedFormats() throws InternalException, CloudException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Nonnull
+    @Override
     public Iterable<VolumeProduct> listVolumeProducts() throws InternalException, CloudException {
         //To change body of implemented methods use File | Settings | File Templates.
        return null;
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<ResourceStatus> listVolumeStatus() throws InternalException, CloudException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override

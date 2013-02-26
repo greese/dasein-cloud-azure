@@ -9,12 +9,17 @@ import org.dasein.cloud.CloudProvider;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
+import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.Tag;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.AzureService;
 import org.dasein.cloud.azure.compute.vm.AzureVM;
 import org.dasein.cloud.compute.Architecture;
+import org.dasein.cloud.compute.ImageClass;
+import org.dasein.cloud.compute.ImageCreateOptions;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.MachineImageFormat;
 import org.dasein.cloud.compute.MachineImageState;
@@ -57,10 +62,42 @@ public class AzureOSImage implements MachineImageSupport {
     private Azure provider;
     
     public AzureOSImage(Azure provider) { this.provider = provider; }
-    
+
     @Override
-    public void downloadImage(@Nonnull String machineImageId, @Nonnull OutputStream toOutput) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Not currently supported");
+    public void addImageShare(@Nonnull String providerImageId, @Nonnull String accountNumber) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void addPublicShare(@Nonnull String providerImageId) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Nonnull
+    @Override
+    public String bundleVirtualMachine(@Nonnull String virtualMachineId, @Nonnull MachineImageFormat format, @Nonnull String bucket, @Nonnull String name) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void bundleVirtualMachineAsync(@Nonnull String virtualMachineId, @Nonnull MachineImageFormat format, @Nonnull String bucket, @Nonnull String name, @Nonnull AsynchronousTask<String> trackingTask) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Nonnull
+    @Override
+    public MachineImage captureImage(@Nonnull ImageCreateOptions options) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void captureImageAsync(@Nonnull ImageCreateOptions options, @Nonnull AsynchronousTask<MachineImage> taskTracker) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public MachineImage getImage(@Nonnull String providerImageId) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -99,9 +136,27 @@ public class AzureOSImage implements MachineImageSupport {
         return "OS image";
     }
 
+    @Nonnull
+    @Override
+    public String getProviderTermForImage(@Nonnull Locale locale, @Nonnull ImageClass cls) {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Nonnull
+    @Override
+    public String getProviderTermForCustomImage(@Nonnull Locale locale, @Nonnull ImageClass cls) {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
     @Override
     public boolean hasPublicLibrary() {
         return true;
+    }
+
+    @Nonnull
+    @Override
+    public Requirement identifyLocalBundlingRequirement() throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -189,7 +244,7 @@ public class AzureOSImage implements MachineImageSupport {
         }
     }
     
-
+    /*
     @Override
     public @Nonnull AsynchronousTask<String> imageVirtualMachineToStorage(String vmId, String name, String description, String directory) throws CloudException, InternalException {
         throw new OperationNotSupportedException("Not currently supported");
@@ -199,7 +254,7 @@ public class AzureOSImage implements MachineImageSupport {
     public @Nonnull String installImageFromUpload(@Nonnull MachineImageFormat format, @Nonnull InputStream imageStream) throws CloudException, InternalException {
         throw new OperationNotSupportedException("Not currently supported");
     }
-
+    */
     @Override
     public boolean isImageSharedWithPublic(@Nonnull String machineImageId) throws CloudException, InternalException {
         MachineImage img = getMachineImage(machineImageId);
@@ -210,6 +265,24 @@ public class AzureOSImage implements MachineImageSupport {
     @Override
     public boolean isSubscribed() throws CloudException, InternalException {
         return provider.getDataCenterServices().isSubscribed(AzureService.COMPUTE);
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<ResourceStatus> listImageStatus(@Nonnull ImageClass cls) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<MachineImage> listImages(@Nonnull ImageClass cls) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<MachineImage> listImages(@Nonnull ImageClass cls, @Nonnull String ownedBy) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -268,9 +341,33 @@ public class AzureOSImage implements MachineImageSupport {
         return Collections.singletonList(MachineImageFormat.AWS); // nonsense, I know
     }
 
+    @Nonnull
+    @Override
+    public Iterable<MachineImageFormat> listSupportedFormatsForBundling() throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
     @Override
     public @Nonnull Iterable<String> listShares(@Nonnull String forMachineImageId) throws CloudException, InternalException {
         return Collections.emptyList();
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<ImageClass> listSupportedImageClasses() throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<MachineImageType> listSupportedImageTypes() throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Nonnull
+    @Override
+    public MachineImage registerImageBundle(@Nonnull ImageCreateOptions options) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     private void populateImages(@Nonnull ProviderContext ctx, @Nonnull Jiterator<MachineImage> iterator, @Nullable String ... accounts) throws CloudException, InternalException {
@@ -302,11 +399,13 @@ public class AzureOSImage implements MachineImageSupport {
             }
         }        
     }
-    
+
+    /*
     @Override
     public @Nonnull String registerMachineImage(String atStorageLocation) throws CloudException, InternalException {
         throw new OperationNotSupportedException("Image registration is not required in Azure");
     }
+    */
 
     @Override
     public void remove(@Nonnull String machineImageId) throws CloudException, InternalException {
@@ -342,6 +441,26 @@ public class AzureOSImage implements MachineImageSupport {
                 logger.trace("EXIT: " + AzureOSImage.class.getName() + ".launch()");
             }
         }
+    }
+
+    @Override
+    public void remove(@Nonnull String providerImageId, boolean checkState) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void removeAllImageShares(@Nonnull String providerImageId) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void removeImageShare(@Nonnull String providerImageId, @Nonnull String accountNumber) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void removePublicShare(@Nonnull String providerImageId) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -408,6 +527,18 @@ public class AzureOSImage implements MachineImageSupport {
         return images;
     }
 
+    @Nonnull
+    @Override
+    public Iterable<MachineImage> searchImages(@Nullable String accountNumber, @Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture, @Nullable ImageClass... imageClasses) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<MachineImage> searchPublicImages(@Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture, @Nullable ImageClass... imageClasses) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
     @Override
     public void shareMachineImage(@Nonnull String machineImageId, @Nonnull String withAccountId, boolean allow) throws CloudException, InternalException {
         throw new OperationNotSupportedException("Image sharing is not supported in Azure");
@@ -416,6 +547,16 @@ public class AzureOSImage implements MachineImageSupport {
     @Override
     public boolean supportsCustomImages() {
         return true;
+    }
+
+    @Override
+    public boolean supportsDirectImageUpload() throws CloudException, InternalException {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public boolean supportsImageCapture(@Nonnull MachineImageType type) throws CloudException, InternalException {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -429,10 +570,21 @@ public class AzureOSImage implements MachineImageSupport {
     }
 
     @Override
-    public @Nonnull String transfer(@Nonnull CloudProvider fromCloud, @Nonnull String machineImageId) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("You cannot transfer Azure images");
+    public boolean supportsPublicLibrary(@Nonnull ImageClass cls) throws CloudException, InternalException {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
+    @Override
+    public void updateTags(@Nonnull String imageId, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    /*
+@Override
+public @Nonnull String transfer(@Nonnull CloudProvider fromCloud, @Nonnull String machineImageId) throws CloudException, InternalException {
+throw new OperationNotSupportedException("You cannot transfer Azure images");
+}
+    */
     @Override
     public @Nonnull String[] mapServiceAction(@Nonnull ServiceAction action) {
         return new String[0];

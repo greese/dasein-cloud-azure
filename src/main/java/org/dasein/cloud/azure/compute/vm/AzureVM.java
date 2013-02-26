@@ -7,6 +7,7 @@ import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.Tag;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
@@ -14,9 +15,12 @@ import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.AzureService;
 import org.dasein.cloud.azure.compute.image.AzureMachineImage;
 import org.dasein.cloud.compute.Architecture;
+import org.dasein.cloud.compute.ImageClass;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VMLaunchOptions;
+import org.dasein.cloud.compute.VMScalingCapabilities;
+import org.dasein.cloud.compute.VMScalingOptions;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.VirtualMachineProduct;
 import org.dasein.cloud.compute.VirtualMachineSupport;
@@ -109,8 +113,18 @@ public class AzureVM implements VirtualMachineSupport {
     }
 
     @Override
+    public VirtualMachine alterVirtualMachine(@Nonnull String vmId, @Nonnull VMScalingOptions options) throws InternalException, CloudException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
     public @Nonnull VirtualMachine clone(@Nonnull String vmId, @Nonnull String intoDcId, @Nonnull String name, @Nonnull String description, boolean powerOn, @Nullable String... firewallIds) throws InternalException, CloudException {
         throw new OperationNotSupportedException("Not supported in Microsoft Azure");
+    }
+
+    @Override
+    public VMScalingCapabilities describeVerticalScalingCapabilities() throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -126,6 +140,11 @@ public class AzureVM implements VirtualMachineSupport {
     @Override
     public @Nonnull String getConsoleOutput(@Nonnull String vmId) throws InternalException, CloudException {
         return "";
+    }
+
+    @Override
+    public int getCostFactor(@Nonnull VmState state) throws InternalException, CloudException {
+        return 0;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -169,9 +188,21 @@ public class AzureVM implements VirtualMachineSupport {
         return Collections.emptyList();
     }
 
+    @Nonnull
+    @Override
+    public Requirement identifyImageRequirement(@Nonnull ImageClass cls) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
     @Override
     public @Nonnull Requirement identifyPasswordRequirement() throws CloudException, InternalException {
         return Requirement.OPTIONAL;
+    }
+
+    @Nonnull
+    @Override
+    public Requirement identifyPasswordRequirement(Platform platform) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -182,6 +213,18 @@ public class AzureVM implements VirtualMachineSupport {
     @Override
     public @Nonnull Requirement identifyShellKeyRequirement() throws CloudException, InternalException {
         return Requirement.OPTIONAL;
+    }
+
+    @Nonnull
+    @Override
+    public Requirement identifyShellKeyRequirement(Platform platform) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Nonnull
+    @Override
+    public Requirement identifyStaticIPRequirement() throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -220,7 +263,7 @@ public class AzureVM implements VirtualMachineSupport {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".launch(" + options + ")");
         }
         try {
-            AzureMachineImage image = provider.getComputeServices().getImageSupport().getMachineImage(options.getMachineImageId());
+            AzureMachineImage image = (AzureMachineImage)provider.getComputeServices().getImageSupport().getMachineImage(options.getMachineImageId());
 
             if( image == null ) {
                 throw new CloudException("No such image: " + options.getMachineImageId());
@@ -486,6 +529,12 @@ public class AzureVM implements VirtualMachineSupport {
     @Override
     public Iterable<Architecture> listSupportedArchitectures() throws InternalException, CloudException {
         return Collections.singletonList(Architecture.I64);
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<ResourceStatus> listVirtualMachineStatus() throws InternalException, CloudException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -971,6 +1020,11 @@ public class AzureVM implements VirtualMachineSupport {
     }
 
     @Override
+    public void stop(@Nonnull String vmId, boolean force) throws InternalException, CloudException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
     public boolean supportsAnalytics() throws CloudException, InternalException {
         return false;
     }
@@ -1104,6 +1158,11 @@ public class AzureVM implements VirtualMachineSupport {
     @Override
     public void unpause(@Nonnull String vmId) throws CloudException, InternalException {
         throw new OperationNotSupportedException("Pause/unpause is not supported in Microsoft Azure");
+    }
+
+    @Override
+    public void updateTags(@Nonnull String vmId, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override

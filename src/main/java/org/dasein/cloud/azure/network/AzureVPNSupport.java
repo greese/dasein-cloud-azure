@@ -12,6 +12,7 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
@@ -294,7 +295,13 @@ public class AzureVPNSupport implements VPNSupport {
 		return null;
 	}
 
-	@Override
+    @Nonnull
+    @Override
+    public Iterable<ResourceStatus> listGatewayStatus() throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public Iterable<VPNGateway> listGateways() throws CloudException,InternalException {
 	    ArrayList<VPNGateway> gateways = new ArrayList<VPNGateway>();
 
@@ -348,7 +355,13 @@ public class AzureVPNSupport implements VPNSupport {
 		return null;
 	}
 
-	@Override
+    @Nonnull
+    @Override
+    public Iterable<ResourceStatus> listVPNStatus() throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public Iterable<VPN> listVPNs() throws CloudException, InternalException {
 
         ProviderContext ctx = provider.getContext();

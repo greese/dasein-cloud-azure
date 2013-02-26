@@ -92,12 +92,13 @@ public class Azure extends AbstractCloud {
     public String getDataCenterId(String regionId){
     	return regionId;
     }
-    
+
+    /*
     @Override
     public @Nonnull AzureComputeServices getComputeServices() {
         return new AzureComputeServices(this);
     }
-
+    */
     @Override
     public @Nonnull AzureLocation getDataCenterServices() {
         return new AzureLocation(this);

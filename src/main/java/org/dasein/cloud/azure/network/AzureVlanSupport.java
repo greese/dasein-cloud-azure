@@ -14,6 +14,7 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
@@ -21,6 +22,7 @@ import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.IPVersion;
 import org.dasein.cloud.network.NICCreateOptions;
 import org.dasein.cloud.network.NetworkInterface;
+import org.dasein.cloud.network.Networkable;
 import org.dasein.cloud.network.RoutingTable;
 import org.dasein.cloud.network.Subnet;
 import org.dasein.cloud.network.VLAN;
@@ -333,7 +335,13 @@ public class AzureVlanSupport implements VLANSupport {
 		return null;
 	}
 
-	@Override
+    @Nonnull
+    @Override
+    public Iterable<ResourceStatus> listNetworkInterfaceStatus() throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public Iterable<NetworkInterface> listNetworkInterfaces()throws CloudException, InternalException {
 		// TODO Auto-generated method stub
 		return null;
@@ -359,7 +367,13 @@ public class AzureVlanSupport implements VLANSupport {
 		return null;
 	}
 
-	@Override
+    @Nonnull
+    @Override
+    public Iterable<Networkable> listResources(@Nonnull String inVlanId) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public Iterable<RoutingTable> listRoutingTables(String inVlanId)
 			throws CloudException, InternalException {
 		// TODO Auto-generated method stub
@@ -379,7 +393,13 @@ public class AzureVlanSupport implements VLANSupport {
 		return null;
 	}
 
-	@Override
+    @Nonnull
+    @Override
+    public Iterable<ResourceStatus> listVlanStatus() throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public Iterable<VLAN> listVlans() throws CloudException, InternalException {
 
         ProviderContext ctx = provider.getContext();
