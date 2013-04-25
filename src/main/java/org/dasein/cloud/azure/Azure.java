@@ -93,12 +93,12 @@ public class Azure extends AbstractCloud {
     	return regionId;
     }
 
-    /*
+
     @Override
     public @Nonnull AzureComputeServices getComputeServices() {
         return new AzureComputeServices(this);
     }
-    */
+
     @Override
     public @Nonnull AzureLocation getDataCenterServices() {
         return new AzureLocation(this);
@@ -106,9 +106,9 @@ public class Azure extends AbstractCloud {
     
     @Override
     public @Nonnull AzureNetworkServices getNetworkServices() {
-    	return null;
+    	//return null;
     	//Not ready yet
-    	//return new AzureNetworkServices(this);
+    	return new AzureNetworkServices(this);
     }
 
     private transient String storageEndpoint;

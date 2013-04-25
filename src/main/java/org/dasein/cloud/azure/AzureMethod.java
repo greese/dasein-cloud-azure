@@ -228,7 +228,12 @@ public class AzureMethod {
             HttpUriRequest get = new HttpGet(uri);
 
             //get.addHeader("Content-Type", "application/xml");
-            get.addHeader("x-ms-version", "2012-03-01");
+            if (uri.toString().indexOf("/services/images") > -1) {
+                get.addHeader("x-ms-version", "2012-08-01");
+            }
+            else {
+                get.addHeader("x-ms-version", "2012-03-01");
+            }
             if( wire.isDebugEnabled() ) {
                 wire.debug(get.getRequestLine().toString());
                 for( Header header : get.getAllHeaders() ) {
@@ -608,7 +613,13 @@ public class AzureMethod {
             HttpRequestBase httpMethod = getMethod(method, url);
 
             httpMethod.addHeader("Content-Type", "application/xml;charset=UTF-8");
-            httpMethod.addHeader("x-ms-version", "2012-03-01");
+
+            if (url.indexOf("/services/images") > -1) {
+                httpMethod.addHeader("x-ms-version", "2012-08-01");
+            }
+            else {
+                httpMethod.addHeader("x-ms-version", "2012-03-01");
+            }
             if( wire.isDebugEnabled() ) {
                 wire.debug(httpMethod.getRequestLine().toString());
                 for( Header header : httpMethod.getAllHeaders() ) {

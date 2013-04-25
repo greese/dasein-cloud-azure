@@ -19,10 +19,7 @@ import java.util.TreeMap;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.NameRules;
-import org.dasein.cloud.ProviderContext;
+import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureStorageMethod;
@@ -909,6 +906,10 @@ public class BlobStore extends AbstractBlobStoreSupport {
     @Override
     public @Nonnull Blob createBucket(@Nonnull String bucketName, boolean findFreeName) throws InternalException, CloudException {
         logger.debug("ENTER - " + BlobStore.class.getName() + ".createBucket(" + bucketName + "," + findFreeName);
+        if (bucketName.contains("/")) {
+            throw new OperationNotSupportedException("Nested buckets not supported");
+        }
+
         try {
             ProviderContext ctx = provider.getContext();
 
@@ -1037,7 +1038,7 @@ public class BlobStore extends AbstractBlobStoreSupport {
     @Override
     public Blob getObject(@Nullable String bucketName, @Nonnull String objectName) throws InternalException, CloudException {
         if( bucketName == null ) {
-            throw new CloudException("No bucket was specified for this request");
+            return null;
         }
         for( Blob blob : list(bucketName) ) {
             String name = blob.getObjectName();
@@ -1489,7 +1490,7 @@ public class BlobStore extends AbstractBlobStoreSupport {
     @Override
     public @Nonnull Blob upload(@Nonnull File source, @Nullable String bucket, @Nonnull String fileName) throws CloudException, InternalException {
         if( bucket == null ) {
-            throw new CloudException("No bucket was specified for this request");
+            throw new OperationNotSupportedException("Root objects not supported in cloud");
         }
         if( !exists(bucket) ) {
             createBucket(bucket, false);

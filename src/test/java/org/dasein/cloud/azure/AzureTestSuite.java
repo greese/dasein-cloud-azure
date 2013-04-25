@@ -18,12 +18,8 @@
 
 package org.dasein.cloud.azure;
 
-import junit.framework.Test;
-import org.dasein.cloud.test.ComprehensiveTestSuite;
-import org.dasein.cloud.test.TestConfigurationException;
+import org.dasein.cloud.test.GlobalTestSuite;
+import org.dasein.cloud.test.StatelessTestSuite;
 
-public class AzureTestSuite {
-    static public Test suite() throws TestConfigurationException {
-        return new ComprehensiveTestSuite(Azure.class);
-    }
+public class AzureTestSuite extends GlobalTestSuite{
 }

@@ -10,23 +10,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.Requirement;
-import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.identity.ServiceAction;
-import org.dasein.cloud.network.IPVersion;
-import org.dasein.cloud.network.NICCreateOptions;
-import org.dasein.cloud.network.NetworkInterface;
-import org.dasein.cloud.network.Networkable;
-import org.dasein.cloud.network.RoutingTable;
-import org.dasein.cloud.network.Subnet;
-import org.dasein.cloud.network.VLAN;
-import org.dasein.cloud.network.VLANSupport;
+import org.dasein.cloud.network.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -95,7 +84,17 @@ public class AzureVlanSupport implements VLANSupport {
 		return true;
 	}
 
-	@Override
+    @Override
+    public boolean allowsMultipleTrafficTypesOverSubnet() throws CloudException, InternalException {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public boolean allowsMultipleTrafficTypesOverVlan() throws CloudException, InternalException {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public void assignRoutingTableToSubnet(String subnetId,String routingTableId) throws CloudException, InternalException {
 		// TODO Auto-generated method stub
 
@@ -141,7 +140,13 @@ public class AzureVlanSupport implements VLANSupport {
 		return null;
 	}
 
-	@Override
+    @Nonnull
+    @Override
+    public Subnet createSubnet(@Nonnull SubnetCreateOptions subnetCreateOptions) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public VLAN createVlan(String cidr, String name, String description, String domainName, String[] dnsServers, String[] ntpServers)throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVlanSupport.class.getName() + ".createVlan()");
@@ -306,7 +311,18 @@ public class AzureVlanSupport implements VLANSupport {
 		return null;		
 	}
 
-	@Override
+    @Nonnull
+    @Override
+    public Requirement identifySubnetDCRequirement() throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public boolean isConnectedViaInternetGateway(@Nonnull String s) throws CloudException, InternalException {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public boolean isNetworkInterfaceSupportEnabled() throws CloudException,InternalException {
 		// TODO Auto-generated method stub
 		return false;
@@ -488,7 +504,17 @@ public class AzureVlanSupport implements VLANSupport {
 
 	}
 
-	@Override
+    @Override
+    public void removeVLANTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void removeVLANTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public boolean supportsInternetGatewayCreation() throws CloudException, InternalException {
 		// TODO Auto-generated method stub
 		return false;
@@ -500,9 +526,19 @@ public class AzureVlanSupport implements VLANSupport {
 		// TODO Auto-generated method stub
 		return false;
 	}
-	
-	
-   private @Nullable Iterable<VLAN> toVLAN(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
+
+    @Override
+    public void updateVLANTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void updateVLANTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+
+    private @Nullable Iterable<VLAN> toVLAN(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
         if( entry == null ) {
             return null;
         }

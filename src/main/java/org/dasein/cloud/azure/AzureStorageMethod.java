@@ -603,7 +603,7 @@ public class AzureStorageMethod {
             }else{
             	contentLength = "0";        	
             }
-  
+
             HttpRequestBase method = getMethod(strMethod, buildUrl(resource, queries),queries, headerMap, authorization);
   
             if( wire.isDebugEnabled() ) {
@@ -899,7 +899,7 @@ public class AzureStorageMethod {
             if( headerMap == null ) {
                 headerMap = new HashMap<String, String>();
             }
-  
+
             HttpRequestBase method = getMethod(strMethod, buildUrl(resource, queries), queries, headerMap, authorization );
      	
             if( wire.isDebugEnabled() ) {
@@ -1154,7 +1154,7 @@ public class AzureStorageMethod {
             }else{
             	contentLength = "0";        	
             }
- 
+
             HttpRequestBase method = getMethod(strMethod, buildUrl(resource, queries), queries, headerMap, authorization );
      	
             if( wire.isDebugEnabled() ) {
@@ -1273,7 +1273,7 @@ public class AzureStorageMethod {
             }else{
             	contentLength = "0";        	
             }
- 
+
             HttpRequestBase method = getMethod(strMethod, buildUrl(resource, queries), queries, headerMap, authorization );
      	
             if( wire.isDebugEnabled() ) {

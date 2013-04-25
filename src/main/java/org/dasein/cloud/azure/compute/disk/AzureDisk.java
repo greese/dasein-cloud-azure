@@ -18,23 +18,12 @@ package org.dasein.cloud.azure.compute.disk;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.Requirement;
-import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.compute.vm.AzureVM;
-import org.dasein.cloud.compute.Platform;
-import org.dasein.cloud.compute.VirtualMachine;
-import org.dasein.cloud.compute.Volume;
-import org.dasein.cloud.compute.VolumeCreateOptions;
-import org.dasein.cloud.compute.VolumeFormat;
-import org.dasein.cloud.compute.VolumeProduct;
-import org.dasein.cloud.compute.VolumeState;
-import org.dasein.cloud.compute.VolumeSupport;
+import org.dasein.cloud.compute.*;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Storage;
@@ -256,7 +245,7 @@ public class AzureDisk implements VolumeSupport {
             	logger.trace("Can not identify the lun number");
             	throw new InternalException("logical unit number of disk is null, detach operation can not be continue!");
            	}
-         	String resourceDir = HOSTED_SERVICES + "/" + vm.getTag("serviceName") + "/deployments" + "/" +  vm.getProviderVirtualMachineId() + "/roles"+"/" + vm.getProviderVirtualMachineId() + "/DataDisks" + "/" + lun;
+         	String resourceDir = HOSTED_SERVICES + "/" + vm.getTag("serviceName") + "/deployments" + "/" +  vm.getTag("deploymentName") + "/roles"+"/" + vm.getTag("roleName") + "/DataDisks" + "/" + lun;
          	                                
             AzureMethod method = new AzureMethod(provider);
             
@@ -280,7 +269,7 @@ public class AzureDisk implements VolumeSupport {
 
         VirtualMachine vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(providerVirtualMachineId);
 
-     	String resourceDir =  HOSTED_SERVICES + "/"+ vm.getTag("serviceName") + "/deployments" + "/" + vm.getProviderVirtualMachineId();
+     	String resourceDir =  HOSTED_SERVICES + "/"+ vm.getTag("serviceName") + "/deployments" + "/" + vm.getTag("deploymentName");
      	
      	Document doc = method.getAsXML(provider.getContext().getAccountNumber(),resourceDir);
 		
@@ -424,6 +413,13 @@ public class AzureDisk implements VolumeSupport {
         return disks;
     	
     }
+
+    @Nonnull
+    @Override
+    public Iterable<Volume> listVolumes(@Nullable VolumeFilterOptions volumeFilterOptions) throws InternalException, CloudException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
     private boolean isWithinDeviceList(String device) throws InternalException, CloudException{
     	ArrayList<String> list = (ArrayList<String>) listPossibleDeviceIds(Platform.UNIX);
     	
@@ -461,6 +457,26 @@ public class AzureDisk implements VolumeSupport {
                 logger.trace("EXIT: " + AzureDisk.class.getName() + ".launch()");
             }
         }
+    }
+
+    @Override
+    public void removeTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void removeTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void updateTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void updateTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
