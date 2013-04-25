@@ -79,8 +79,9 @@ import java.util.TreeSet;
  * Handles connectivity to Microsoft Azure Storage services.
  * @author George Reese (george.reese@imaginary.com)
  * @author Qunying Huang (qunying.huang@enstratus.com)
+ * @author Danielle Mayne (danielle.mayne@enstratius.com)
  * @since 2012.07.1
- * @version 2012.07.1
+ * @version 2013.04.1
  */
 public class AzureStorageMethod {
     static private final Logger logger = Azure.getLogger(AzureStorageMethod.class);
@@ -271,146 +272,6 @@ public class AzureStorageMethod {
             throw new InternalException(e);
         }
     }
-
-    /* SharedKey
-	private String calculatedSharedKeySignature(HttpRequestBase method,  String serviceResource, Map<String, String> queries, String contentLength) throws  CloudException, InternalException {
-        fetchKeys();
-
-        ProviderContext ctx = provider.getContext();
-
-        if( ctx == null ) {
-            throw new AzureConfigException("No context was specified for this request");
-        }
-        Header h = method.getFirstHeader("content-type");
-        String contentType = "", encoding = "";
-
-        if( h != null && h.getValue() != null ) {
-            contentType = h.getValue();
-            if( contentType == null ) {
-                contentType = "";
-            }
-        }
-        h = method.getFirstHeader("content-encoding");
-        if( h != null ) {
-            encoding = h.getValue();
-            if( encoding == null ) {
-                encoding = "";
-            }
-        }
-        if( contentLength == null ) {
-            contentLength = "";
-        }
-        StringBuilder stringToSign = new StringBuilder();
-
-        stringToSign.append(method.getMethod().toUpperCase()).append("\n");
-        stringToSign.append("\n"); // content encoding
-        stringToSign.append("\n"); // content-language
-        stringToSign.append("").append("\n"); // content-length
-        stringToSign.append("\n"); // content-md5
-        stringToSign.append(contentType).append("\n");
-        stringToSign.append("\n"); // date ignored since we specify x-ms-date
-        stringToSign.append("\n"); // if-modified-since
-        stringToSign.append("\n"); // if-match
-        stringToSign.append("\n"); // if-none-match
-        stringToSign.append("\n"); // if-unmodified-since
-        stringToSign.append("\n"); // range
-
-		Header[] headers = method.getAllHeaders();
-        TreeSet<String> keys = new TreeSet<String>();
-
-        for( Header header  : headers ) {
-            if( header.getName().startsWith(Header_Prefix_MS) ) {
-                keys.add(header.getName().toLowerCase());
-            }
-        }
-        for( String key : keys ) {
-            Header header = method.getFirstHeader(key);
-
-            if( header != null ) {
-                Header[] all = method.getHeaders(key);
-
-                stringToSign.append(key.toLowerCase().trim()).append(":");
-                if( all != null && all.length > 0 ) {
-                    for( Header current : all ) {
-                        String v = (current.getValue() != null ? current.getValue() : "");
-
-                       stringToSign.append(v.trim().replaceAll("\n", " ")).append(",");
-                    }
-                }
-                stringToSign.deleteCharAt(stringToSign.lastIndexOf(","));
-            }
-            else {
-                stringToSign.append(key.toLowerCase().trim()).append(":");
-            }
-            stringToSign.append("\n");
-        }
-
-        stringToSign.append("/").append(getStorageAccount()).append(method.getURI().getPath()).append("\n");
-
-        keys.clear();
-        for( String key : queries.keySet() ) {
-            String value = queries.get(key);
-
-            queries.remove(key);
-            key = key.toLowerCase();
-            queries.put(key, value);
-            keys.add(key);
-        }
-        for( String key : keys ) {
-            String value = queries.get(key);
-
-            if( value == null ) {
-                value = "";
-            }
-            stringToSign.append(key).append(":").append(value).append("\n");
-		}
-	
-		try {
-            System.out.println("String to sign:\n---\n" + stringToSign.toString() + "---");
-
-
-
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(Base64.decodeBase64(ctx.getStoragePrivate()), "HmacSHA256"));
-
-            return new String(Base64.encodeBase64(mac.doFinal(stringToSign.toString().getBytes("UTF-8"))));
-        }
-        catch (UnsupportedEncodingException e) {
-			throw new InternalException(e.getMessage());
-		}
-		catch (NoSuchAlgorithmException e) {
-			throw new InternalException(e.getMessage());
-		}
-		catch (InvalidKeyException e) {
-			throw new InternalException(e.getMessage());
-		}	
-	}
-
-	public String createSignatureString(Map<String, String> signatureMap)  throws CloudException, InternalException{
-		fetchKeys();
-		String StringToSign =  signatureMap.get("signedpermissions")  + "\n"
-				 + signatureMap.get("signedstart")  + "\n"
-				 + signatureMap.get("signedexpiry")   + "\n"
-				 + signatureMap.get("canonicalizedresource")   + "\n"
-	             + signatureMap.get("signedidentifier")    + "\n"
-	             + signatureMap.get("signedversion");		
-		try {	
-			
-			 Mac mac = Mac.getInstance("HmacSHA256");
-		        
-			 mac.init(new SecretKeySpec(provider.getContext().getStoragePrivate(), "HmacSHA256"));
-		    
-			 return new String(Base64.encodeBase64(mac.doFinal(StringToSign.getBytes("utf-8"))));
-
-		} catch (UnsupportedEncodingException e) {
-			throw new InternalException(e.getMessage());
-		} catch (NoSuchAlgorithmException e) {
-			throw new InternalException(e.getMessage());
-		} catch (InvalidKeyException e) {
-			throw new InternalException(e.getMessage());
-		}
-	}
-		*/
 
     public static Document createDoc() throws InternalException{
 		try {

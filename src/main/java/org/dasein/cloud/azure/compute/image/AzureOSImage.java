@@ -286,14 +286,11 @@ public class AzureOSImage implements MachineImageSupport {
 
     @Override
     public AzureMachineImage getMachineImage(@Nonnull String machineImageId) throws CloudException, InternalException {
-
-        logger.debug("----------------------------------------------------------machine image id: "+machineImageId);
         final ProviderContext ctx = provider.getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was specified for this request");
         }
-       // System.out.println("Trying to get image "+machineImageId);
 
         PopulatorThread<MachineImage> populator;
 
@@ -302,7 +299,9 @@ public class AzureOSImage implements MachineImageSupport {
             public void populate(@Nonnull Jiterator<MachineImage> iterator) throws CloudException, InternalException {
                 try {
 
-                    populateImages(ctx, iterator, MICROSOFT, ctx.getAccountNumber(), "--public--");
+                    populateImages(ctx, iterator, MICROSOFT, ctx.getAccountNumber(), "--public--",
+                            "--Canonical--", "--RightScaleLinux--", "--RightScaleWindows--",
+                            "--OpenLogic--", "--SUSE--");
                 }
                 finally {
                     provider.release();
@@ -352,13 +351,10 @@ public class AzureOSImage implements MachineImageSupport {
     @Override
     public @Nonnull AsynchronousTask<String> imageVirtualMachine(String vmId, String name, String description) throws CloudException, InternalException {
         @SuppressWarnings("ConstantConditions") final VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(vmId);
-         //System.out.println("Enter imageVirtualMachine");
         if( server == null ) {
-            //System.out.println("No such virtual machine: " + vmId);
             throw new CloudException("No such virtual machine: " + vmId);
         }
         if( !server.getCurrentState().equals(VmState.STOPPED) ) {
-            //System.out.println("The server must be paused in order to create an image.");
             throw new CloudException("The server must be paused in order to create an image.");
         }
         final AsynchronousTask<String> task = new AsynchronousTask<String>();
@@ -368,9 +364,7 @@ public class AzureOSImage implements MachineImageSupport {
         Thread t = new Thread() {
             public void run() {
                 try {
-                    //System.out.println("new thread image machine "+server.getName()+", "+fname);
                     String imageId = imageVirtualMachine(server, fname, fdesc, task);
-                     //System.out.println("completed: "+imageId);
                   //  task.completeWithResult(imageId);
                 }
                 catch( Throwable t ) {
@@ -397,14 +391,12 @@ public class AzureOSImage implements MachineImageSupport {
 
             try {
                 label = new String(Base64.encodeBase64(description.getBytes("utf-8")));
-                //System.out.println("image label "+label);
             }
             catch( UnsupportedEncodingException e ) {
                 throw new InternalException(e);
             }
 
             String vmId = vm.getProviderVirtualMachineId();
-            //System.out.println("vmid: "+vmId);
             String[] parts = vmId.split(":");
             String serviceName, deploymentName, roleName;
 
@@ -424,7 +416,6 @@ public class AzureOSImage implements MachineImageSupport {
                 roleName = vmId;
             }
             String resourceDir = AzureVM.HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
-               //System.out.println("ResourceDir = "+resourceDir);
             AzureMethod method = new AzureMethod(provider);
             StringBuilder xml = new StringBuilder();
 
@@ -436,8 +427,6 @@ public class AzureOSImage implements MachineImageSupport {
             xml.append("</CaptureRoleOperation>\n");
 
             task.setPercentComplete(2.0);
-            //System.out.println("About to image machine: "+name);
-            //System.out.println(xml);
             method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
             return name;
         }
@@ -463,7 +452,16 @@ public class AzureOSImage implements MachineImageSupport {
     public boolean isImageSharedWithPublic(@Nonnull String machineImageId) throws CloudException, InternalException {
         MachineImage img = getMachineImage(machineImageId);
         
-        return (img != null && (MICROSOFT.equals(img.getProviderOwnerId()) || "--public--".equals(img.getProviderOwnerId())) );
+        return (img != null &&
+                (MICROSOFT.equals(img.getProviderOwnerId())
+                    || "--public--".equals(img.getProviderOwnerId())
+                    || "--Canonical--".equals(img.getProviderOwnerId())
+                    || "--RightScaleLinux--".equals(img.getProviderOwnerId())
+                    || "--RightScaleWindows--".equals(img.getProviderOwnerId())
+                    || "--OpenLogic--".equals(img.getProviderOwnerId())
+                    || "--SUSE--".equals(img.getProviderOwnerId())
+                )
+                );
     }
 
     @Override
@@ -497,7 +495,6 @@ public class AzureOSImage implements MachineImageSupport {
         }
         NodeList entries = doc.getElementsByTagName("OSImage");
 
-         // System.out.println("Entries: "+entries.getLength());
         for( int i=0; i<entries.getLength(); i++ ) {
             String ownerId = "";
             String id = "";
@@ -510,11 +507,9 @@ public class AzureOSImage implements MachineImageSupport {
 
                 if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
                     id = (attribute.getFirstChild().getNodeValue().trim());
-                   // System.out.println("Found image: "+id);
                 }
                 if( nodeName.equalsIgnoreCase("category") && attribute.hasChildNodes() ) {
                     String c = attribute.getFirstChild().getNodeValue().trim();
-                   // System.out.println("Owner of "+id+" is "+c);
 
                     if( "user".equalsIgnoreCase(c) ) {
                         ownerId = (ctx.getAccountNumber());
@@ -528,14 +523,12 @@ public class AzureOSImage implements MachineImageSupport {
                     else if( "Canonical".equalsIgnoreCase(c) ) {
                         ownerId = ("--Canonical--");
                     }
-                  //  System.out.println("Converted owner of "+id+" is "+ownerId);
                 }
             }
             ResourceStatus status = new ResourceStatus(id, MachineImageState.ACTIVE);
 
             if( status != null ) {
                 if( owner.equalsIgnoreCase(ownerId) ) {
-                  //  System.out.println("Status added as owner matches me "+id);
                     list.add(status);
                 }
             }
@@ -550,22 +543,39 @@ public class AzureOSImage implements MachineImageSupport {
             return Collections.emptyList();
         }
 
-        ProviderContext ctx = provider.getContext();
+        final ProviderContext ctx = provider.getContext();
 
-        ArrayList<MachineImage> allImages = listMachineImages();
-        //System.out.println("Got "+ allImages.size()+" images now checking the options");
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
 
-        ArrayList<MachineImage> list = new ArrayList<MachineImage>();
+        ArrayList<MachineImage> images = new ArrayList<MachineImage>();
+        AzureMethod method = new AzureMethod(provider);
 
-        for (MachineImage img : allImages) {
-            img.setImageClass(ImageClass.MACHINE);
-            if (imageFilterOptions.matches(img) && ctx.getAccountNumber().equals(img.getProviderOwnerId())) {
-                System.out.println("image "+img.getName()+" added");
-                list.add(img);
+        Document doc = method.getAsXML(ctx.getAccountNumber(), IMAGES);
+
+        if( doc == null ) {
+            throw new CloudException(CloudErrorType.AUTHENTICATION, HttpServletResponse.SC_FORBIDDEN, "Illegal Access", "Illegal access to requested resource");
+        }
+        NodeList entries = doc.getElementsByTagName("OSImage");
+
+        for( int i=0; i<entries.getLength(); i++ ) {
+            Node entry = entries.item(i);
+            AzureMachineImage image = toImage(ctx, entry);
+
+            image.setImageClass(ImageClass.MACHINE);
+            if (imageFilterOptions.matches(image)) {
+               if (imageFilterOptions.getAccountNumber() == null) {
+                   if (ctx.getAccountNumber().equals(image.getProviderOwnerId())) {
+                       images.add(image);
+                   }
+               }
+               else if (image.getProviderOwnerId().equalsIgnoreCase(imageFilterOptions.getAccountNumber())) {
+                       images.add(image);
+               }
             }
         }
-        //System.out.println("number of images returned "+list.size());
-        return list;
+        return images;
     }
 
     @Nonnull
@@ -579,7 +589,6 @@ public class AzureOSImage implements MachineImageSupport {
 
         String me = ctx.getAccountNumber();
         ArrayList<MachineImage> allImages = listMachineImages();
-        //System.out.println("Got "+ allImages.size()+" images now checking the provider owner id");
 
         ArrayList<MachineImage> list = new ArrayList<MachineImage>();
 
@@ -590,9 +599,7 @@ public class AzureOSImage implements MachineImageSupport {
                 list.add(img);
             }
         }
-        //System.out.println("number of images returned "+list.size());
         return list;
-        //return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Nonnull
@@ -606,7 +613,6 @@ public class AzureOSImage implements MachineImageSupport {
 
         String me = ctx.getAccountNumber();
         ArrayList<MachineImage> allImages = listMachineImages();
-        //System.out.println("Got "+ allImages.size()+" images now checking the provider owner id");
 
         ArrayList<MachineImage> list = new ArrayList<MachineImage>();
 
@@ -617,7 +623,6 @@ public class AzureOSImage implements MachineImageSupport {
                 list.add(img);
             }
         }
-        //System.out.println("number of images returned "+list.size());
         return list;
     }
 
@@ -642,58 +647,25 @@ public class AzureOSImage implements MachineImageSupport {
         for( int i=0; i<entries.getLength(); i++ ) {
             Node entry = entries.item(i);
             AzureMachineImage image = toImage(ctx, entry);
-            list.add(image);
 
-            /*if( image != null ) {
-               // if(accounts != null){
-               //     for( String accountNumber : accounts ) {
-                        if( ctx.getAccountNumber().equalsIgnoreCase(image.getProviderOwnerId())) {
-                           // iterator.push(image);
-                            System.out.println("Image "+image.getProviderMachineImageId()+" added as it is owned by me");
-                            list.add(image);
-                            break;
-                        }
-              //      }
-              //  }
-                else if( image.getProviderOwnerId() == null || MICROSOFT.equals(image.getProviderOwnerId()) || "--public--".equals(image.getProviderOwnerId()) ) {
-                   // iterator.push(image);
-                            System.out.println("Image "+image.getProviderMachineImageId()+" added as owner is null, Microsoft or public: "+image.getProviderOwnerId());
-                            list.add(image);
-                }
-            } */
-        }
-        //System.out.println("Found "+list.size()+ " images");
-        return list;
-
-        /*
-        PopulatorThread<MachineImage> populator;
-        final String owner = ctx.getAccountNumber();
-
-        provider.hold();
-        populator = new PopulatorThread<MachineImage>(new JiteratorPopulator<MachineImage>() {
-            public void populate(@Nonnull Jiterator<MachineImage> iterator) throws CloudException, InternalException {
-                try {
-                    populateImages(ctx, iterator,owner);
-                }
-                finally {
-                    provider.release();
+            if( image != null ) {
+                if( ctx.getAccountNumber().equalsIgnoreCase(image.getProviderOwnerId())) {
+                    list.add(image);
                 }
             }
-        });
-        populator.populate();
-        System.out.println(populator.getResult().size() +" images returned");
-        return populator.getResult();
-        */
+        }
+        return list;
     }
 
     @Override
     public @Nonnull Iterable<MachineImage> listMachineImagesOwnedBy(String accountId) throws CloudException, InternalException {
-        final String[] accounts = (accountId == null ? new String[] { MICROSOFT, "--public--"} : new String[] { accountId });
         final ProviderContext ctx = provider.getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was specified for this request");
         }
+
+        final String[] accounts = (accountId == null ? new String[] { ctx.getAccountNumber() } : new String[] { accountId });
 
         PopulatorThread<MachineImage> populator;
 
@@ -756,7 +728,6 @@ public class AzureOSImage implements MachineImageSupport {
         if( doc == null ) {
             throw new CloudException(CloudErrorType.AUTHENTICATION, HttpServletResponse.SC_FORBIDDEN, "Illegal Access", "Illegal access to requested resource");
         }
-        //System.out.println("Found images");
         NodeList entries = doc.getElementsByTagName("OSImage");
 
         for( int i=0; i<entries.getLength(); i++ ) {
@@ -812,8 +783,8 @@ public class AzureOSImage implements MachineImageSupport {
 
             AzureMethod method = new AzureMethod(provider);
 
-            method.invoke("DELETE",ctx.getAccountNumber(), IMAGES + "/" + machineImageId, null);
-            //TODO need to delete the image disk blob?             
+            //dmayne 20130425: delete image blob too
+            method.invoke("DELETE",ctx.getAccountNumber(), IMAGES + "/" + machineImageId+"?comp=media", null);
         }
         finally {
             if( logger.isTraceEnabled() ) {
@@ -829,7 +800,7 @@ public class AzureOSImage implements MachineImageSupport {
 
     @Override
     public void removeAllImageShares(@Nonnull String providerImageId) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("No ability to share images");
+        //No-OP
     }
 
     @Override
@@ -858,7 +829,9 @@ public class AzureOSImage implements MachineImageSupport {
         populator = new PopulatorThread<MachineImage>(new JiteratorPopulator<MachineImage>() {
             public void populate(@Nonnull Jiterator<MachineImage> iterator) throws CloudException, InternalException {
                 try {
-                    populateImages(ctx, iterator, MICROSOFT, ctx.getAccountNumber(), "--public--");
+                    populateImages(ctx, iterator, MICROSOFT, ctx.getAccountNumber(), "--public--",
+                            "--Canonical--", "--RightScaleLinux--", "--RightScaleWindows--",
+                            "--OpenLogic--", "--SUSE--");
                 }
                 finally {
                     provider.release();
@@ -1074,7 +1047,6 @@ throw new OperationNotSupportedException("You cannot transfer Azure images");
             }
         }
         if( image.getProviderMachineImageId() == null ) {
-            //System.out.println("No image id");
             return null;
         }
         if( image.getName() == null ) {

@@ -361,6 +361,7 @@ public class AzureVM implements VirtualMachineSupport {
             xml.append("<ConfigurationSets>");
 
             String password = (options.getBootstrapPassword() == null ? provider.generateToken(8, 15) : options.getBootstrapPassword());
+            System.out.println("VM password "+password);
 
             if( image.getPlatform().isWindows() ) {
                 xml.append("<WindowsProvisioningConfigurationSet>");
@@ -739,11 +740,6 @@ public class AzureVM implements VirtualMachineSupport {
                                 role.setProviderVirtualMachineId(serviceName + ":" + vmId);
                                 role.setName(vmId);
                             }
-                            //else if( roleAttribute.getNodeName().equalsIgnoreCase("InstanceStatus") && roleAttribute.hasChildNodes() ) {
-                            //    String status = roleAttribute.getFirstChild().getNodeValue().trim();
-
-                            //    System.out.println("INSTANCE STATUS=" + status);
-                            //}
                             else if( roleAttribute.getNodeName().equalsIgnoreCase("instancesize") && roleAttribute.hasChildNodes() ) {
                                 role.setProductId(roleAttribute.getFirstChild().getNodeValue().trim());
                             }
