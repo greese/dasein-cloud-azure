@@ -314,7 +314,7 @@ public class AzureVM implements VirtualMachineSupport {
             if( image == null ) {
                 throw new CloudException("No such image: " + options.getMachineImageId());
             }
-             System.out.println("launch vm: image name: "+image.getName());
+             System.out.println("launch vm: image name: "+image.getName()+", id "+image.getProviderMachineImageId());
             logger.debug("----------------------------------------------------------");
 
             ProviderContext ctx = provider.getContext();
@@ -410,8 +410,6 @@ public class AzureVM implements VirtualMachineSupport {
             xml.append("<ConfigurationSet>");
             xml.append("<ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>") ;
             xml.append("<InputEndpoints><InputEndpoint>");
-            //dmayne 20130415: following line seems to break everything
-           // xml.append("<EnableDirectServerReturn>false</EnableDirectServerReturn>");
             xml.append("<LoadBalancedEndpointSetName>blah</LoadBalancedEndpointSetName>");
             xml.append("<LocalPort>22</LocalPort>");
             xml.append("<Name>SSH</Name>");
@@ -1513,6 +1511,7 @@ public class AzureVM implements VirtualMachineSupport {
                     logger.info("Deleting deployments for " + serviceName);
                 }
                 try {
+                    System.out.println("Deleting deployment");
                     method.invoke("DELETE", ctx.getAccountNumber(), resourceDir, "");
                     break;
                 }
@@ -1545,6 +1544,7 @@ public class AzureVM implements VirtualMachineSupport {
                     if( logger.isInfoEnabled() ) {
                         logger.info("Deleting hosted service " + serviceName);
                     }
+                    System.out.println("Deleting hosted service");
                     method.invoke("DELETE", ctx.getAccountNumber(), resourceDir, "");
                     return;
                 }

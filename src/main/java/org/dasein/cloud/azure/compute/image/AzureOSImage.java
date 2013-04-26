@@ -775,11 +775,6 @@ public class AzureOSImage implements MachineImageSupport {
                 throw new CloudException("No such machine image: " + machineImageId);
             }
             String imageLabel = image.getName();
-          /*  StringBuilder xml = new StringBuilder();
-
-            xml.append("<OSImage xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-            xml.append("<Label>").append(imageLabel).append("</Label>");
-            xml.append("</OSImage>");    */
 
             AzureMethod method = new AzureMethod(provider);
 

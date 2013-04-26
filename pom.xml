@@ -265,7 +265,7 @@
                     <includes>
                          <include>**/AzureTestSuite.java</include>
                     </includes>
-                    <argLine>-Ddasein.inclusions=StatefulImageTests</argLine>
+                    <argLine>-Ddasein.inclusions=StatefulImageTests,StatelessImageTests</argLine>
                 </configuration>
             </plugin>
             <plugin>
