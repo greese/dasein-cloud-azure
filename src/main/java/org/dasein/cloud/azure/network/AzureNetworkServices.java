@@ -82,8 +82,7 @@ public class AzureNetworkServices implements NetworkServices {
 
     @Override
 	public boolean hasVlanSupport() {
-		// TODO Auto-generated method stub
-		return false;
+		return true;
 	}
 
 	@Override

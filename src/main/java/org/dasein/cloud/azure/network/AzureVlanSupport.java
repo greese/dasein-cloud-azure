@@ -1,10 +1,7 @@
 package org.dasein.cloud.azure.network;
 
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Locale;
+import java.util.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,19 +30,18 @@ public class AzureVlanSupport implements VLANSupport {
 
 	@Override
 	public String[] mapServiceAction(ServiceAction action) {
-		// TODO Auto-generated method stub
 		return new String[0];
 	}
 
 	@Override
 	public void addRouteToAddress(String toRoutingTableId, IPVersion version,String destinationCidr, String address) throws CloudException,InternalException {
-		// TODO Auto-generated method stub
+        throw new OperationNotSupportedException("Routing tables not supported");
 
 	}
 
 	@Override
 	public void addRouteToGateway(String toRoutingTableId, IPVersion version,String destinationCidr, String gatewayId) throws CloudException,InternalException {
-		// TODO Auto-generated method stub
+        throw new OperationNotSupportedException("Routing tables not supported");
 
 	}
 
@@ -53,7 +49,7 @@ public class AzureVlanSupport implements VLANSupport {
 	public void addRouteToNetworkInterface(String toRoutingTableId,
 			IPVersion version, String destinationCidr, String nicId)
 			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
+        throw new OperationNotSupportedException("Routing tables not supported");
 
 	}
 
@@ -61,22 +57,20 @@ public class AzureVlanSupport implements VLANSupport {
 	public void addRouteToVirtualMachine(String toRoutingTableId,
 			IPVersion version, String destinationCidr, String vmId)
 			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
+        throw new OperationNotSupportedException("Routing tables not supported");
 
 	}
 
 	@Override
 	public boolean allowsNewNetworkInterfaceCreation() throws CloudException,
 			InternalException {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public boolean allowsNewVlanCreation() throws CloudException,
 			InternalException {
-		// TODO Auto-generated method stub
-		return false;
+		return true;
 	}
 
 	@Override
@@ -96,21 +90,21 @@ public class AzureVlanSupport implements VLANSupport {
 
     @Override
 	public void assignRoutingTableToSubnet(String subnetId,String routingTableId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
+        throw new OperationNotSupportedException("Routing tables not supported");
 
 	}
 
 	@Override
 	public void assignRoutingTableToVlan(String vlanId, String routingTableId)
 			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
+        throw new OperationNotSupportedException("Routing tables not supported");
 
 	}
 
 	@Override
 	public void attachNetworkInterface(String nicId, String vmId, int index)
 			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
+        throw new OperationNotSupportedException("Network interfaces not supported");
 
 	}
 
@@ -124,14 +118,12 @@ public class AzureVlanSupport implements VLANSupport {
 	@Override
 	public String createRoutingTable(String forVlanId, String name,
 			String description) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        throw new OperationNotSupportedException("Routing tables not supported");
 	}
 
 	@Override
 	public NetworkInterface createNetworkInterface(NICCreateOptions options)throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        throw new OperationNotSupportedException("Network interfaces not supported");
 	}
 
 	@Override
@@ -143,7 +135,8 @@ public class AzureVlanSupport implements VLANSupport {
     @Nonnull
     @Override
     public Subnet createSubnet(@Nonnull SubnetCreateOptions subnetCreateOptions) throws CloudException, InternalException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        //todo
+         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
@@ -179,7 +172,9 @@ public class AzureVlanSupport implements VLANSupport {
             xml.append("<NetworkConfiguration xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns=\"http://schemas.microsoft.com/ServiceHosting/2011/07/NetworkConfiguration\"");
             xml.append("<VirtualNetworkConfiguration>");
             xml.append("<VirtualNetworkSites>");
-            xml.append("VirtualNetworkSite name=\"" + AzureVPNSupport.ENSTRATUS_DEFAULT_VPN+ "\" AffinityGroup=\"" +  this.getAffinityGroup(name) +"\"");
+            //todo: why don't we pass in the name?  i am passing name parameter for now
+            // xml.append("VirtualNetworkSite name=\"" + AzureVPNSupport.ENSTRATUS_DEFAULT_VPN+ "\" AffinityGroup=\"" +  this.getAffinityGroup(name) +"\"");
+            xml.append("VirtualNetworkSite name=\"" + name+ "\" AffinityGroup=\"" +  this.getAffinityGroup(name) +"\"");
             xml.append("<AddressSpace>");
             xml.append("<AddressPrefix>"+ cidr +"</AddressPrefix>");
             xml.append("</AddressSpace>");
@@ -202,8 +197,9 @@ public class AzureVlanSupport implements VLANSupport {
             System.out.println("body -> " + xml.toString());
             String resourceDir = NETWORKING_SERVICES + "/media";
             method.post(ctx.getAccountNumber(),resourceDir, xml.toString());
-            // TODO: return VLAN
-            return null;
+
+            //dmayne 201230429: list vlans and find the one we need
+            return getVlan(name);
         }
         finally {
             if( logger.isTraceEnabled() ) {
@@ -212,27 +208,25 @@ public class AzureVlanSupport implements VLANSupport {
         }
 	}
 	
-	private String getAffinityGroup(String vlanName){
-		//TODO
-		return "Group1";
+	private String getAffinityGroup(String vlanName) throws InternalException,CloudException{
+		return provider.getAffinityGroup();
+		//return "Group1";
 	}
 
 	@Override
 	public void detachNetworkInterface(String nicId) throws CloudException,InternalException {
-		// TODO Auto-generated method stub
+        throw new OperationNotSupportedException("Network interfaces not supported");
 
 	}
 
 	@Override
 	public int getMaxNetworkInterfaceCount() throws CloudException,InternalException {
-		// TODO Auto-generated method stub
 		return 0;
 	}
 
 	@Override
 	public int getMaxVlanCount() throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return 0;
+		return 5;
 	}
 
 	@Override
@@ -242,7 +236,6 @@ public class AzureVlanSupport implements VLANSupport {
 
 	@Override
 	public String getProviderTermForSubnet(Locale locale) {
-		// TODO Auto-generated method stub
 		return "Subnet";
 	}
 
@@ -254,26 +247,22 @@ public class AzureVlanSupport implements VLANSupport {
 
 	@Override
 	public NetworkInterface getNetworkInterface(String nicId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public RoutingTable getRoutingTableForSubnet(String subnetId)throws CloudException, InternalException {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public Requirement getRoutingTableSupport() throws CloudException,InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        return Requirement.NONE;
 	}
 
 	@Override
 	public RoutingTable getRoutingTableForVlan(String vlanId)throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        return null;
 	}
 
 	@Override
@@ -294,8 +283,7 @@ public class AzureVlanSupport implements VLANSupport {
 
 	@Override
 	public Requirement getSubnetSupport() throws CloudException,InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		return Requirement.REQUIRED;
 	}
 
 	@Override
@@ -303,7 +291,7 @@ public class AzureVlanSupport implements VLANSupport {
 		ArrayList<VLAN> list = (ArrayList<VLAN>) listVlans();
 		if(list != null){ 
 			for(VLAN vlan: list){
-				if(vlan.getProviderVlanId().equals(vlanId)){
+				if(vlan.getProviderVlanId().equals(vlanId) || vlan.getName().equalsIgnoreCase(vlanId)){
 					return vlan;
 				}			
 			}
@@ -314,7 +302,7 @@ public class AzureVlanSupport implements VLANSupport {
     @Nonnull
     @Override
     public Requirement identifySubnetDCRequirement() throws CloudException, InternalException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return Requirement.REQUIRED;
     }
 
     @Override
@@ -324,20 +312,17 @@ public class AzureVlanSupport implements VLANSupport {
 
     @Override
 	public boolean isNetworkInterfaceSupportEnabled() throws CloudException,InternalException {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public boolean isSubscribed() throws CloudException, InternalException {
-		// TODO Auto-generated method stub
 		return true;
 	}
 
 	@Override
 	public boolean isSubnetDataCenterConstrained() throws CloudException,InternalException {
-		// TODO Auto-generated method stub
-		return false;
+		return true;
 	}
 
 	@Override
@@ -359,60 +344,120 @@ public class AzureVlanSupport implements VLANSupport {
 
     @Override
 	public Iterable<NetworkInterface> listNetworkInterfaces()throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        return Collections.emptyList();
 	}
 
 	@Override
 	public Iterable<NetworkInterface> listNetworkInterfacesForVM(String forVmId)throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        return Collections.emptyList();
 	}
 
 	@Override
 	public Iterable<NetworkInterface> listNetworkInterfacesInSubnet(
 			String subnetId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        return Collections.emptyList();
 	}
 
 	@Override
 	public Iterable<NetworkInterface> listNetworkInterfacesInVLAN(String vlanId)
 			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        return Collections.emptyList();
 	}
 
     @Nonnull
     @Override
     public Iterable<Networkable> listResources(@Nonnull String inVlanId) throws CloudException, InternalException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return Collections.emptyList();
     }
 
     @Override
 	public Iterable<RoutingTable> listRoutingTables(String inVlanId)
 			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        return Collections.emptyList();
 	}
 
 	@Override
 	public Iterable<Subnet> listSubnets(String inVlanId) throws CloudException,InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
+        AzureMethod method = new AzureMethod(provider);
+
+        Document doc = method.getAsXML(ctx.getAccountNumber(), NETWORKING_SERVICES+"/virtualnetwork");
+
+        NodeList entries = doc.getElementsByTagName("VirtualNetworkSite");
+        ArrayList<Subnet> list = new ArrayList<Subnet>();
+
+        for( int i=0; i<entries.getLength(); i++ ) {
+            Node entry = entries.item(i);
+            NodeList attributes = entry.getChildNodes();
+
+            String vlanId;
+            boolean found = false;
+
+            for( int j=0; j<attributes.getLength(); j++ ) {
+                Node attribute = attributes.item(j);
+                if(attribute.getNodeType() == Node.TEXT_NODE) continue;
+                String nodeName = attribute.getNodeName();
+
+                if (nodeName.equalsIgnoreCase("id") && attribute.hasChildNodes() ) {
+                    vlanId = attribute.getFirstChild().getNodeValue().trim();
+                    if (vlanId.equalsIgnoreCase(inVlanId)) {
+                        found = true;
+                        continue;
+                    }
+                }
+
+                //hopefully we have found the right vlan
+                if (found) {
+                    if (nodeName.equalsIgnoreCase("subnets") && attribute.hasChildNodes()) {
+                        NodeList sNets = attribute.getChildNodes();
+                        for (int k=0; k<sNets.getLength(); k++) {
+                            Node sAttrib = sNets.item(k);
+
+                            Subnet subnet = toSubnet(ctx, sAttrib, inVlanId);
+                            if( subnet != null ) {
+                                list.add(subnet);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return list;
 	}
 
 	@Override
 	public Iterable<IPVersion> listSupportedIPVersions() throws CloudException,
 			InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        return Collections.singletonList(IPVersion.IPV4);
 	}
 
     @Nonnull
     @Override
     public Iterable<ResourceStatus> listVlanStatus() throws CloudException, InternalException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
+        AzureMethod method = new AzureMethod(provider);
+
+        Document doc = method.getAsXML(ctx.getAccountNumber(), NETWORKING_SERVICES+"/virtualnetwork");
+
+        NodeList entries = doc.getElementsByTagName("VirtualNetworkSite");
+        ArrayList<ResourceStatus> list = new ArrayList<ResourceStatus>();
+
+        for( int i=0; i<entries.getLength(); i++ ) {
+            Node entry = entries.item(i);
+            ResourceStatus status = toVLANStatus(ctx, entry);
+            if( status != null ) {
+                list.add(status);
+            }
+        }
+        return list;
     }
 
     @Override
@@ -474,21 +519,21 @@ public class AzureVlanSupport implements VLANSupport {
 	@Override
 	public void removeNetworkInterface(String nicId) throws CloudException,
 			InternalException {
-		// TODO Auto-generated method stub
+        throw new OperationNotSupportedException("Network interfaces not supported");
 
 	}
 
 	@Override
 	public void removeRoute(String inRoutingTableId, String destinationCidr)
 			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
+        throw new OperationNotSupportedException("Routing tables not supported");
 
 	}
 
 	@Override
 	public void removeRoutingTable(String routingTableId)
 			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
+        throw new OperationNotSupportedException("Routing tables not supported");
 
 	}
 
@@ -538,57 +583,167 @@ public class AzureVlanSupport implements VLANSupport {
     }
 
 
+
+
     private @Nullable Iterable<VLAN> toVLAN(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
         if( entry == null ) {
             return null;
         }
-        
+
         ArrayList<VLAN> list= new ArrayList<VLAN>();
+
+        VLAN vlan = new VLAN();
+        vlan.setProviderOwnerId(ctx.getAccountNumber());
+        vlan.setProviderRegionId(ctx.getRegionId());
+        vlan.setProviderDataCenterId(ctx.getRegionId());
+        vlan.setSupportedTraffic(IPVersion.IPV4);
 
         HashMap<String,String> tags = new HashMap<String, String>();
         NodeList attributes = entry.getChildNodes();
-        String vpnName = null;
+        String id;
+        String value;
+        VLANState state;
+
         for( int i=0; i<attributes.getLength(); i++ ) {
             Node attribute = attributes.item(i);
             if(attribute.getNodeType() == Node.TEXT_NODE) continue;
             String nodeName = attribute.getNodeName();
-            
-            if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {            	
-            	vpnName = attribute.getFirstChild().getNodeValue().trim();
-            	tags.put(AzureVPNSupport.VPN_ID_KEY, vpnName);
-            }            
+
+            if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
+                vlan.setName(attribute.getFirstChild().getNodeValue().trim());
+            }
+            else if (nodeName.equalsIgnoreCase("label") && attribute.hasChildNodes() ) {
+                vlan.setDescription(attribute.getFirstChild().getNodeValue().trim());
+            }
+            else if (nodeName.equalsIgnoreCase("id") && attribute.hasChildNodes() ) {
+                id = attribute.getFirstChild().getNodeValue().trim();
+                tags.put(AzureVPNSupport.VPN_ID_KEY, id);
+                vlan.setProviderVlanId(id);
+            }
+            else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
+                if (!ctx.getRegionId().equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
+                    return null;
+                }
+                tags.put("AffinityGroup", attribute.getFirstChild().getNodeValue().trim());
+            }
+            else if (nodeName.equalsIgnoreCase("state") && attribute.hasChildNodes() ) {
+                value = attribute.getFirstChild().getNodeValue().trim();
+
+                if( value.equalsIgnoreCase("created") || value.equalsIgnoreCase("updating")) {
+                    state = VLANState.AVAILABLE;
+                }
+                else if( value.equalsIgnoreCase("creating") ) {
+                    state = VLANState.PENDING;
+                }
+                else {
+                    logger.warn("Unknown VLAN state: " + value);
+                    state = null;
+                }
+                vlan.setCurrentState(state);
+            }
             else if( nodeName.equalsIgnoreCase("AddressSpace") && attribute.hasChildNodes() ) {
                 NodeList addressSpaces = attribute.getChildNodes();
-                
+
                 for( int k=0; k<addressSpaces.getLength(); k++ ) {
                     Node addressSpace = addressSpaces.item(k);
-                    
+
                     if( addressSpace.getNodeName().equalsIgnoreCase("AddressPrefixes") && addressSpace.hasChildNodes() ) {
-                       
-                    	NodeList addressPrefixes  = addressSpace.getChildNodes();
-                    	
-                    	for( int l=0; l<addressPrefixes.getLength(); l++ ) {
-                            Node addressPrefix = addressPrefixes.item(l); 
-                            
+
+                        NodeList addressPrefixes  = addressSpace.getChildNodes();
+
+                        for( int l=0; l<addressPrefixes.getLength(); l++ ) {
+                            Node addressPrefix = addressPrefixes.item(l);
+
                             if( addressPrefix.getNodeName().equalsIgnoreCase("AddressPrefix") && addressPrefix.hasChildNodes() ) {
-                            	VLAN vlan = new VLAN();
-                            	vlan.setProviderVlanId(addressPrefix.getFirstChild().getNodeValue().trim());
-                            	                               
+                                //vlan.setProviderVlanId(addressPrefix.getFirstChild().getNodeValue().trim());
+                                vlan.setCidr(addressPrefix.getFirstChild().getNodeValue().trim());
+
                                 if( vlan.getName() == null ) {
-                                	vlan.setName(vlan.getProviderVlanId());
+                                    vlan.setName(vlan.getProviderVlanId());
                                 }
                                 if( vlan.getDescription() == null ) {
-                                	vlan.setDescription(vlan.getName());
-                                } 
+                                    vlan.setDescription(vlan.getName());
+                                }
                                 vlan.setTags(tags);
-                                                                
+
                                 list.add(vlan);
                             }
-                    	}                       
+                        }
                     }
                 }
             }
-        }       
+        }
         return list;
+    }
+
+    private @Nullable ResourceStatus toVLANStatus(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
+        if( entry == null ) {
+            return null;
+        }
+        String id= null;
+        String value = null;
+        VLANState state = null;
+
+
+        NodeList attributes = entry.getChildNodes();
+        for( int i=0; i<attributes.getLength(); i++ ) {
+            Node attribute = attributes.item(i);
+            if(attribute.getNodeType() == Node.TEXT_NODE) continue;
+            String nodeName = attribute.getNodeName();
+
+            if (nodeName.equalsIgnoreCase("id") && attribute.hasChildNodes() ) {
+                id = attribute.getFirstChild().getNodeValue().trim();
+            }
+            else if (nodeName.equalsIgnoreCase("state") && attribute.hasChildNodes() ) {
+                value = attribute.getFirstChild().getNodeValue().trim();
+
+                if( value.equalsIgnoreCase("created") || value.equalsIgnoreCase("updating")) {
+                    state = VLANState.AVAILABLE;
+                }
+                else if( value.equalsIgnoreCase("creating") ) {
+                    state = VLANState.PENDING;
+                }
+                else {
+                    logger.warn("Unknown VLAN state: " + value);
+                    state = null;
+                }
+            }
+            else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
+                if (!ctx.getRegionId().equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
+                    return null;
+                }
+            }
+
+        }
+        ResourceStatus status = new ResourceStatus(id, state);
+        return status;
+    }
+
+    private @Nullable Subnet toSubnet(@Nonnull ProviderContext ctx, @Nullable Node entry, @Nonnull String vlanId) throws CloudException, InternalException {
+        if( entry == null ) {
+            return null;
+        }
+
+        NodeList attributes = entry.getChildNodes();
+        String name = null;
+        String cidr= null;
+
+        for( int i=0; i<attributes.getLength(); i++ ) {
+            Node attribute = attributes.item(i);
+            if(attribute.getNodeType() == Node.TEXT_NODE) continue;
+
+            String nodeName = attribute.getNodeName();
+
+            if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
+                name = attribute.getFirstChild().getNodeValue().trim();
+            }
+            else if( nodeName.equalsIgnoreCase("AddressPrefix") && attribute.hasChildNodes() ) {
+                cidr = attribute.getFirstChild().getNodeValue().trim();
+            }
+        }
+
+        Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, cidr, SubnetState.AVAILABLE, name, name, cidr);
+        subnet.constrainedToDataCenter(ctx.getRegionId());
+        return subnet;
     }
 }

@@ -92,7 +92,6 @@ public class AzureOSImage implements MachineImageSupport {
                 throw new CloudException("Virtual machine not found: " + options.getVirtualMachineId());
             }
             provider.getComputeServices().getVirtualMachineSupport().stop(options.getVirtualMachineId());
-            String driveId = vm.getProviderMachineImageId();
 
             try {
                 try {
@@ -496,10 +495,8 @@ public class AzureOSImage implements MachineImageSupport {
         NodeList entries = doc.getElementsByTagName("OSImage");
 
         for( int i=0; i<entries.getLength(); i++ ) {
-            String ownerId = "";
-            String id = "";
             Node entry = entries.item(i);
-            NodeList attributes = entry.getChildNodes();
+            /*NodeList attributes = entry.getChildNodes();
             for( int j=0; j<attributes.getLength(); j++ ) {
                 Node attribute = attributes.item(j);
                 if(attribute.getNodeType() == Node.TEXT_NODE) continue;
@@ -508,7 +505,7 @@ public class AzureOSImage implements MachineImageSupport {
                 if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
                     id = (attribute.getFirstChild().getNodeValue().trim());
                 }
-                if( nodeName.equalsIgnoreCase("category") && attribute.hasChildNodes() ) {
+                else if( nodeName.equalsIgnoreCase("category") && attribute.hasChildNodes() ) {
                     String c = attribute.getFirstChild().getNodeValue().trim();
 
                     if( "user".equalsIgnoreCase(c) ) {
@@ -524,16 +521,46 @@ public class AzureOSImage implements MachineImageSupport {
                         ownerId = ("--Canonical--");
                     }
                 }
-            }
-            ResourceStatus status = new ResourceStatus(id, MachineImageState.ACTIVE);
+                else if( nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes() ) {
+                    if (!regionId.equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
+                        return null;
+                    }
+                }
+            } */
+            ResourceStatus status = toStatus(ctx, entry);
 
             if( status != null ) {
-                if( owner.equalsIgnoreCase(ownerId) ) {
-                    list.add(status);
-                }
+                list.add(status);
             }
         }
         return list;
+    }
+
+    public ResourceStatus toStatus(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
+        String regionId = ctx.getRegionId();
+        String id = "";
+
+        NodeList attributes = entry.getChildNodes();
+        for( int j=0; j<attributes.getLength(); j++ ) {
+            Node attribute = attributes.item(j);
+            if(attribute.getNodeType() == Node.TEXT_NODE) continue;
+            String nodeName = attribute.getNodeName();
+
+            if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
+                id = (attribute.getFirstChild().getNodeValue().trim());
+            }
+            else if( nodeName.equalsIgnoreCase("category") && attribute.hasChildNodes() ) {
+                if (!"user".equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
+                    return null;
+                }
+            }
+            else if( nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes() ) {
+                if (!regionId.equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
+                    return null;
+                }
+            }
+        }
+        return new ResourceStatus(id, MachineImageState.ACTIVE);
     }
 
     @Nonnull
@@ -563,16 +590,19 @@ public class AzureOSImage implements MachineImageSupport {
             Node entry = entries.item(i);
             AzureMachineImage image = toImage(ctx, entry);
 
-            image.setImageClass(ImageClass.MACHINE);
-            if (imageFilterOptions.matches(image)) {
-               if (imageFilterOptions.getAccountNumber() == null) {
-                   if (ctx.getAccountNumber().equals(image.getProviderOwnerId())) {
-                       images.add(image);
+            if (image != null) {
+                image.setImageClass(ImageClass.MACHINE);
+
+                if (imageFilterOptions.matches(image)) {
+                   if (imageFilterOptions.getAccountNumber() == null) {
+                       if (ctx.getAccountNumber().equals(image.getProviderOwnerId())) {
+                           images.add(image);
+                       }
                    }
-               }
-               else if (image.getProviderOwnerId().equalsIgnoreCase(imageFilterOptions.getAccountNumber())) {
-                       images.add(image);
-               }
+                   else if (image.getProviderOwnerId().equalsIgnoreCase(imageFilterOptions.getAccountNumber())) {
+                           images.add(image);
+                   }
+                }
             }
         }
         return images;
@@ -593,7 +623,6 @@ public class AzureOSImage implements MachineImageSupport {
         ArrayList<MachineImage> list = new ArrayList<MachineImage>();
 
         for (MachineImage img : allImages) {
-           // MachineImage image = allImages.iterator().next();
             if (img.getProviderOwnerId().equalsIgnoreCase(me)) {
                 img.setImageClass(ImageClass.MACHINE);
                 list.add(img);
@@ -617,7 +646,6 @@ public class AzureOSImage implements MachineImageSupport {
         ArrayList<MachineImage> list = new ArrayList<MachineImage>();
 
         for (MachineImage img : allImages) {
-            // MachineImage image = allImages.iterator().next();
             if (img.getProviderOwnerId().equalsIgnoreCase(ownedBy)) {
                 img.setImageClass(ImageClass.MACHINE);
                 list.add(img);
@@ -774,7 +802,6 @@ public class AzureOSImage implements MachineImageSupport {
             if( image == null ) {
                 throw new CloudException("No such machine image: " + machineImageId);
             }
-            String imageLabel = image.getName();
 
             AzureMethod method = new AzureMethod(provider);
 
@@ -976,6 +1003,8 @@ throw new OperationNotSupportedException("You cannot transfer Azure images");
         if( entry == null ) {
             return null;
         }
+
+        String regionID = ctx.getRegionId();
         AzureMachineImage image= new AzureMachineImage();
 
         HashMap<String,String> tags = new HashMap<String,String>();
@@ -1026,6 +1055,11 @@ throw new OperationNotSupportedException("You cannot transfer Azure images");
             }
             else if( nodeName.equalsIgnoreCase("description") && attribute.hasChildNodes() ) {
                 image.setDescription(attribute.getFirstChild().getNodeValue().trim());
+            }
+            else if( nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes() ) {
+                if (!regionID.equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
+                    return null;
+                }
             }
             else if( nodeName.equalsIgnoreCase("medialink") && attribute.hasChildNodes() ) {
                 image.setMediaLink(attribute.getFirstChild().getNodeValue().trim());

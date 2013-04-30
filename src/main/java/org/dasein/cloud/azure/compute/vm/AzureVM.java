@@ -208,13 +208,6 @@ public class AzureVM implements VirtualMachineSupport {
         for (int i = 0; i < entries.getLength(); i++) {
             parseDeployment(ctx, ctx.getRegionId(), sName+":"+deploymentName, entries.item(i), list);
         }
-
-        // TODO: this can be optimized
-        /*for( VirtualMachine vm : listVirtualMachines() ) {
-            if( vmId.equals(vm.getProviderVirtualMachineId()) ) {
-                return vm;
-            }
-        } */
         if (list != null && list.size() > 0) {
             return list.get(0);
         }
