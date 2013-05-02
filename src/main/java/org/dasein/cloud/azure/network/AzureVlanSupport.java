@@ -1,10 +1,16 @@
 package org.dasein.cloud.azure.network;
 
 
+import java.io.StringWriter;
 import java.util.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 import org.apache.log4j.Logger;
 import org.dasein.cloud.*;
@@ -14,6 +20,7 @@ import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.*;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
@@ -128,60 +135,88 @@ public class AzureVlanSupport implements VLANSupport {
 
 	@Override
 	public Subnet createSubnet(String cidr, String inProviderVlanId,String name, String description) throws CloudException,InternalException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-    @Nonnull
-    @Override
-    public Subnet createSubnet(@Nonnull SubnetCreateOptions subnetCreateOptions) throws CloudException, InternalException {
-        //todo
-         return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-	public VLAN createVlan(String cidr, String name, String description, String domainName, String[] dnsServers, String[] ntpServers)throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
-            logger.trace("ENTER: " + AzureVlanSupport.class.getName() + ".createVlan()");
+            logger.trace("ENTER: " + AzureVlanSupport.class.getName() + ".createSubnet()");
         }
-        		
-		int mask = 32;
-		if(cidr != null){
-			String[] ipInfo = cidr.split("/");
-			
-			if(ipInfo != null && ipInfo.length >1){
-				mask = Integer.valueOf(ipInfo[1]);				
-			}			
-		}
-		if(mask < 8 || mask > 29){
-			logger.error("Azure address prefix size has to between /8 and /29");
-			throw new InternalException("Azure address prefix size has to between /8 and /29");
-		}
-        
+
         try {
-        	
             ProviderContext ctx = provider.getContext();
 
             if( ctx == null ) {
                 throw new AzureConfigException("No context was specified for this request");
             }
-                       
+
+            VLAN vlan = getVlan(inProviderVlanId);
+            String vlanName = vlan.getName();
+
+            String subName = name;
+            String subCidr = cidr;
+
             AzureMethod method = new AzureMethod(provider);
             StringBuilder xml = new StringBuilder();
-                        
-            xml.append("<NetworkConfiguration xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns=\"http://schemas.microsoft.com/ServiceHosting/2011/07/NetworkConfiguration\"");
-            xml.append("<VirtualNetworkConfiguration>");
-            xml.append("<VirtualNetworkSites>");
-            //todo: why don't we pass in the name?  i am passing name parameter for now
-            // xml.append("VirtualNetworkSite name=\"" + AzureVPNSupport.ENSTRATUS_DEFAULT_VPN+ "\" AffinityGroup=\"" +  this.getAffinityGroup(name) +"\"");
-            xml.append("VirtualNetworkSite name=\"" + name+ "\" AffinityGroup=\"" +  this.getAffinityGroup(name) +"\"");
-            xml.append("<AddressSpace>");
-            xml.append("<AddressPrefix>"+ cidr +"</AddressPrefix>");
-            xml.append("</AddressSpace>");
-            xml.append("</VirtualNetworkSite>");
-            xml.append("</VirtualNetworkSites>");                        
-            xml.append("</VirtualNetworkConfiguration>");
-            xml.append("</NetworkConfiguration>");
+
+            Document doc = getNetworkConfig();
+            NodeList entries = doc.getElementsByTagName("VirtualNetworkConfiguration");
+
+            for (int i = 0; i < entries.getLength(); i++) {
+                Node node = entries.item(i);
+
+                Element element = (Element) node;
+
+                NodeList virtualNetworkSites = element.getElementsByTagName("VirtualNetworkSites");
+                for (int j = 0; j<virtualNetworkSites.getLength(); j++) {
+                    Node item = virtualNetworkSites.item(j);
+
+                    if(item.getNodeType() == Node.TEXT_NODE) continue;
+                    String itemName = item.getNodeName();
+
+                    if( itemName.equalsIgnoreCase("VirtualNetworkSite") && item.hasChildNodes() ) {
+                        Element el = (Element) item;
+                        String siteName = el.getAttribute("name");
+                        if (siteName.equalsIgnoreCase(vlanName)) {
+                            NodeList subnets = el.getElementsByTagName("Subnets");
+
+                            if (subnets != null) {
+                                Element subnetList = (Element) subnets.item(0);
+                                Element subnet = doc.createElement("Subnet");
+                                subnet.setAttribute("name", subName);
+
+                                Element addressPrefix = doc.createElement("AddressPrefix");
+                                addressPrefix.appendChild(doc.createTextNode(subCidr));
+
+                                subnet.appendChild(addressPrefix);
+                                subnetList.appendChild(subnet);
+                            }
+                            else {
+                                Element subnetList = doc.createElement("Subnets");
+                                Element subnet = doc.createElement("Subnet");
+                                subnet.setAttribute("name", subName);
+
+                                Element addressPrefix = doc.createElement("AddressPrefix");
+                                addressPrefix.appendChild(doc.createTextNode(subCidr));
+
+                                subnet.appendChild(addressPrefix);
+                                subnetList.appendChild(subnet);
+                            }
+                        }
+                    }
+
+                }
+            }
+
+            String output="";
+            try{
+                TransformerFactory tf = TransformerFactory.newInstance();
+                Transformer transformer = tf.newTransformer();
+                transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+                StringWriter writer = new StringWriter();
+                transformer.transform(new DOMSource(doc), new StreamResult(writer));
+                output = writer.getBuffer().toString().replaceAll("\n|\r", "");
+            }
+            catch (Exception e){
+                System.err.println(e);
+            }
+            xml.append(output);
 
             if( logger.isDebugEnabled() ) {
                 try {
@@ -193,12 +228,234 @@ public class AzureVlanSupport implements VLANSupport {
                     logger.warn(xml.toString());
                 }
             }
-            
-            System.out.println("body -> " + xml.toString());
-            String resourceDir = NETWORKING_SERVICES + "/media";
-            method.post(ctx.getAccountNumber(),resourceDir, xml.toString());
 
-            //dmayne 201230429: list vlans and find the one we need
+            String resourceDir = NETWORKING_SERVICES + "/media";
+            method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
+
+            return getSubnet(subName);
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureVlanSupport.class.getName() + ".createSubnet()");
+            }
+        }
+	}
+
+    @Nonnull
+    @Override
+    public Subnet createSubnet(@Nonnull SubnetCreateOptions subnetCreateOptions) throws CloudException, InternalException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureVlanSupport.class.getName() + ".createSubnet()");
+        }
+
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new AzureConfigException("No context was specified for this request");
+            }
+
+            String vlanId = subnetCreateOptions.getProviderVlanId();
+            VLAN vlan = getVlan(vlanId);
+            String vlanName = vlan.getName();
+
+            String subName = subnetCreateOptions.getName();
+            String subCidr = subnetCreateOptions.getCidr();
+
+            AzureMethod method = new AzureMethod(provider);
+            StringBuilder xml = new StringBuilder();
+
+            Document doc = getNetworkConfig();
+            NodeList entries = doc.getElementsByTagName("VirtualNetworkConfiguration");
+
+            for (int i = 0; i < entries.getLength(); i++) {
+                Node node = entries.item(i);
+
+                Element element = (Element) node;
+
+                NodeList virtualNetworkSites = element.getElementsByTagName("VirtualNetworkSites");
+                for (int j = 0; j<virtualNetworkSites.getLength(); j++) {
+                    Node item = virtualNetworkSites.item(j);
+
+                    if(item.getNodeType() == Node.TEXT_NODE) continue;
+
+                    Element elItem = (Element) item;
+                    NodeList vns = elItem.getElementsByTagName("VirtualNetworkSite");
+                    for (int k = 0; k<vns.getLength(); k++) {
+                        Node vn = vns.item(k);
+                        String vnName = vn.getNodeName();
+
+                        if( vnName.equalsIgnoreCase("VirtualNetworkSite") && vn.hasChildNodes() ) {
+                            Element el = (Element) vn;
+                            String siteName = el.getAttribute("name");
+                            if (siteName.equalsIgnoreCase(vlanName)) {
+                                NodeList subnets = el.getElementsByTagName("Subnets");
+
+                                if (subnets != null && subnets.getLength() > 0) {
+                                    Element subnetList = (Element) subnets.item(0);
+                                    Element subnet = doc.createElement("Subnet");
+                                    subnet.setAttribute("name", subName);
+
+                                    Element addressPrefix = doc.createElement("AddressPrefix");
+                                    addressPrefix.appendChild(doc.createTextNode(subCidr));
+
+                                    subnet.appendChild(addressPrefix);
+                                    subnetList.appendChild(subnet);
+                                    break;
+                                }
+                                else {
+                                    Element subnetList = doc.createElement("Subnets");
+                                    Element subnet = doc.createElement("Subnet");
+                                    subnet.setAttribute("name", subName);
+
+                                    Element addressPrefix = doc.createElement("AddressPrefix");
+                                    addressPrefix.appendChild(doc.createTextNode(subCidr));
+
+                                    subnet.appendChild(addressPrefix);
+                                    subnetList.appendChild(subnet);
+                                    el.appendChild(subnetList);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            String output="";
+            try{
+                TransformerFactory tf = TransformerFactory.newInstance();
+                Transformer transformer = tf.newTransformer();
+                transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+                StringWriter writer = new StringWriter();
+                transformer.transform(new DOMSource(doc), new StreamResult(writer));
+                output = writer.getBuffer().toString().replaceAll("\n|\r", "");
+            }
+            catch (Exception e){
+                System.err.println(e);
+            }
+            xml.append(output);
+            if( logger.isDebugEnabled() ) {
+                try {
+                    method.parseResponse(xml.toString(), false);
+                }
+                catch( Exception e ) {
+                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
+                    logger.warn("XML:");
+                    logger.warn(xml.toString());
+                }
+            }
+
+            String resourceDir = NETWORKING_SERVICES + "/media";
+            method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
+
+            return getSubnet(subName);
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureVlanSupport.class.getName() + ".createSubnet()");
+            }
+        }
+    }
+
+    @Override
+	public VLAN createVlan(String cidr, String name, String description, String domainName, String[] dnsServers, String[] ntpServers)throws CloudException, InternalException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureVlanSupport.class.getName() + ".createVlan()");
+        }
+
+        int mask = 32;
+        if(cidr != null){
+            String[] ipInfo = cidr.split("/");
+
+            if(ipInfo != null && ipInfo.length >1){
+                mask = Integer.valueOf(ipInfo[1]);
+            }
+        }
+        if(mask < 8 || mask > 29){
+            logger.error("Azure address prefix size has to between /8 and /29");
+            throw new InternalException("Azure address prefix size has to between /8 and /29");
+        }
+
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new AzureConfigException("No context was specified for this request");
+            }
+
+            AzureMethod method = new AzureMethod(provider);
+            StringBuilder xml = new StringBuilder();
+
+            Document doc = getNetworkConfig();
+            if (doc == null) {
+                logger.debug("No config found so creating from scratch");
+                xml.append("<NetworkConfiguration xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns=\"http://schemas.microsoft.com/ServiceHosting/2011/07/NetworkConfiguration\">");
+                xml.append("<VirtualNetworkConfiguration>");
+                xml.append("<Dns />");
+                xml.append("<VirtualNetworkSites>");
+                xml.append("<VirtualNetworkSite name=\"" + name+ "\" AffinityGroup=\"" +  this.getAffinityGroup(name) +"\">");
+                xml.append("<AddressSpace>");
+                xml.append("<AddressPrefix>").append(cidr).append("</AddressPrefix>");
+                xml.append("</AddressSpace>");
+                xml.append("</VirtualNetworkSite>");
+                xml.append("</VirtualNetworkSites>");
+                xml.append("</VirtualNetworkConfiguration>");
+                xml.append("</NetworkConfiguration>");
+            }
+            else {
+                NodeList entries = doc.getElementsByTagName("VirtualNetworkConfiguration");
+
+                Node node = entries.item(0);
+
+                Element element = (Element) node;
+
+                NodeList virtualNetworkSites = element.getElementsByTagName("VirtualNetworkSites");
+                Node item = virtualNetworkSites.item(0);
+
+                Element elItem = (Element) item;
+
+                Element vns = doc.createElement("VirtualNetworkSite");
+                vns.setAttribute("name", name);
+                vns.setAttribute("AffinityGroup", this.getAffinityGroup(name));
+
+                Element addressSpace = doc.createElement("AddressSpace");
+                Element addressPrefix = doc.createElement("AddressPrefix");
+                addressPrefix.appendChild(doc.createTextNode(cidr));
+
+                addressSpace.appendChild(addressPrefix);
+                vns.appendChild(addressSpace);
+                elItem.appendChild(vns);
+
+                String output="";
+                try {
+                    TransformerFactory tf = TransformerFactory.newInstance();
+                    Transformer transformer = tf.newTransformer();
+                    transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+                    StringWriter writer = new StringWriter();
+                    transformer.transform(new DOMSource(doc), new StreamResult(writer));
+                    output = writer.getBuffer().toString().replaceAll("\n|\r", "");
+                    xml.append(output);
+                }
+                catch (Exception e){
+                    System.err.println(e);
+                }
+            }
+
+            if( logger.isDebugEnabled() ) {
+                try {
+                    method.parseResponse(xml.toString(), false);
+                }
+                catch( Exception e ) {
+                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
+                    logger.warn("XML:");
+                    logger.warn(xml.toString());
+                }
+            }
+
+            String resourceDir = NETWORKING_SERVICES + "/media";
+            method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
+
             return getVlan(name);
         }
         finally {
@@ -210,7 +467,6 @@ public class AzureVlanSupport implements VLANSupport {
 	
 	private String getAffinityGroup(String vlanName) throws InternalException,CloudException{
 		return provider.getAffinityGroup();
-		//return "Group1";
 	}
 
 	@Override
@@ -249,6 +505,19 @@ public class AzureVlanSupport implements VLANSupport {
 	public NetworkInterface getNetworkInterface(String nicId) throws CloudException, InternalException {
 		return null;
 	}
+
+    private Document getNetworkConfig() throws CloudException, InternalException {
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
+        AzureMethod method = new AzureMethod(provider);
+
+        Document doc = method.getAsXML(ctx.getAccountNumber(), NETWORKING_SERVICES+"/media");
+
+        return doc;
+    }
 
 	@Override
 	public RoutingTable getRoutingTableForSubnet(String subnetId)throws CloudException, InternalException {
@@ -539,13 +808,173 @@ public class AzureVlanSupport implements VLANSupport {
 
 	@Override
 	public void removeSubnet(String providerSubnetId) throws CloudException,InternalException {
-		// TODO Auto-generated method stub
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureVlanSupport.class.getName() + ".removeSubnet()");
+        }
+
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new AzureConfigException("No context was specified for this request");
+            }
+
+            Subnet subnet = getSubnet(providerSubnetId);
+
+            String vlanId = subnet.getProviderVlanId();
+            VLAN vlan = getVlan(vlanId);
+            String vlanName = vlan.getName();
+
+            AzureMethod method = new AzureMethod(provider);
+            StringBuilder xml = new StringBuilder();
+
+            Document doc = getNetworkConfig();
+            NodeList entries = doc.getElementsByTagName("VirtualNetworkConfiguration");
+
+            Element element = (Element) entries.item(0);
+
+            NodeList virtualNetworkSites = element.getElementsByTagName("VirtualNetworkSites");
+
+            Element elItem = (Element) virtualNetworkSites.item(0);
+            NodeList vns = elItem.getElementsByTagName("VirtualNetworkSite");
+            for (int i = 0; i<vns.getLength(); i++) {
+                Node vn = vns.item(i);
+                String vnName = vn.getNodeName();
+
+                if( vnName.equalsIgnoreCase("VirtualNetworkSite") && vn.hasChildNodes() ) {
+                    Element elVN = (Element) vn;
+                    String siteName = elVN.getAttribute("name");
+                    if (siteName.equalsIgnoreCase(vlanName)) {
+                        NodeList subnetsNodes = elVN.getElementsByTagName("Subnets");
+
+                        Element subnetsEl = (Element) subnetsNodes.item(0);
+
+                        NodeList subnetNodes = subnetsEl.getElementsByTagName("Subnet");
+
+                        for (int j = 0; j<subnetNodes.getLength(); j++) {
+                            Node subnetNode = subnetNodes.item(j);
+
+                            String subnetName = subnetNode.getNodeName();
+                            if( subnetName.equalsIgnoreCase("Subnet") && vn.hasChildNodes() ) {
+                                Element sub = (Element) subnetNode;
+                                String subName = sub.getAttribute("name");
+                                if (subName.equalsIgnoreCase(providerSubnetId)) {
+                                    subnetsEl.removeChild(subnetNode);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            String output="";
+            try{
+                TransformerFactory tf = TransformerFactory.newInstance();
+                Transformer transformer = tf.newTransformer();
+                transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+                StringWriter writer = new StringWriter();
+                transformer.transform(new DOMSource(doc), new StreamResult(writer));
+                output = writer.getBuffer().toString().replaceAll("\n|\r", "");
+            }
+            catch (Exception e){
+                System.err.println(e);
+            }
+            xml.append(output);
+            if( logger.isDebugEnabled() ) {
+                try {
+                    method.parseResponse(xml.toString(), false);
+                }
+                catch( Exception e ) {
+                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
+                    logger.warn("XML:");
+                    logger.warn(xml.toString());
+                }
+            }
+
+            String resourceDir = NETWORKING_SERVICES + "/media";
+            method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureVlanSupport.class.getName() + ".removeSubnet()");
+            }
+        }
 
 	}
 
 	@Override
 	public void removeVlan(String vlanId) throws CloudException,InternalException {
-		// TODO Auto-generated method stub
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureVlanSupport.class.getName() + ".removeVlan()");
+        }
+
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new AzureConfigException("No context was specified for this request");
+            }
+
+            VLAN vlan = getVlan(vlanId);
+            String vlanName = vlan.getName();
+
+            AzureMethod method = new AzureMethod(provider);
+            StringBuilder xml = new StringBuilder();
+
+            Document doc = getNetworkConfig();
+            NodeList entries = doc.getElementsByTagName("VirtualNetworkConfiguration");
+
+            Element element = (Element) entries.item(0);
+
+            NodeList virtualNetworkSites = element.getElementsByTagName("VirtualNetworkSites");
+
+            Element elItem = (Element) virtualNetworkSites.item(0);
+            NodeList vns = elItem.getElementsByTagName("VirtualNetworkSite");
+            for (int i = 0; i<vns.getLength(); i++) {
+                Node vn = vns.item(i);
+                String vnName = vn.getNodeName();
+
+                if( vnName.equalsIgnoreCase("VirtualNetworkSite") && vn.hasChildNodes() ) {
+                    Element elVN = (Element) vn;
+                    String siteName = elVN.getAttribute("name");
+                    if (siteName.equalsIgnoreCase(vlanName)) {
+                        elItem.removeChild(vn);
+                    }
+                }
+            }
+
+            String output="";
+            try{
+                TransformerFactory tf = TransformerFactory.newInstance();
+                Transformer transformer = tf.newTransformer();
+                transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+                StringWriter writer = new StringWriter();
+                transformer.transform(new DOMSource(doc), new StreamResult(writer));
+                output = writer.getBuffer().toString().replaceAll("\n|\r", "");
+            }
+            catch (Exception e){
+                System.err.println(e);
+            }
+            xml.append(output);
+            if( logger.isDebugEnabled() ) {
+                try {
+                    method.parseResponse(xml.toString(), false);
+                }
+                catch( Exception e ) {
+                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
+                    logger.warn("XML:");
+                    logger.warn(xml.toString());
+                }
+            }
+
+            String resourceDir = NETWORKING_SERVICES + "/media";
+            method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureVlanSupport.class.getName() + ".removeVlan()");
+            }
+        }
 
 	}
 
@@ -621,7 +1050,8 @@ public class AzureVlanSupport implements VLANSupport {
                 vlan.setProviderVlanId(id);
             }
             else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
-                if (!ctx.getRegionId().equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
+                if (!provider.getAffinityGroup().equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
+                    logger.warn("Affinity group is not for this region");
                     return null;
                 }
                 tags.put("AffinityGroup", attribute.getFirstChild().getNodeValue().trim());
@@ -709,7 +1139,7 @@ public class AzureVlanSupport implements VLANSupport {
                 }
             }
             else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
-                if (!ctx.getRegionId().equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
+                if (!provider.getAffinityGroup().equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
                     return null;
                 }
             }
@@ -736,13 +1166,14 @@ public class AzureVlanSupport implements VLANSupport {
 
             if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
                 name = attribute.getFirstChild().getNodeValue().trim();
+
             }
             else if( nodeName.equalsIgnoreCase("AddressPrefix") && attribute.hasChildNodes() ) {
                 cidr = attribute.getFirstChild().getNodeValue().trim();
             }
         }
 
-        Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, cidr, SubnetState.AVAILABLE, name, name, cidr);
+        Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, name, SubnetState.AVAILABLE, name, name, cidr);
         subnet.constrainedToDataCenter(ctx.getRegionId());
         return subnet;
     }
