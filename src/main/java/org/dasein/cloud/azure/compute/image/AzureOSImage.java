@@ -104,14 +104,12 @@ public class AzureOSImage implements MachineImageSupport {
 
                     try {
                         label = new String(Base64.encodeBase64(description.getBytes("utf-8")));
-                        System.out.println("image label "+label);
                     }
                     catch( UnsupportedEncodingException e ) {
                         throw new InternalException(e);
                     }
 
                     String vmId = vm.getProviderVirtualMachineId();
-                    System.out.println("vmid: "+vmId);
                     String[] parts = vmId.split(":");
                     String serviceName, deploymentName, roleName;
 
@@ -131,7 +129,6 @@ public class AzureOSImage implements MachineImageSupport {
                         roleName = vmId;
                     }
                     String resourceDir = AzureVM.HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
-                    System.out.println("ResourceDir = "+resourceDir);
                     AzureMethod method = new AzureMethod(provider);
                     StringBuilder xml = new StringBuilder();
 
@@ -1057,7 +1054,16 @@ throw new OperationNotSupportedException("You cannot transfer Azure images");
                 image.setDescription(attribute.getFirstChild().getNodeValue().trim());
             }
             else if( nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes() ) {
-                if (!regionID.equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
+                String location = attribute.getFirstChild().getNodeValue().trim();
+                String[] locations = location.split(";");
+                boolean found = false;
+                for (String loc : locations) {
+                    if (regionID.equalsIgnoreCase(loc)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
                     return null;
                 }
             }
