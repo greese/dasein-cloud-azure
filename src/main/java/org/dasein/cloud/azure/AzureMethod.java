@@ -612,7 +612,17 @@ public class AzureMethod {
 
             HttpRequestBase httpMethod = getMethod(method, url);
 
-            httpMethod.addHeader("Content-Type", "application/xml;charset=UTF-8");
+            //If it is networking configuration services
+            if (httpMethod instanceof HttpPut) {
+                if(url.endsWith("/services/networking/media")){
+                    httpMethod.addHeader("Content-Type", "text/plain");
+                }else{
+                    httpMethod.addHeader("Content-Type", "application/xml;charset=UTF-8");
+                }
+            }
+            else {
+                httpMethod.addHeader("Content-Type", "application/xml;charset=UTF-8");
+            }
 
             if (url.indexOf("/services/images") > -1) {
                 httpMethod.addHeader("x-ms-version", "2012-08-01");
