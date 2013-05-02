@@ -36,6 +36,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Locale;
 
 /**
@@ -80,7 +81,7 @@ public class AzureDisk implements VolumeSupport {
            	//dsn2260-dsn2260Role-0-20120619044615
             VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(toServer);
 
-         	String resourceDir = HOSTED_SERVICES + "/" +server.getTag("serviceName") + "/deployments" + "/" +  server.getProviderVirtualMachineId() + "/roles"+"/" + server.getProviderVirtualMachineId() + "/DataDisks";
+         	String resourceDir = HOSTED_SERVICES + "/" +server.getTag("serviceName") + "/deployments" + "/" +  server.getTag("deploymentName") + "/roles"+"/" + server.getTag("roleName") + "/DataDisks";
          	                                
             AzureMethod method = new AzureMethod(provider);
             StringBuilder xml = new StringBuilder();    
@@ -371,20 +372,39 @@ public class AzureDisk implements VolumeSupport {
     @Nonnull
     @Override
     public Iterable<VolumeFormat> listSupportedFormats() throws InternalException, CloudException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return Collections.singletonList(VolumeFormat.BLOCK);
     }
 
     @Nonnull
     @Override
     public Iterable<VolumeProduct> listVolumeProducts() throws InternalException, CloudException {
-        //To change body of implemented methods use File | Settings | File Templates.
-       return null;
+        return Collections.emptyList();
     }
 
     @Nonnull
     @Override
     public Iterable<ResourceStatus> listVolumeStatus() throws InternalException, CloudException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
+        AzureMethod method = new AzureMethod(provider);
+
+        Document doc = method.getAsXML(ctx.getAccountNumber(), DISK_SERVICES);
+
+
+        NodeList entries = doc.getElementsByTagName("Disk");
+        ArrayList<ResourceStatus> list = new ArrayList<ResourceStatus>();
+
+        for( int i=0; i<entries.getLength(); i++ ) {
+            Node entry = entries.item(i);
+            ResourceStatus status = toStatus(ctx, entry);
+            if( status != null ) {
+                list.add(status);
+            }
+        }
+        return list;
     }
 
     @Override
@@ -417,7 +437,27 @@ public class AzureDisk implements VolumeSupport {
     @Nonnull
     @Override
     public Iterable<Volume> listVolumes(@Nullable VolumeFilterOptions volumeFilterOptions) throws InternalException, CloudException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
+        AzureMethod method = new AzureMethod(provider);
+
+        Document doc = method.getAsXML(ctx.getAccountNumber(), DISK_SERVICES);
+
+
+        NodeList entries = doc.getElementsByTagName("Disk");
+        ArrayList<Volume> disks = new ArrayList<Volume>();
+
+        for( int i=0; i<entries.getLength(); i++ ) {
+            Node entry = entries.item(i);
+            Volume disk = toVolume(ctx, entry);
+            if( disk != null ) {
+                disks.add(disk);
+            }
+        }
+        return disks;
     }
 
     private boolean isWithinDeviceList(String device) throws InternalException, CloudException{
@@ -450,11 +490,11 @@ public class AzureDisk implements VolumeSupport {
             
             AzureMethod method = new AzureMethod(provider);
  
-            method.post(ctx.getAccountNumber(), DISK_SERVICES+"/" + volumeId, null);
+            method.invoke("DELETE",ctx.getAccountNumber(), DISK_SERVICES+"/" + volumeId+"?comp=media", null);
         }
         finally {
             if( logger.isTraceEnabled() ) {
-                logger.trace("EXIT: " + AzureDisk.class.getName() + ".launch()");
+                logger.trace("EXIT: " + AzureDisk.class.getName() + ".remove()");
             }
         }
     }
@@ -498,6 +538,7 @@ public class AzureDisk implements VolumeSupport {
         disk.setProviderRegionId(regionId);
         disk.setProviderDataCenterId(provider.getDataCenterId(regionId));
         disk.setCurrentState(VolumeState.AVAILABLE);
+        disk.setType(VolumeType.HDD);
                 
         NodeList attributes = volumeNode.getChildNodes();
         
@@ -508,6 +549,7 @@ public class AzureDisk implements VolumeSupport {
             if( attribute.getNodeName().equalsIgnoreCase("AttachedTo") && attribute.hasChildNodes() ) {
             	NodeList attachAttributes = attribute.getChildNodes();
                 String hostedServiceName = null;
+                String deploymentName = null;
                 String vmRoleName = null;
             	for( int k=0; k<attachAttributes.getLength(); k++ ) {
             		Node attach = attachAttributes.item(k);
@@ -516,6 +558,9 @@ public class AzureDisk implements VolumeSupport {
             		if(attach.getNodeName().equalsIgnoreCase("HostedServiceName") && attach.hasChildNodes() ) {	                 
             			hostedServiceName = attach.getFirstChild().getNodeValue().trim();	              
             		}
+                    else if(attach.getNodeName().equalsIgnoreCase("DeploymentName") && attach.hasChildNodes() ) {
+                        deploymentName = attach.getFirstChild().getNodeValue().trim();
+                    }
             		else if(attach.getNodeName().equalsIgnoreCase("RoleName") && attach.hasChildNodes() ) {	                 
             			vmRoleName = attach.getFirstChild().getNodeValue().trim();	              
             		}
@@ -524,16 +569,16 @@ public class AzureDisk implements VolumeSupport {
             	/**
             	 * VM ID = hostedServiceName +  AzureVM.SERVICE_VM_NAME_SPLIT + roleName
             	 */
-            	if(hostedServiceName != null && vmRoleName != null){
-            		disk.setProviderVirtualMachineId(vmRoleName);
+            	if(hostedServiceName != null && deploymentName != null && vmRoleName != null){
+            		disk.setProviderVirtualMachineId(hostedServiceName+":"+deploymentName+":"+vmRoleName);
             	}
             }
             else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {            	
             	disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));            	
             }
-            else if( attribute.getNodeName().equalsIgnoreCase("Label") && attribute.hasChildNodes() ) {
+            /*else if( attribute.getNodeName().equalsIgnoreCase("Label") && attribute.hasChildNodes() ) {
             	disk.setDescription(attribute.getFirstChild().getNodeValue().trim());
-            }
+            } */
             else if( attribute.getNodeName().equalsIgnoreCase("Location") && attribute.hasChildNodes() ) {
             	if( !regionId.equals(attribute.getFirstChild().getNodeValue().trim()) ) {
                      return null;
@@ -564,6 +609,40 @@ public class AzureDisk implements VolumeSupport {
         }
        
         return disk;
+    }
+
+    private @Nullable ResourceStatus toStatus(@Nonnull ProviderContext ctx, @Nullable Node volumeNode) throws InternalException, CloudException {
+        if( volumeNode == null ) {
+            return null;
+        }
+
+        String regionId = ctx.getRegionId();
+
+        if( regionId == null ) {
+            throw new AzureConfigException("No region ID was specified for this request");
+        }
+
+        String id = "";
+
+        NodeList attributes = volumeNode.getChildNodes();
+
+        for( int i=0; i<attributes.getLength(); i++ ) {
+            Node attribute = attributes.item(i);
+            if(attribute.getNodeType() == Node.TEXT_NODE) continue;
+
+            if( attribute.getNodeName().equalsIgnoreCase("Name") && attribute.hasChildNodes() ) {
+                id = attribute.getFirstChild().getNodeValue().trim();
+            }
+            else if( attribute.getNodeName().equalsIgnoreCase("Location") && attribute.hasChildNodes() ) {
+                if( !regionId.equals(attribute.getFirstChild().getNodeValue().trim()) ) {
+                    return null;
+                }
+            }
+        }
+
+        ResourceStatus status = new ResourceStatus(id, VolumeState.AVAILABLE);
+
+        return status;
     }
      
 }
