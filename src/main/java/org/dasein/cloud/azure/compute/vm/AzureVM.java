@@ -16,16 +16,24 @@ import org.dasein.cloud.azure.AzureService;
 import org.dasein.cloud.azure.compute.image.AzureMachineImage;
 import org.dasein.cloud.compute.*;
 import org.dasein.cloud.identity.ServiceAction;
+import org.dasein.cloud.network.Subnet;
 import org.dasein.util.CalendarWrapper;
 import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Storage;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -307,7 +315,6 @@ public class AzureVM implements VirtualMachineSupport {
             if( image == null ) {
                 throw new CloudException("No such image: " + options.getMachineImageId());
             }
-             System.out.println("launch vm: image name: "+image.getName()+", id "+image.getProviderMachineImageId());
             logger.debug("----------------------------------------------------------");
 
             ProviderContext ctx = provider.getContext();
@@ -338,7 +345,7 @@ public class AzureVM implements VirtualMachineSupport {
             xml.append("<ServiceName>").append(hostName).append("</ServiceName>");
             xml.append("<Label>").append(label).append("</Label>");
             xml.append("<Description>").append(options.getDescription()).append("</Description>");
-            xml.append("<Location>").append(ctx.getRegionId()).append("</Location>");
+            xml.append("<AffinityGroup>").append(provider.getAffinityGroup()).append("</AffinityGroup>");
             xml.append("</CreateHostedService>");
             method.post(ctx.getAccountNumber(), HOSTED_SERVICES, xml.toString());
 
@@ -409,6 +416,18 @@ public class AzureVM implements VirtualMachineSupport {
             xml.append("<Port>60256</Port>");
             xml.append("<Protocol>TCP</Protocol>");
             xml.append("</InputEndpoint></InputEndpoints>");
+            //dmayne assuming this is a subnet
+            Subnet subnet = null;
+            String vlanName = null;
+            if (options.getVlanId() != null) {
+                subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getVlanId());
+                xml.append("<SubnetNames>");
+                xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
+                xml.append("</SubnetNames>");
+
+                //dmayne needed for virtual network name later
+                vlanName = provider.getNetworkServices().getVlanSupport().getVlan(subnet.getProviderVlanId()).getName();
+            }
             xml.append("</ConfigurationSet>");
             xml.append("</ConfigurationSets>");
             xml.append("<DataVirtualHardDisks/>");
@@ -421,6 +440,10 @@ public class AzureVM implements VirtualMachineSupport {
             xml.append("<RoleSize>").append(options.getStandardProductId()).append("</RoleSize>");
             xml.append("</Role>");
             xml.append("</RoleList>");
+
+            if (options.getVlanId() != null) {
+                xml.append("<VirtualNetworkName>").append(vlanName).append("</VirtualNetworkName>");
+            }
             xml.append("</Deployment>");
             method.post(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + hostName + "/deployments", xml.toString());
             long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
@@ -672,6 +695,8 @@ public class AzureVM implements VirtualMachineSupport {
         String vmRoleName = null;
         String imageId = null;
         String mediaLink = null;
+        String vlan = null;
+        String subnetName = null;
 
         for( int i=0; i<attributes.getLength(); i++ ) {
             Node attribute = attributes.item(i);
@@ -882,9 +907,50 @@ public class AzureVM implements VirtualMachineSupport {
                             else if( roleAttribute.getNodeName().equalsIgnoreCase("RoleName") && roleAttribute.hasChildNodes() ) {
                                 vmRoleName = roleAttribute.getFirstChild().getNodeValue().trim();
                             }
+                            else if( roleAttribute.getNodeName().equalsIgnoreCase("ConfigurationSets") && roleAttribute.hasChildNodes() ) {
+                                NodeList configs = ((Element) roleAttribute).getElementsByTagName("ConfigurationSet");
+
+                                for (int n = 0; n<configs.getLength();n++) {
+                                    boolean foundNetConfig = false;
+                                    Node config = configs.item(n);
+
+                                    if( config.hasAttributes() ) {
+                                        Node c = config.getAttributes().getNamedItem("i:type");
+
+                                        if( c != null ) {
+                                            String val = c.getNodeValue();
+
+                                            if( !"NetworkConfigurationSet".equalsIgnoreCase(val) ) {
+                                                continue;
+                                            }
+                                        }
+                                    }
+
+                                    if (config.hasChildNodes()) {
+                                        NodeList configAttribs = config.getChildNodes();
+
+                                        for (int o = 0; o<configAttribs.getLength();o++) {
+                                            Node attrib = configAttribs.item(o);
+                                            if (attrib.getNodeName().equalsIgnoreCase("SubnetNames")&& attrib.hasChildNodes()) {
+                                                NodeList subnets = attrib.getChildNodes();
+
+                                                for (int p=0;p<subnets.getLength();p++) {
+                                                    Node subnet = subnets.item(p);
+                                                    if (subnet.getNodeName().equalsIgnoreCase("SubnetName") && subnet.hasChildNodes()) {
+                                                        subnetName = subnet.getFirstChild().getNodeValue().trim();
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
+            }
+            else if (attribute.getNodeName().equalsIgnoreCase("virtualnetworkname") && attribute.hasChildNodes() ) {
+                vlan = attribute.getFirstChild().getNodeValue().trim();
             }
         }
         if( vmRoleName != null ) {
@@ -918,6 +984,22 @@ public class AzureVM implements VirtualMachineSupport {
                             vm.setPlatform(fallback);
                         }
                     }
+                }
+                if (vlan != null) {
+                    try {
+                        vm.setProviderVlanId(provider.getNetworkServices().getVlanSupport().getVlan(vlan).getProviderVlanId());
+                    }
+                    catch (CloudException e) {
+                        logger.error("Error getting vlan id for vlan "+vlan);
+                        continue;
+                    }
+                    catch (InternalException ie){
+                        logger.error("Error getting vlan id for vlan "+vlan);
+                        continue;
+                    }
+                }
+                if (subnetName != null) {
+                    vm.setProviderSubnetId(subnetName);
                 }
                 String[] parts = serviceName.split(":");
                 String sName, deploymentName, roleName;
@@ -1504,7 +1586,6 @@ public class AzureVM implements VirtualMachineSupport {
                     logger.info("Deleting deployments for " + serviceName);
                 }
                 try {
-                    System.out.println("Deleting deployment");
                     method.invoke("DELETE", ctx.getAccountNumber(), resourceDir, "");
                     break;
                 }
@@ -1537,7 +1618,6 @@ public class AzureVM implements VirtualMachineSupport {
                     if( logger.isInfoEnabled() ) {
                         logger.info("Deleting hosted service " + serviceName);
                     }
-                    System.out.println("Deleting hosted service");
                     method.invoke("DELETE", ctx.getAccountNumber(), resourceDir, "");
                     return;
                 }
@@ -1617,7 +1697,6 @@ public class AzureVM implements VirtualMachineSupport {
             }
             for (VmState state : states) {
                 if (state.equals(newVm.getCurrentState())) {
-                    System.out.println(state+" achieved for vm "+newVm.getName());
                     return newVm;
                 }
             }
