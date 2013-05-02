@@ -61,6 +61,7 @@ public class Azure extends AbstractCloud {
     public Azure() { }
 
     public String affinityGroup = null;
+    public String affinityRegion = null;
 
     static private final Random random = new Random();
     
@@ -222,8 +223,10 @@ public class Azure extends AbstractCloud {
                         affinityGroup = attribute.getFirstChild().getNodeValue().trim();
                     }
                     else if (nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes()) {
-                        if (!ctx.getRegionId().equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
+                        affinityRegion = attribute.getFirstChild().getNodeValue().trim();
+                        if (!ctx.getRegionId().equalsIgnoreCase(affinityRegion)) {
                             affinityGroup = null;
+                            affinityRegion = null;
                             break;
                         }
                     }
