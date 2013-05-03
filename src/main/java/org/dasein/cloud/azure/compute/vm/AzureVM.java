@@ -124,7 +124,84 @@ public class AzureVM implements VirtualMachineSupport {
 
     @Override
     public VirtualMachine alterVirtualMachine(@Nonnull String vmId, @Nonnull VMScalingOptions options) throws InternalException, CloudException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        if (vmId == null || options.getProviderProductId() == null) {
+            throw new AzureConfigException("No vmid and/or product id set for this operation");
+        }
+
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureVM.class.getName() + ".alterVM()");
+        }
+        VirtualMachine vm = getVirtualMachine(vmId);
+
+        if( vm == null ) {
+            throw new CloudException("No such virtual machine: " + vmId);
+        }
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was set for this request");
+        }
+        String[] parts = vmId.split(":");
+        String serviceName, deploymentName, roleName;
+
+        if (parts.length == 3)    {
+            serviceName = parts[0];
+            deploymentName = parts[1];
+            roleName= parts[2];
+        }
+        else if( parts.length == 2 ) {
+            serviceName = parts[0];
+            deploymentName = parts[1];
+            roleName = serviceName;
+        }
+        else {
+            serviceName = vmId;
+            deploymentName = vmId;
+            roleName = vmId;
+
+        }
+        String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName;
+
+        try{
+            AzureMethod method = new AzureMethod(provider);
+
+            Document doc = method.getAsXML(ctx.getAccountNumber(), resourceDir);
+            String xml = null;
+
+            NodeList entries = doc.getElementsByTagName("RoleSize");
+
+            Node vn = entries.item(0);
+            String vnName = vn.getNodeName();
+
+            if( vnName.equalsIgnoreCase("RoleSize") && vn.hasChildNodes() ) {
+                vn.setNodeValue(options.getProviderProductId());
+            }
+
+            String output="";
+            try{
+                TransformerFactory tf = TransformerFactory.newInstance();
+                Transformer transformer = tf.newTransformer();
+                transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+                StringWriter writer = new StringWriter();
+                transformer.transform(new DOMSource(doc), new StreamResult(writer));
+                output = writer.getBuffer().toString().replaceAll("\n|\r", "");
+            }
+            catch (Exception e){
+                System.err.println(e);
+            }
+            xml = output;
+
+            logger.debug(xml);
+            logger.debug("___________________________________________________");
+            method.invoke("PUT", ctx.getAccountNumber(), resourceDir, xml.toString());
+
+            return getVirtualMachine(vmId);
+
+        }finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureVM.class.getName() + ".alterVM()");
+            }
+        }
     }
 
     @Override
