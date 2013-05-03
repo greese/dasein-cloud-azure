@@ -69,13 +69,35 @@ public class AzureDisk implements VolumeSupport {
             }
                       
             Volume disk ;
+            StringBuilder xml = new StringBuilder();
             if(volumeId != null){
             	 disk = getVolume(volumeId);
             	 if(disk == null ){
             		throw new InternalException("Can not find the source snapshot !"); 
-            	 }            	
+            	 }
+                xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+                xml.append("<HostCaching>ReadWrite</HostCaching>");
+                xml.append("<DiskLabel>" + disk.getName() + "</DiskLabel>");
+                xml.append("<DiskName>" + disk.getName() + "</DiskName>");
+                if(device != null && isWithinDeviceList(device)){
+                    xml.append("<Lun>" + device + "</Lun>");
+                }
+                xml.append("<LogicalDiskSizeInGB>" + disk.getSizeInGigabytes() + "</LogicalDiskSizeInGB>");
+                xml.append("<MediaLink>" + disk.getMediaLink()+"</MediaLink>");
+                xml.append("<SourceMediaLink>" + "" + "</SourceMediaLink>");
+                xml.append("</DataVirtualHardDisk>");
             }else{
-            	throw new InternalException("volumeId is null !");
+                //throw new InternalException("volumeId is null !");
+                //dmayne attaching a new empty disk?
+
+                xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+                xml.append("<HostCaching>ReadWrite</HostCaching>");
+                xml.append("<DiskLabel>" + disk.getName() + "</DiskLabel>");
+                if(device != null && isWithinDeviceList(device)){
+                    xml.append("<Lun>" + device + "</Lun>");
+                }
+                xml.append("<LogicalDiskSizeInGB>" + disk.getSizeInGigabytes() + "</LogicalDiskSizeInGB>");
+                xml.append("</DataVirtualHardDisk>");
             }
             
            	//dsn2260-dsn2260Role-0-20120619044615
@@ -84,19 +106,6 @@ public class AzureDisk implements VolumeSupport {
          	String resourceDir = HOSTED_SERVICES + "/" +server.getTag("serviceName") + "/deployments" + "/" +  server.getTag("deploymentName") + "/roles"+"/" + server.getTag("roleName") + "/DataDisks";
          	                                
             AzureMethod method = new AzureMethod(provider);
-            StringBuilder xml = new StringBuilder();    
-                        
-            xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-            xml.append("<HostCaching>ReadWrite</HostCaching>");
-            xml.append("<DiskLabel>" + disk.getName() + "</DiskLabel>");
-            xml.append("<DiskName>" + disk.getName() + "</DiskName>");
-            if(device != null && isWithinDeviceList(device)){
-            	xml.append("<Lun>" + device + "</Lun>");
-            }            
-            xml.append("<LogicalDiskSizeInGB>" + disk.getSizeInGigabytes() + "</LogicalDiskSizeInGB>");
-            xml.append("<MediaLink>" + disk.getMediaLink()+"</MediaLink>");
-            xml.append("<SourceMediaLink>" + "" + "</SourceMediaLink>");
-            xml.append("</DataVirtualHardDisk>");      
 
             if( logger.isDebugEnabled() ) {
                 try {
