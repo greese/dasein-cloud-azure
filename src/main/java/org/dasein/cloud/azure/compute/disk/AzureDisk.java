@@ -77,26 +77,24 @@ public class AzureDisk implements VolumeSupport {
             	 }
                 xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                 xml.append("<HostCaching>ReadWrite</HostCaching>");
-                xml.append("<DiskLabel>" + disk.getName() + "</DiskLabel>");
                 xml.append("<DiskName>" + disk.getName() + "</DiskName>");
                 if(device != null && isWithinDeviceList(device)){
                     xml.append("<Lun>" + device + "</Lun>");
                 }
                 xml.append("<LogicalDiskSizeInGB>" + disk.getSizeInGigabytes() + "</LogicalDiskSizeInGB>");
                 xml.append("<MediaLink>" + disk.getMediaLink()+"</MediaLink>");
-                xml.append("<SourceMediaLink>" + "" + "</SourceMediaLink>");
                 xml.append("</DataVirtualHardDisk>");
             }else{
                 //throw new InternalException("volumeId is null !");
-                //dmayne attaching a new empty disk?
+                //dmayne: attaching a new empty disk?
 
                 xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                 xml.append("<HostCaching>ReadWrite</HostCaching>");
-                xml.append("<DiskLabel>" + disk.getName() + "</DiskLabel>");
                 if(device != null && isWithinDeviceList(device)){
                     xml.append("<Lun>" + device + "</Lun>");
                 }
-                xml.append("<LogicalDiskSizeInGB>" + disk.getSizeInGigabytes() + "</LogicalDiskSizeInGB>");
+               //todo actually get the disk size required
+                xml.append("<LogicalDiskSizeInGB>" + "disk_size" + "</LogicalDiskSizeInGB>");
                 xml.append("</DataVirtualHardDisk>");
             }
             
