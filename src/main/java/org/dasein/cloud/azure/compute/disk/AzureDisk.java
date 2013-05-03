@@ -86,7 +86,7 @@ public class AzureDisk implements VolumeSupport {
                 xml.append("</DataVirtualHardDisk>");
             }else{
                 //throw new InternalException("volumeId is null !");
-                //dmayne: attaching a new empty disk?
+                //dmayne: assume we are attaching a new empty disk?
 
                 xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                 xml.append("<HostCaching>ReadWrite</HostCaching>");
