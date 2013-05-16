@@ -94,7 +94,7 @@ public class AzureDisk implements VolumeSupport {
                     xml.append("<Lun>" + device + "</Lun>");
                 }
                //todo actually get the disk size required
-                xml.append("<LogicalDiskSizeInGB>" + "disk_size" + "</LogicalDiskSizeInGB>");
+                xml.append("<LogicalDiskSizeInGB>" + "1" + "</LogicalDiskSizeInGB>");
                 xml.append("</DataVirtualHardDisk>");
             }
             
@@ -218,7 +218,7 @@ public class AzureDisk implements VolumeSupport {
     @Override
     public void detach(@Nonnull String volumeId) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
-            logger.trace("ENTER: " + AzureDisk.class.getName() + ".deattach(" + volumeId+")");
+            logger.trace("ENTER: " + AzureDisk.class.getName() + ".detach(" + volumeId+")");
         }
         try {
             ProviderContext ctx = provider.getContext();
@@ -261,7 +261,7 @@ public class AzureDisk implements VolumeSupport {
         }
         finally {
             if( logger.isTraceEnabled() ) {
-                logger.trace("EXIT: " + AzureDisk.class.getName() + ".deattach()");
+                logger.trace("EXIT: " + AzureDisk.class.getName() + ".detach()");
             }
         }
     }

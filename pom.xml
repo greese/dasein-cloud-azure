@@ -262,11 +262,11 @@
                             <value>${test.shareAccount}</value>
                         </property>
                     </systemProperties>
-                    <includes>
+                   <!-- <includes>
                          <include>**/AzureTestSuite.java</include>
                     </includes>
-                    <argLine>-Ddasein.inclusions=StatelessVMTests.listVMs</argLine>
-                  <!--  <argLine>-Ddasein.inclusions=StatefulVolumeTests,StatelessVolumeTests</argLine>  -->
+                    <argLine>-Ddasein.inclusions=StatefulVLANTests.provisionSubnet</argLine>
+                  <!-  <argLine>-Ddasein.inclusions=StatefulVolumeTests,StatelessVolumeTests</argLine>  -->
                 </configuration>
             </plugin>
             <plugin>
