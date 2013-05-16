@@ -168,35 +168,46 @@ public class AzureVlanSupport implements VLANSupport {
                     Node item = virtualNetworkSites.item(j);
 
                     if(item.getNodeType() == Node.TEXT_NODE) continue;
-                    String itemName = item.getNodeName();
 
-                    if( itemName.equalsIgnoreCase("VirtualNetworkSite") && item.hasChildNodes() ) {
-                        Element el = (Element) item;
-                        String siteName = el.getAttribute("name");
-                        if (siteName.equalsIgnoreCase(vlanName)) {
-                            NodeList subnets = el.getElementsByTagName("Subnets");
+                    Element elItem = (Element) item;
+                    NodeList vns = elItem.getElementsByTagName("VirtualNetworkSite");
+                    for (int k = 0; k<vns.getLength(); k++) {
+                        Node vn = vns.item(k);
+                        String vnName = vn.getNodeName();
 
-                            if (subnets != null) {
-                                Element subnetList = (Element) subnets.item(0);
-                                Element subnet = doc.createElement("Subnet");
-                                subnet.setAttribute("name", subName);
+                        if( vnName.equalsIgnoreCase("VirtualNetworkSite") && vn.hasChildNodes() ) {
+                            Element el = (Element) vn;
+                            String siteName = el.getAttribute("name");
+                            if (siteName.equalsIgnoreCase(vlanName)) {
+                                NodeList subnets = el.getElementsByTagName("Subnets");
 
-                                Element addressPrefix = doc.createElement("AddressPrefix");
-                                addressPrefix.appendChild(doc.createTextNode(subCidr));
+                                if (subnets != null && subnets.getLength() > 0) {
+                                    logger.debug("Subnets element exists");
+                                    Element subnetList = (Element) subnets.item(0);
+                                    Element subnet = doc.createElement("Subnet");
+                                    subnet.setAttribute("name", subName);
 
-                                subnet.appendChild(addressPrefix);
-                                subnetList.appendChild(subnet);
-                            }
-                            else {
-                                Element subnetList = doc.createElement("Subnets");
-                                Element subnet = doc.createElement("Subnet");
-                                subnet.setAttribute("name", subName);
+                                    Element addressPrefix = doc.createElement("AddressPrefix");
+                                    addressPrefix.appendChild(doc.createTextNode(subCidr));
 
-                                Element addressPrefix = doc.createElement("AddressPrefix");
-                                addressPrefix.appendChild(doc.createTextNode(subCidr));
+                                    subnet.appendChild(addressPrefix);
+                                    subnetList.appendChild(subnet);
+                                    break;
+                                }
+                                else {
+                                    logger.debug("Subnets element does not exist");
+                                    Element subnetList = doc.createElement("Subnets");
+                                    Element subnet = doc.createElement("Subnet");
+                                    subnet.setAttribute("name", subName);
 
-                                subnet.appendChild(addressPrefix);
-                                subnetList.appendChild(subnet);
+                                    Element addressPrefix = doc.createElement("AddressPrefix");
+                                    addressPrefix.appendChild(doc.createTextNode(subCidr));
+
+                                    subnet.appendChild(addressPrefix);
+                                    subnetList.appendChild(subnet);
+                                    el.appendChild(subnetList);
+                                    break;
+                                }
                             }
                         }
                     }
@@ -292,6 +303,7 @@ public class AzureVlanSupport implements VLANSupport {
                                 NodeList subnets = el.getElementsByTagName("Subnets");
 
                                 if (subnets != null && subnets.getLength() > 0) {
+                                    logger.debug("Subnet exists");
                                     Element subnetList = (Element) subnets.item(0);
                                     Element subnet = doc.createElement("Subnet");
                                     subnet.setAttribute("name", subName);
@@ -304,6 +316,7 @@ public class AzureVlanSupport implements VLANSupport {
                                     break;
                                 }
                                 else {
+                                    logger.debug("Subnet does not exist");
                                     Element subnetList = doc.createElement("Subnets");
                                     Element subnet = doc.createElement("Subnet");
                                     subnet.setAttribute("name", subName);
@@ -389,7 +402,6 @@ public class AzureVlanSupport implements VLANSupport {
 
             Document doc = getNetworkConfig();
             if (doc == null) {
-                logger.debug("No config found so creating from scratch");
                 xml.append("<NetworkConfiguration xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns=\"http://schemas.microsoft.com/ServiceHosting/2011/07/NetworkConfiguration\">");
                 xml.append("<VirtualNetworkConfiguration>");
                 xml.append("<Dns />");
@@ -1172,9 +1184,19 @@ public class AzureVlanSupport implements VLANSupport {
                 cidr = attribute.getFirstChild().getNodeValue().trim();
             }
         }
+         Subnet subnet = new Subnet();
+        subnet.setProviderOwnerId(ctx.getAccountNumber());
+        subnet.setProviderRegionId(ctx.getRegionId());
+        subnet.setProviderVlanId(vlanId);
+        subnet.setProviderSubnetId(name);
+        subnet.setCurrentState(SubnetState.AVAILABLE);
+        subnet.setName(name);
+        subnet.setDescription(name);
+        subnet.setCidr(cidr);
+        subnet.setProviderDataCenterId(ctx.getRegionId());
 
-        Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, name, SubnetState.AVAILABLE, name, name, cidr);
-        subnet.constrainedToDataCenter(ctx.getRegionId());
+        //Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, name, SubnetState.AVAILABLE, name, name, cidr);
+       // subnet.constrainedToDataCenter(ctx.getRegionId());
         return subnet;
     }
 }
