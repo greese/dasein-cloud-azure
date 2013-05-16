@@ -623,7 +623,7 @@ public class AzureVM implements VirtualMachineSupport {
         product.setDescription("Extra Small");
         product.setRootVolumeSize(new Storage<Gigabyte>(15, Storage.GIGABYTE));
         product.setName("Extra Small");
-        product.setProviderProductId("Extra Small");
+        product.setProviderProductId("ExtraSmall");
         product.setRamSize(new Storage<Gigabyte>(1, Storage.GIGABYTE));
         list.add(product);
         
@@ -663,7 +663,7 @@ public class AzureVM implements VirtualMachineSupport {
         product.setDescription("Extra Large");
         product.setRootVolumeSize(new Storage<Gigabyte>(15, Storage.GIGABYTE));
         product.setName("Extra Large");
-        product.setProviderProductId("Extra Large");
+        product.setProviderProductId("ExtraLarge");
         product.setRamSize(new Storage<Gigabyte>(14, Storage.GIGABYTE)); //3.5G
         list.add(product);
         
