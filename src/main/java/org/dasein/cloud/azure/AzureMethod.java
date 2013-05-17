@@ -624,7 +624,8 @@ public class AzureMethod {
                 httpMethod.addHeader("Content-Type", "application/xml;charset=UTF-8");
             }
 
-            if (url.indexOf("/services/images") > -1) {
+            //dmayne version is older for anything to do with images and for disk deletion
+            if (url.indexOf("/services/images") > -1 || (httpMethod instanceof HttpDelete && url.indexOf("/services/disks") > -1)) {
                 httpMethod.addHeader("x-ms-version", "2012-08-01");
             }
             else {
@@ -657,6 +658,158 @@ public class AzureMethod {
 	            }           	
             }          
                       
+            HttpResponse response;
+            StatusLine status;
+
+            try {
+                response = client.execute(httpMethod);
+                status = response.getStatusLine();
+            }
+            catch( IOException e ) {
+                logger.error("post(): Failed to execute HTTP request due to a cloud I/O error: " + e.getMessage());
+                if( logger.isTraceEnabled() ) {
+                    e.printStackTrace();
+                }
+                throw new CloudException(e);
+            }
+            if( logger.isDebugEnabled() ) {
+                logger.debug("post(): HTTP Status " + status);
+            }
+            Header[] headers = response.getAllHeaders();
+
+            if( wire.isDebugEnabled() ) {
+                wire.debug(status.toString());
+                for( Header h : headers ) {
+                    if( h.getValue() != null ) {
+                        wire.debug(h.getName() + ": " + h.getValue().trim());
+                    }
+                    else {
+                        wire.debug(h.getName() + ":");
+                    }
+                }
+                wire.debug("");
+            }
+            if (status.getStatusCode() == HttpServletResponse.SC_TEMPORARY_REDIRECT) {
+                logger.warn("Expected OK, got "+status.getStatusCode());
+
+                String responseBody = "";
+
+                HttpEntity entity = response.getEntity();
+
+                if( entity == null ) {
+                    throw new AzureException(CloudErrorType.GENERAL, status.getStatusCode(), status.getReasonPhrase(), "An error was returned without explanation");
+                }
+                try {
+                    responseBody = EntityUtils.toString(entity);
+                }
+                catch( IOException e ) {
+                    throw new AzureException(CloudErrorType.GENERAL, status.getStatusCode(), status.getReasonPhrase(), e.getMessage());
+                }
+                logger.debug(responseBody);
+                logger.debug("https: char "+responseBody.indexOf("https://"));
+                logger.debug("account number: char "+responseBody.indexOf(account));
+                String tempEndpoint = responseBody.substring(responseBody.indexOf("https://"), responseBody.indexOf(account)-responseBody.indexOf("https://"));
+                logger.debug("temp redirect location: "+tempEndpoint);
+                tempRedirectInvoke(tempEndpoint, method, account, resource, body);
+            }
+            else if( status.getStatusCode() != HttpServletResponse.SC_OK && status.getStatusCode() != HttpServletResponse.SC_CREATED && status.getStatusCode() != HttpServletResponse.SC_ACCEPTED ) {
+                logger.error("post(): Expected OK for GET request, got " + status.getStatusCode());
+
+                HttpEntity entity = response.getEntity();
+
+                if( entity == null ) {
+                    throw new AzureException(CloudErrorType.GENERAL, status.getStatusCode(), status.getReasonPhrase(), "An error was returned without explanation");
+                }
+                try {
+                    body = EntityUtils.toString(entity);
+                }
+                catch( IOException e ) {
+                    throw new AzureException(CloudErrorType.GENERAL, status.getStatusCode(), status.getReasonPhrase(), e.getMessage());
+                }
+                if( wire.isDebugEnabled() ) {
+                    wire.debug(body);
+                }
+                wire.debug("");
+                AzureException.ExceptionItems items = AzureException.parseException(status.getStatusCode(), body);
+
+                if( items == null ) {
+                    throw new CloudException(CloudErrorType.GENERAL, status.getStatusCode(), "Unknown", "Unknown");
+                }
+                logger.error("post(): [" + status.getStatusCode() + " : " + items.message + "] " + items.details);
+                throw new AzureException(items);
+            }
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("exit - " + AzureMethod.class.getName() + ".post()");
+            }
+            if( wire.isDebugEnabled() ) {
+                wire.debug("");
+                wire.debug("POST --------------------------------------------------------> " + endpoint + account + resource);
+            }
+        }
+    }
+
+    public void tempRedirectInvoke(@Nonnull String tempEndpoint, @Nonnull String method, @Nonnull String account, @Nonnull String resource, @Nonnull String body) throws CloudException, InternalException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("enter - " + AzureMethod.class.getName() + ".post(" + account + "," + resource + ")");
+        }
+        if( wire.isDebugEnabled() ) {
+            wire.debug("POST --------------------------------------------------------> " + endpoint + account + resource);
+            wire.debug("");
+        }
+        try {
+            HttpClient client = getClient();
+            String url = tempEndpoint + account + resource;
+
+            HttpRequestBase httpMethod = getMethod(method, url);
+
+            //If it is networking configuration services
+            if (httpMethod instanceof HttpPut) {
+                if(url.endsWith("/services/networking/media")){
+                    httpMethod.addHeader("Content-Type", "text/plain");
+                }else{
+                    httpMethod.addHeader("Content-Type", "application/xml;charset=UTF-8");
+                }
+            }
+            else {
+                httpMethod.addHeader("Content-Type", "application/xml;charset=UTF-8");
+            }
+
+            //dmayne version is older for anything to do with images and for disk deletion
+            if (url.indexOf("/services/images") > -1 || (httpMethod instanceof HttpDelete && url.indexOf("/services/disks") > -1)) {
+                httpMethod.addHeader("x-ms-version", "2012-08-01");
+            }
+            else {
+                httpMethod.addHeader("x-ms-version", "2012-03-01");
+            }
+            if( wire.isDebugEnabled() ) {
+                wire.debug(httpMethod.getRequestLine().toString());
+                for( Header header : httpMethod.getAllHeaders() ) {
+                    wire.debug(header.getName() + ": " + header.getValue());
+                }
+                wire.debug("");
+                if( body != null ) {
+                    wire.debug(body);
+                    wire.debug("");
+                }
+            }
+
+
+            if(httpMethod instanceof HttpEntityEnclosingRequestBase ){
+
+                HttpEntityEnclosingRequestBase entityEnclosingMethod = (HttpEntityEnclosingRequestBase) httpMethod;
+
+                if (body != null) {
+                    try {
+                        entityEnclosingMethod.setEntity(new StringEntity(body, "application/xml", "utf-8"));
+                    } catch (UnsupportedEncodingException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                }
+            }
+
             HttpResponse response;
             StatusLine status;
 
