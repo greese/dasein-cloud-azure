@@ -548,17 +548,48 @@ public class AzureVlanSupport implements VLANSupport {
 
 	@Override
 	public Subnet getSubnet(String subnetId) throws CloudException,InternalException {
-		ArrayList<VLAN> list = (ArrayList<VLAN>) listVlans();
-		if(list != null){ 
-			for(VLAN vlan: list){
-				ArrayList<Subnet> subnets  = (ArrayList<Subnet>) listSubnets(vlan.getProviderVlanId());
-				for(Subnet subnet: subnets){
-					if(subnet.getProviderSubnetId().equals(subnetId)){
-						return subnet;
-					}				
-				}		
-			}
-		}
+        logger.debug("Enter getSubnet");
+
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
+        AzureMethod method = new AzureMethod(provider);
+
+        Document doc = method.getAsXML(ctx.getAccountNumber(), NETWORKING_SERVICES+"/virtualnetwork");
+
+        NodeList entries = doc.getElementsByTagName("VirtualNetworkSite");
+
+        for( int i=0; i<entries.getLength(); i++ ) {
+            logger.debug("Searching vlans");
+            Node entry = entries.item(i);
+            NodeList attributes = entry.getChildNodes();
+
+            String vlanId = "";
+
+            for( int j=0; j<attributes.getLength(); j++ ) {
+                Node attribute = attributes.item(j);
+                if(attribute.getNodeType() == Node.TEXT_NODE) continue;
+                String nodeName = attribute.getNodeName();
+
+                if (nodeName.equalsIgnoreCase("id") && attribute.hasChildNodes() ) {
+                    vlanId = attribute.getFirstChild().getNodeValue().trim();
+                }
+
+                else if (nodeName.equalsIgnoreCase("subnets") && attribute.hasChildNodes()) {
+                    NodeList sNets = attribute.getChildNodes();
+                    for (int k=0; k<sNets.getLength(); k++) {
+                        Node sAttrib = sNets.item(k);
+
+                        Subnet subnet = toSubnet(ctx, sAttrib, vlanId);
+                        if( subnet != null && subnet.getProviderSubnetId().equalsIgnoreCase(subnetId)) {
+                            return subnet;
+                        }
+                    }
+                }
+            }
+        }
 		return null;
 	}
 
