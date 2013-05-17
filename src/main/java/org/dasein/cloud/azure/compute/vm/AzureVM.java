@@ -464,11 +464,13 @@ public class AzureVM implements VirtualMachineSupport {
                 xml.append("<ConfigurationSet>");
                 xml.append("<ConfigurationSetType>LinuxProvisioningConfiguration</ConfigurationSetType>");
                 xml.append("<HostName>").append(hostName).append("</HostName>");
-                if( options.getBootstrapUser() == null ) {
+
+                //dmayne using root causes vm to fail provisioning
+               // if( options.getBootstrapUser() == null ) {
                     xml.append("<UserName>dasein</UserName>");
                     xml.append("<UserPassword>").append(password).append("</UserPassword>");
                     xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
-                }
+               /* }
                 else {
                     xml.append("<UserName>").append(options.getBootstrapUser()).append("</UserName>");
                     xml.append("<UserPassword>").append(password).append("</UserPassword>");
