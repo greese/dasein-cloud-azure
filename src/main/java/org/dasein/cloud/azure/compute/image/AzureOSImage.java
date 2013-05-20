@@ -350,8 +350,11 @@ public class AzureOSImage implements MachineImageSupport {
         if( server == null ) {
             throw new CloudException("No such virtual machine: " + vmId);
         }
+        final boolean restart = !server.getCurrentState().equals(VmState.STOPPED);
         if( !server.getCurrentState().equals(VmState.STOPPED) ) {
-            throw new CloudException("The server must be paused in order to create an image.");
+           //todo change this back
+           // throw new CloudException("The server must be paused in order to create an image.");
+            provider.getComputeServices().getVirtualMachineSupport().stop(vmId);
         }
         final AsynchronousTask<String> task = new AsynchronousTask<String>();
         final String fname = name;
@@ -361,7 +364,11 @@ public class AzureOSImage implements MachineImageSupport {
             public void run() {
                 try {
                     String imageId = imageVirtualMachine(server, fname, fdesc, task);
-                  //  task.completeWithResult(imageId);
+                    //todo remove following three lines
+                    if (restart) {
+                        provider.getComputeServices().getVirtualMachineSupport().start(server.getProviderVirtualMachineId());
+                    }
+                    task.completeWithResult(imageId);
                 }
                 catch( Throwable t ) {
                     task.complete(t);
