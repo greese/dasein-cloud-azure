@@ -42,7 +42,7 @@ import java.util.Locale;
  * @since 2012.04.1
  * @version 2012.04.1
  */
-public class AzureOSImage implements MachineImageSupport {
+public class AzureOSImage extends AbstractImageSupport {
     static private final Logger logger = Azure.getLogger(AzureOSImage.class);
 
     static private final String IMAGES = "/services/images";
@@ -50,7 +50,10 @@ public class AzureOSImage implements MachineImageSupport {
 
     private Azure provider;
     
-    public AzureOSImage(Azure provider) { this.provider = provider; }
+    public AzureOSImage(Azure provider) {
+        super(provider);
+        this.provider = provider;
+    }
 
     @Override
     public void addImageShare(@Nonnull String providerImageId, @Nonnull String accountNumber) throws CloudException, InternalException {
@@ -73,7 +76,7 @@ public class AzureOSImage implements MachineImageSupport {
         throw new OperationNotSupportedException("No ability to bundle vms");
     }
 
-    @Nonnull
+    /*@Nonnull
     @Override
     public MachineImage captureImage(@Nonnull ImageCreateOptions options) throws CloudException, InternalException {
         try {
@@ -273,15 +276,104 @@ public class AzureOSImage implements MachineImageSupport {
         t.setName("Image " + options.getVirtualMachineId());
         t.setDaemon(true);
         t.start();
+    } */
+
+    @Override
+    protected @Nonnull MachineImage capture(@Nonnull ImageCreateOptions options, @Nullable AsynchronousTask<MachineImage> task) throws CloudException, InternalException {
+        try {
+            if( task != null ) {
+                task.setStartTime(System.currentTimeMillis());
+            }
+
+            String vmid = options.getVirtualMachineId();
+            String name = options.getName();
+            String description = options.getDescription();
+
+            VirtualMachine vm;
+
+            vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(options.getVirtualMachineId());
+            if (vm == null) {
+                throw new CloudException("Virtual machine not found: " + options.getVirtualMachineId());
+            }
+            provider.getComputeServices().getVirtualMachineSupport().stop(options.getVirtualMachineId());
+
+            try {
+                try {
+                    ProviderContext ctx = provider.getContext();
+
+                    if( ctx == null ) {
+                        throw new AzureConfigException("No context was set for this request");
+                    }
+                    String label;
+
+                    try {
+                        label = new String(Base64.encodeBase64(description.getBytes("utf-8")));
+                    }
+                    catch( UnsupportedEncodingException e ) {
+                        throw new InternalException(e);
+                    }
+
+                    String vmId = vm.getProviderVirtualMachineId();
+                    String[] parts = vmId.split(":");
+                    String serviceName, deploymentName, roleName;
+
+                    if (parts.length == 3)    {
+                        serviceName = parts[0];
+                        deploymentName = parts[1];
+                        roleName= parts[2];
+                    }
+                    else if( parts.length == 2 ) {
+                        serviceName = parts[0];
+                        deploymentName = parts[1];
+                        roleName = serviceName;
+                    }
+                    else {
+                        serviceName = vmId;
+                        deploymentName = vmId;
+                        roleName = vmId;
+                    }
+                    String resourceDir = AzureVM.HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
+                    AzureMethod method = new AzureMethod(provider);
+                    StringBuilder xml = new StringBuilder();
+
+                    xml.append("<CaptureRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+                    xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
+                    xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
+                    xml.append("<TargetImageLabel>").append(label).append("</TargetImageLabel>\n");
+                    xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
+                    xml.append("</CaptureRoleOperation>\n");
+
+                    method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
+
+                    MachineImage img = getMachineImage(name);;
+
+                    if (img == null) {
+                        throw new CloudException("Drive cloning completed, but no ID was provided for clone");
+                    }if( task != null ) {
+                        task.completeWithResult(img);
+                    }
+                    return img;
+                }
+                finally {
+                    if( logger.isTraceEnabled() ) {
+                        logger.trace("EXIT: " + AzureOSImage.class.getName() + ".launch()");
+                    }
+                }
+            }
+            finally {
+                try {
+                    provider.getComputeServices().getVirtualMachineSupport().start(options.getVirtualMachineId());
+                } catch (Throwable ignore) {
+                    logger.warn("Failed to restart " + options.getVirtualMachineId() + " after drive cloning");
+                }
+            }
+        } finally {
+            provider.release();
+        }
     }
 
     @Override
-    public MachineImage getImage(@Nonnull String providerImageId) throws CloudException, InternalException {
-        return getMachineImage(providerImageId);
-    }
-
-    @Override
-    public AzureMachineImage getMachineImage(@Nonnull String machineImageId) throws CloudException, InternalException {
+    public MachineImage getImage(@Nonnull String machineImageId) throws CloudException, InternalException {
         final ProviderContext ctx = provider.getContext();
 
         if( ctx == null ) {
@@ -314,6 +406,41 @@ public class AzureOSImage implements MachineImageSupport {
         }
         return null;
     }
+
+    /*@Override
+    public AzureMachineImage getMachineImage(@Nonnull String machineImageId) throws CloudException, InternalException {
+        final ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
+
+        PopulatorThread<MachineImage> populator;
+
+        provider.hold();
+        populator = new PopulatorThread<MachineImage>(new JiteratorPopulator<MachineImage>() {
+            public void populate(@Nonnull Jiterator<MachineImage> iterator) throws CloudException, InternalException {
+                try {
+
+                    populateImages(ctx, iterator, MICROSOFT, ctx.getAccountNumber(), "--public--",
+                            "--Canonical--", "--RightScaleLinux--", "--RightScaleWindows--",
+                            "--OpenLogic--", "--SUSE--");
+                }
+                finally {
+                    provider.release();
+                }
+            }
+        });
+        populator.populate();
+        for( MachineImage img : populator.getResult() ) {
+            if( machineImageId.equals(img.getProviderMachineImageId()) ) {
+                logger.debug("Found image i'm looking for "+machineImageId);
+                img.setImageClass(ImageClass.MACHINE);
+                return (AzureMachineImage)img;
+            }
+        }
+        return null;
+    }       */
     
 
     @Override
@@ -344,7 +471,7 @@ public class AzureOSImage implements MachineImageSupport {
         return Requirement.NONE;
     }
 
-    @Override
+    /*@Override
     public @Nonnull AsynchronousTask<String> imageVirtualMachine(String vmId, String name, String description) throws CloudException, InternalException {
         @SuppressWarnings("ConstantConditions") final VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(vmId);
         if( server == null ) {
@@ -438,7 +565,7 @@ public class AzureOSImage implements MachineImageSupport {
                 logger.trace("EXIT: " + AzureOSImage.class.getName() + ".launch()");
             }
         }
-    }
+    }  */
     
     /*
     @Override
@@ -934,10 +1061,10 @@ public class AzureOSImage implements MachineImageSupport {
         return list;
     }
 
-    @Override
+    /*@Override
     public void shareMachineImage(@Nonnull String machineImageId, @Nonnull String withAccountId, boolean allow) throws CloudException, InternalException {
         throw new OperationNotSupportedException("Image sharing is not supported in Azure");
-    }
+    } */
 
     @Override
     public boolean supportsCustomImages() {

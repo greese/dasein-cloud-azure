@@ -51,14 +51,17 @@ import java.util.Locale;
  * @version 2012.04.1
  * @version 2012.09 updated for model changes
  */
-public class AzureVM implements VirtualMachineSupport {
+public class AzureVM extends AbstractVMSupport {
     static private final Logger logger = Azure.getLogger(AzureVM.class);
 
     static public final String HOSTED_SERVICES = "/services/hostedservices";
 
     private Azure provider;
 
-    public AzureVM(Azure provider) { this.provider = provider; }
+    public AzureVM(Azure provider) {
+        super(provider);
+        this.provider = provider;
+    }
 
     @Override
     public void start(@Nonnull String vmId) throws InternalException, CloudException {
@@ -1512,8 +1515,74 @@ public class AzureVM implements VirtualMachineSupport {
         throw new OperationNotSupportedException("Pause/unpause is not supported in Microsoft Azure");
     }
 
-    @Override
+   /* @Override
     public void stop(@Nonnull String vmId) throws InternalException, CloudException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureVM.class.getName() + ".Boot()");
+        }
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new AzureConfigException("No context was set for this request");
+            }
+            VirtualMachine vm = getVirtualMachine(vmId);
+
+            if( vm == null ) {
+                throw new CloudException("No such virtual machine: " + vmId);
+            }
+            String[] parts = vmId.split(":");
+            String serviceName, deploymentName, roleName;
+
+            if (parts.length == 3)    {
+                serviceName = parts[0];
+                deploymentName = parts[1];
+                roleName= parts[2];
+            }
+            else if( parts.length == 2 ) {
+                serviceName = parts[0];
+                deploymentName = parts[1];
+                roleName = serviceName;
+            }
+            else {
+                serviceName = vmId;
+                deploymentName = vmId;
+                roleName = vmId;
+            }
+            String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
+            logger.debug("__________________________________________________________");
+            logger.debug("Stop vm "+resourceDir);
+
+            AzureMethod method = new AzureMethod(provider);
+
+            StringBuilder xml = new StringBuilder();
+            xml.append("<ShutdownRoleOperation  xmlns=\"http://schemas.microsoft.com/windowsazure\"");
+            xml.append(" ");
+            xml.append("xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+            xml.append("\n");
+            xml.append("<OperationType>ShutdownRoleOperation </OperationType>");
+            xml.append("\n");
+            xml.append("</ShutdownRoleOperation>");
+            xml.append("\n");
+
+            if( logger.isInfoEnabled() ) {
+                logger.info("Stopping the " + provider.getCloudName() + " virtual machine: " + vmId);
+            }
+            logger.debug(xml);
+            logger.debug("__________________________________________________________");
+            method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
+
+            waitForState(vm,(CalendarWrapper.MINUTE * 5L), VmState.STOPPED);
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureVM.class.getName() + ".launch()");
+            }
+        }
+    } */
+
+    @Override
+    public void stop(@Nonnull String vmId, boolean force) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".Boot()");
         }
@@ -1578,15 +1647,10 @@ public class AzureVM implements VirtualMachineSupport {
         }
     }
 
-    @Override
-    public void stop(@Nonnull String vmId, boolean force) throws InternalException, CloudException {
-        stop(vmId);
-    }
-
-    @Override
+   /* @Override
     public boolean supportsAnalytics() throws CloudException, InternalException {
         return false;
-    }
+    }  */
 
     @Override
     public boolean supportsPauseUnpause(@Nonnull VirtualMachine vm) {

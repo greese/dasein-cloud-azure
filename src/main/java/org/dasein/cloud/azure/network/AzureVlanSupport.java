@@ -24,7 +24,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public class AzureVlanSupport implements VLANSupport {
+public class AzureVlanSupport extends AbstractVLANSupport {
     static private final Logger logger = Azure.getLogger(AzureVlanSupport.class);
 
 	
@@ -32,7 +32,10 @@ public class AzureVlanSupport implements VLANSupport {
 
     private Azure provider;
 
-    public AzureVlanSupport(Azure provider) { this.provider = provider; }
+    public AzureVlanSupport(Azure provider) {
+        super(provider);
+        this.provider = provider;
+    }
 	
 
 	@Override
@@ -611,11 +614,11 @@ public class AzureVlanSupport implements VLANSupport {
 		return null;		
 	}
 
-    @Nonnull
+    /*@Nonnull
     @Override
     public Requirement identifySubnetDCRequirement() throws CloudException, InternalException {
         return Requirement.REQUIRED;
-    }
+    } */
 
     @Override
     public boolean isConnectedViaInternetGateway(@Nonnull String s) throws CloudException, InternalException {

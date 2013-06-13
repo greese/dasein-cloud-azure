@@ -46,7 +46,7 @@ import java.util.Locale;
  * @version 2012-06
  * @since 2012-06
  */
-public class AzureDisk implements VolumeSupport {
+public class AzureDisk extends AbstractVolumeSupport {
     static private final Logger logger = Azure.getLogger(AzureDisk.class);
 
     static private final String DISK_SERVICES = "/services/disks";
@@ -54,7 +54,10 @@ public class AzureDisk implements VolumeSupport {
     
     private Azure provider;
 
-    public AzureDisk(Azure provider) { this.provider = provider; }
+    public AzureDisk(Azure provider) {
+        super(provider);
+        this.provider = provider;
+    }
     
     @Override
     public void attach(@Nonnull String volumeId, @Nonnull String toServer, @Nonnull String device) throws InternalException, CloudException {
@@ -128,7 +131,7 @@ public class AzureDisk implements VolumeSupport {
 
    // static private final Random random = new Random();
     
-    @Override
+   /* @Override
     public @Nonnull String create(@Nullable String fromSnapshot, @Nonnegative int sizeInGb, @Nonnull String inZone) throws InternalException, CloudException {
         String name = "dsn" + System.currentTimeMillis();
         VolumeCreateOptions options;
@@ -140,7 +143,7 @@ public class AzureDisk implements VolumeSupport {
             options = VolumeCreateOptions.getInstanceForSnapshot(fromSnapshot,new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE), name, name).inDataCenter(inZone);
         }
         return createVolume(options);
-    }
+    } */
 
     @Override
     public @Nonnull String createVolume(@Nonnull VolumeCreateOptions options) throws InternalException, CloudException {
@@ -215,7 +218,7 @@ public class AzureDisk implements VolumeSupport {
         }
     }
     
-    @Override
+   /* @Override
     public void detach(@Nonnull String volumeId) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureDisk.class.getName() + ".detach(" + volumeId+")");
@@ -264,11 +267,57 @@ public class AzureDisk implements VolumeSupport {
                 logger.trace("EXIT: " + AzureDisk.class.getName() + ".detach()");
             }
         }
-    }
+    }   */
 
     @Override
     public void detach(@Nonnull String volumeId, boolean force) throws InternalException, CloudException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureDisk.class.getName() + ".detach(" + volumeId+")");
+        }
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new AzureConfigException("No context was specified for this request");
+            }
+
+            Volume disk ;
+            if(volumeId != null){
+                disk = getVolume(volumeId);
+                if(disk == null ){
+                    throw new InternalException("Can not find the source snapshot !");
+                }
+            }else{
+                throw new InternalException("volumeId is null !");
+            }
+
+            String providerVirtualMachineId = disk.getProviderVirtualMachineId();
+            VirtualMachine vm = null;
+
+            if( providerVirtualMachineId != null ) {
+                vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(providerVirtualMachineId);
+            }
+            if( vm != null ) {
+                logger.trace("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + "Or the VM id is not having the desired format !!!");
+                throw new InternalException("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + "Or the VM id is not having the desired format !!!");
+            }
+            String lun = getDiskLun(disk.getProviderVolumeId(), providerVirtualMachineId);
+
+            if(lun == null){
+                logger.trace("Can not identify the lun number");
+                throw new InternalException("logical unit number of disk is null, detach operation can not be continue!");
+            }
+            String resourceDir = HOSTED_SERVICES + "/" + vm.getTag("serviceName") + "/deployments" + "/" +  vm.getTag("deploymentName") + "/roles"+"/" + vm.getTag("roleName") + "/DataDisks" + "/" + lun;
+
+            AzureMethod method = new AzureMethod(provider);
+
+            method.invoke("DELETE",ctx.getAccountNumber(), resourceDir, null);
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureDisk.class.getName() + ".detach()");
+            }
+        }
     }
 
     private String getDiskLun(String providerVolumeId, String providerVirtualMachineId) throws InternalException, CloudException {
