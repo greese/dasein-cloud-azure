@@ -6,7 +6,7 @@ import javax.annotation.Nullable;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.network.*;
 
-public class AzureNetworkServices extends AbstractNetworkServices {
+public class AzureNetworkServices implements NetworkServices {
 	
 	private Azure provider;
 
@@ -35,12 +35,6 @@ public class AzureNetworkServices extends AbstractNetworkServices {
 		// TODO Auto-generated method stub
 		return null;
 	}
-
-    @Nullable
-    @Override
-    public NetworkFirewallSupport getNetworkFirewallSupport() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
 
     @Override
 	public AzureVlanSupport getVlanSupport() {
@@ -74,11 +68,6 @@ public class AzureNetworkServices extends AbstractNetworkServices {
 		// TODO Auto-generated method stub
 		return false;
 	}
-
-    @Override
-    public boolean hasNetworkFirewallSupport() {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
-    }
 
     @Override
 	public boolean hasVlanSupport() {

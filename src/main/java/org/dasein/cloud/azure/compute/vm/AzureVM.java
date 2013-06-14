@@ -51,7 +51,7 @@ import java.util.Locale;
  * @version 2012.04.1
  * @version 2012.09 updated for model changes
  */
-public class AzureVM extends AbstractVMSupport {
+public class AzureVM implements VirtualMachineSupport {
     static private final Logger logger = Azure.getLogger(AzureVM.class);
 
     static public final String HOSTED_SERVICES = "/services/hostedservices";
@@ -59,7 +59,6 @@ public class AzureVM extends AbstractVMSupport {
     private Azure provider;
 
     public AzureVM(Azure provider) {
-        super(provider);
         this.provider = provider;
     }
 
@@ -390,7 +389,7 @@ public class AzureVM extends AbstractVMSupport {
         try {
             logger.debug("----------------------------------------------------------");
             logger.debug("launching vm "+options.getHostName()+" with machine image id: "+options.getMachineImageId());
-            AzureMachineImage image = (AzureMachineImage)provider.getComputeServices().getImageSupport().getMachineImage(options.getMachineImageId());
+            AzureMachineImage image = (AzureMachineImage)provider.getComputeServices().getImageSupport().getImage(options.getMachineImageId());
 
             if( image == null ) {
                 throw new CloudException("No such image: " + options.getMachineImageId());
@@ -727,10 +726,11 @@ public class AzureVM extends AbstractVMSupport {
         return vms;
     }
 
+    /*
     @Nonnull
     @Override
     public Iterable<VirtualMachine> listVirtualMachines(@Nullable VMFilterOptions vmFilterOptions) throws InternalException, CloudException {
-        /*ArrayList<VirtualMachine> list = new ArrayList<VirtualMachine>();
+        ArrayList<VirtualMachine> list = new ArrayList<VirtualMachine>();
         ProviderContext ctx = provider.getContext();
 
         if( ctx == null ) {
@@ -755,7 +755,7 @@ public class AzureVM extends AbstractVMSupport {
                  list.add(vm);
             }
         }
-        return list; */
+        return list;
 
         //dmayne 20130422: java heap space error
         Iterable<VirtualMachine> vms = listVirtualMachines();
@@ -767,6 +767,7 @@ public class AzureVM extends AbstractVMSupport {
         }
         return list;
     }
+    */
 
     private void parseDeployment(@Nonnull ProviderContext ctx, @Nonnull String regionId, @Nonnull String serviceName, @Nonnull Node node, @Nonnull List<VirtualMachine> virtualMachines) {
         ArrayList<VirtualMachine> list = new ArrayList<VirtualMachine>();
@@ -1053,7 +1054,7 @@ public class AzureVM extends AbstractVMSupport {
                     vm.setPlatform(Platform.guess(vm.getProviderMachineImageId()));
                     if( vm.getPlatform().equals(Platform.UNKNOWN) ) {
                         try {
-                            MachineImage img = provider.getComputeServices().getImageSupport().getMachineImage(vm.getProviderMachineImageId());
+                            MachineImage img = provider.getComputeServices().getImageSupport().getImage(vm.getProviderMachineImageId());
 
                             if( img != null ) {
                                 vm.setPlatform(img.getPlatform());
@@ -1582,6 +1583,11 @@ public class AzureVM extends AbstractVMSupport {
     } */
 
     @Override
+    public void stop(@Nonnull String vmId) throws InternalException, CloudException{
+        stop(vmId, false);
+    }
+
+    @Override
     public void stop(@Nonnull String vmId, boolean force) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".Boot()");
@@ -1647,10 +1653,10 @@ public class AzureVM extends AbstractVMSupport {
         }
     }
 
-   /* @Override
+    @Override
     public boolean supportsAnalytics() throws CloudException, InternalException {
         return false;
-    }  */
+    }
 
     @Override
     public boolean supportsPauseUnpause(@Nonnull VirtualMachine vm) {
@@ -1794,21 +1800,6 @@ public class AzureVM extends AbstractVMSupport {
 
     @Override
     public void updateTags(@Nonnull String vmId, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void updateTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void removeTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void removeTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
         //To change body of implemented methods use File | Settings | File Templates.
     }
 

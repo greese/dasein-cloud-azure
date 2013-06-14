@@ -3,7 +3,7 @@
 
     <groupId>org.dasein</groupId>
     <artifactId>dasein-cloud-azure</artifactId>
-    <version>2013.04.1</version>
+    <version>2013.02.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>dasein-cloud-azure</name>
@@ -45,7 +45,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-core</artifactId>
-            <version>2013.04</version>
+            <version>2013.02.4</version>
             <scope>compile</scope>
             <optional>false</optional>
         </dependency>
@@ -98,7 +98,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-test</artifactId>
-            <version>2013.04</version>
+            <version>2013.02.3</version>
             <scope>test</scope>
             <optional>false</optional>
         </dependency>
@@ -190,10 +190,6 @@
                 <configuration>
                     <systemProperties>
                         <property>
-                            <name>providerClass</name>
-                            <value>${providerClass}</value>
-                        </property>
-                        <property>
                             <name>endpoint</name>
                             <value>${endpoint}</value>
                         </property>
@@ -202,28 +198,20 @@
                             <value>${accountNumber}</value>
                         </property>
                         <property>
-                            <name>accessPublic</name>
-                            <value>${apiSharedKey}</value>
-                        </property>
-                        <property>
-                            <name>accessPrivate</name>
-                            <value>${apiSecretKey}</value>
-                        </property>
-                        <property>
                             <name>apiSharedKey</name>
                             <value>${apiSharedKey}</value>
                         </property>
                         <property>
+                            <name>x509Cert</name>
+                            <value>${x509Cert}</value>
+                        </property>
+                        <property>
+                            <name>x509Key</name>
+                            <value>${x509Key}</value>
+                        </property>
+                        <property>
                             <name>apiSecretKey</name>
                             <value>${apiSecretKey}</value>
-                        </property>
-                        <property>
-                            <name>x509CertFile</name>
-                            <value>${x509CertFile}</value>
-                        </property>
-                        <property>
-                            <name>x509KeyFile</name>
-                            <value>${x509KeyFile}</value>
                         </property>
                         <property>
                             <name>cloudName</name>
@@ -239,7 +227,7 @@
                         </property>
                         <property>
                             <name>test.region</name>
-                            <value>${regionId}</value>
+                            <value>${test.region}</value>
                         </property>
                         <property>
                             <name>test.dataCenter</name>
@@ -253,20 +241,11 @@
                             <name>test.product</name>
                             <value>${test.product}</value>
                         </property>
-                        <property>
-                            <name>test.shareAccount</name>
-                            <value>${test.shareAccount}</value>
-                        </property>
-                        <property>
-                            <name>shareAccount</name>
-                            <value>${test.shareAccount}</value>
-                        </property>
+
                     </systemProperties>
-                   <!-- <includes>
-                         <include>**/AzureTestSuite.java</include>
+                    <includes>
+                        <!-- <include>**/AzureTestSuite.java</include> -->
                     </includes>
-                    <argLine>-Ddasein.inclusions=StatefulVLANTests.provisionSubnet</argLine>
-                  <!-  <argLine>-Ddasein.inclusions=StatefulVolumeTests,StatelessVolumeTests</argLine>  -->
                 </configuration>
             </plugin>
             <plugin>

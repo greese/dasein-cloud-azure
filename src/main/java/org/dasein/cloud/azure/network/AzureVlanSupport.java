@@ -24,7 +24,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public class AzureVlanSupport extends AbstractVLANSupport {
+public class AzureVlanSupport implements VLANSupport {
     static private final Logger logger = Azure.getLogger(AzureVlanSupport.class);
 
 	
@@ -33,7 +33,6 @@ public class AzureVlanSupport extends AbstractVLANSupport {
     private Azure provider;
 
     public AzureVlanSupport(Azure provider) {
-        super(provider);
         this.provider = provider;
     }
 	
@@ -87,16 +86,6 @@ public class AzureVlanSupport extends AbstractVLANSupport {
 	public boolean allowsNewSubnetCreation() throws CloudException,InternalException {
 		return true;
 	}
-
-    @Override
-    public boolean allowsMultipleTrafficTypesOverSubnet() throws CloudException, InternalException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public boolean allowsMultipleTrafficTypesOverVlan() throws CloudException, InternalException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
-    }
 
     @Override
 	public void assignRoutingTableToSubnet(String subnetId,String routingTableId) throws CloudException, InternalException {
@@ -255,6 +244,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
         }
 	}
 
+    /*
     @Nonnull
     @Override
     public Subnet createSubnet(@Nonnull SubnetCreateOptions subnetCreateOptions) throws CloudException, InternalException {
@@ -373,6 +363,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
             }
         }
     }
+    */
 
     @Override
 	public VLAN createVlan(String cidr, String name, String description, String domainName, String[] dnsServers, String[] ntpServers)throws CloudException, InternalException {
@@ -619,11 +610,6 @@ public class AzureVlanSupport extends AbstractVLANSupport {
     public Requirement identifySubnetDCRequirement() throws CloudException, InternalException {
         return Requirement.REQUIRED;
     } */
-
-    @Override
-    public boolean isConnectedViaInternetGateway(@Nonnull String s) throws CloudException, InternalException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
-    }
 
     @Override
 	public boolean isNetworkInterfaceSupportEnabled() throws CloudException,InternalException {
@@ -1025,16 +1011,6 @@ public class AzureVlanSupport extends AbstractVLANSupport {
 	}
 
     @Override
-    public void removeVLANTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void removeVLANTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
 	public boolean supportsInternetGatewayCreation() throws CloudException, InternalException {
 		// TODO Auto-generated method stub
 		return false;
@@ -1047,19 +1023,6 @@ public class AzureVlanSupport extends AbstractVLANSupport {
 		return false;
 	}
 
-    @Override
-    public void updateVLANTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void updateVLANTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-
-
-
     private @Nullable Iterable<VLAN> toVLAN(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
         if( entry == null ) {
             return null;
@@ -1071,7 +1034,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
         vlan.setProviderOwnerId(ctx.getAccountNumber());
         vlan.setProviderRegionId(ctx.getRegionId());
         vlan.setProviderDataCenterId(ctx.getRegionId());
-        vlan.setSupportedTraffic(IPVersion.IPV4);
+        //vlan.setSupportedTraffic(IPVersion.IPV4);
 
         HashMap<String,String> tags = new HashMap<String, String>();
         NodeList attributes = entry.getChildNodes();

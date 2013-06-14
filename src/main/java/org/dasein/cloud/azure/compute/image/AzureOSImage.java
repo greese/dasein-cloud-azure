@@ -42,7 +42,7 @@ import java.util.Locale;
  * @since 2012.04.1
  * @version 2012.04.1
  */
-public class AzureOSImage extends AbstractImageSupport {
+public class AzureOSImage implements MachineImageSupport {
     static private final Logger logger = Azure.getLogger(AzureOSImage.class);
 
     static private final String IMAGES = "/services/images";
@@ -51,7 +51,6 @@ public class AzureOSImage extends AbstractImageSupport {
     private Azure provider;
     
     public AzureOSImage(Azure provider) {
-        super(provider);
         this.provider = provider;
     }
 
@@ -76,7 +75,7 @@ public class AzureOSImage extends AbstractImageSupport {
         throw new OperationNotSupportedException("No ability to bundle vms");
     }
 
-    /*@Nonnull
+    @Nonnull
     @Override
     public MachineImage captureImage(@Nonnull ImageCreateOptions options) throws CloudException, InternalException {
         try {
@@ -276,8 +275,9 @@ public class AzureOSImage extends AbstractImageSupport {
         t.setName("Image " + options.getVirtualMachineId());
         t.setDaemon(true);
         t.start();
-    } */
+    }
 
+    /*
     @Override
     protected @Nonnull MachineImage capture(@Nonnull ImageCreateOptions options, @Nullable AsynchronousTask<MachineImage> task) throws CloudException, InternalException {
         try {
@@ -371,6 +371,7 @@ public class AzureOSImage extends AbstractImageSupport {
             provider.release();
         }
     }
+    */
 
     @Override
     public MachineImage getImage(@Nonnull String machineImageId) throws CloudException, InternalException {
@@ -407,7 +408,7 @@ public class AzureOSImage extends AbstractImageSupport {
         return null;
     }
 
-    /*@Override
+    @Override
     public AzureMachineImage getMachineImage(@Nonnull String machineImageId) throws CloudException, InternalException {
         final ProviderContext ctx = provider.getContext();
 
@@ -440,7 +441,7 @@ public class AzureOSImage extends AbstractImageSupport {
             }
         }
         return null;
-    }       */
+    }
     
 
     @Override
@@ -471,7 +472,7 @@ public class AzureOSImage extends AbstractImageSupport {
         return Requirement.NONE;
     }
 
-    /*@Override
+    @Override
     public @Nonnull AsynchronousTask<String> imageVirtualMachine(String vmId, String name, String description) throws CloudException, InternalException {
         @SuppressWarnings("ConstantConditions") final VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(vmId);
         if( server == null ) {
@@ -565,7 +566,7 @@ public class AzureOSImage extends AbstractImageSupport {
                 logger.trace("EXIT: " + AzureOSImage.class.getName() + ".launch()");
             }
         }
-    }  */
+    }
     
     /*
     @Override
@@ -694,6 +695,7 @@ public class AzureOSImage extends AbstractImageSupport {
         return new ResourceStatus(id, MachineImageState.ACTIVE);
     }
 
+    /*
     @Nonnull
     @Override
     public Iterable<MachineImage> listImages(@Nullable ImageFilterOptions imageFilterOptions) throws CloudException, InternalException {
@@ -738,6 +740,7 @@ public class AzureOSImage extends AbstractImageSupport {
         }
         return images;
     }
+    */
 
     @Nonnull
     @Override
@@ -1032,6 +1035,7 @@ public class AzureOSImage extends AbstractImageSupport {
         return images;
     }
 
+    /*
     @Nonnull
     @Override
     public Iterable<MachineImage> searchPublicImages(@Nonnull ImageFilterOptions imageFilterOptions) throws InternalException, CloudException {
@@ -1039,6 +1043,7 @@ public class AzureOSImage extends AbstractImageSupport {
         ImageClass cls = imageFilterOptions.getImageClass();
         return searchPublicImages(null, platform, null, cls);
     }
+    */
 
     @Nonnull
     @Override
@@ -1061,10 +1066,10 @@ public class AzureOSImage extends AbstractImageSupport {
         return list;
     }
 
-    /*@Override
+    @Override
     public void shareMachineImage(@Nonnull String machineImageId, @Nonnull String withAccountId, boolean allow) throws CloudException, InternalException {
         throw new OperationNotSupportedException("Image sharing is not supported in Azure");
-    } */
+    }
 
     @Override
     public boolean supportsCustomImages() {
@@ -1101,21 +1106,6 @@ public class AzureOSImage extends AbstractImageSupport {
 
     @Override
     public void updateTags(@Nonnull String imageId, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void updateTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void removeTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void removeTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
         //To change body of implemented methods use File | Settings | File Templates.
     }
 

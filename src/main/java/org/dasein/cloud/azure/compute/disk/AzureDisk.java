@@ -46,7 +46,7 @@ import java.util.Locale;
  * @version 2012-06
  * @since 2012-06
  */
-public class AzureDisk extends AbstractVolumeSupport {
+public class AzureDisk implements VolumeSupport {
     static private final Logger logger = Azure.getLogger(AzureDisk.class);
 
     static private final String DISK_SERVICES = "/services/disks";
@@ -55,7 +55,6 @@ public class AzureDisk extends AbstractVolumeSupport {
     private Azure provider;
 
     public AzureDisk(Azure provider) {
-        super(provider);
         this.provider = provider;
     }
     
@@ -131,7 +130,7 @@ public class AzureDisk extends AbstractVolumeSupport {
 
    // static private final Random random = new Random();
     
-   /* @Override
+    @Override
     public @Nonnull String create(@Nullable String fromSnapshot, @Nonnegative int sizeInGb, @Nonnull String inZone) throws InternalException, CloudException {
         String name = "dsn" + System.currentTimeMillis();
         VolumeCreateOptions options;
@@ -143,7 +142,7 @@ public class AzureDisk extends AbstractVolumeSupport {
             options = VolumeCreateOptions.getInstanceForSnapshot(fromSnapshot,new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE), name, name).inDataCenter(inZone);
         }
         return createVolume(options);
-    } */
+    }
 
     @Override
     public @Nonnull String createVolume(@Nonnull VolumeCreateOptions options) throws InternalException, CloudException {
@@ -218,7 +217,7 @@ public class AzureDisk extends AbstractVolumeSupport {
         }
     }
     
-   /* @Override
+    @Override
     public void detach(@Nonnull String volumeId) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureDisk.class.getName() + ".detach(" + volumeId+")");
@@ -267,7 +266,7 @@ public class AzureDisk extends AbstractVolumeSupport {
                 logger.trace("EXIT: " + AzureDisk.class.getName() + ".detach()");
             }
         }
-    }   */
+    }
 
     @Override
     public void detach(@Nonnull String volumeId, boolean force) throws InternalException, CloudException {
@@ -490,6 +489,7 @@ public class AzureDisk extends AbstractVolumeSupport {
     	
     }
 
+    /*
     @Nonnull
     @Override
     public Iterable<Volume> listVolumes(@Nullable VolumeFilterOptions volumeFilterOptions) throws InternalException, CloudException {
@@ -515,6 +515,7 @@ public class AzureDisk extends AbstractVolumeSupport {
         }
         return disks;
     }
+    */
 
     private boolean isWithinDeviceList(String device) throws InternalException, CloudException{
     	ArrayList<String> list = (ArrayList<String>) listPossibleDeviceIds(Platform.UNIX);
@@ -553,26 +554,6 @@ public class AzureDisk extends AbstractVolumeSupport {
                 logger.trace("EXIT: " + AzureDisk.class.getName() + ".remove()");
             }
         }
-    }
-
-    @Override
-    public void removeTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void removeTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void updateTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void updateTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
