@@ -137,8 +137,8 @@ public class AzureOSImage implements MachineImageSupport {
                     xml.append("<CaptureRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                     xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
                     xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
-                    xml.append("<TargetImageLabel>").append(label).append("</TargetImageLabel>\n");
-                    xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
+                    xml.append("<TargetImageLabel>").append(name).append("</TargetImageLabel>\n");
+                    xml.append("<TargetImageName>").append(label).append("</TargetImageName>\n");
                     xml.append("</CaptureRoleOperation>\n");
 
                     System.out.println("About to image machine: "+name);
