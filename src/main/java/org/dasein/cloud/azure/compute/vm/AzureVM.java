@@ -443,10 +443,10 @@ public class AzureVM implements VirtualMachineSupport {
             System.out.println("VM password "+password);
 
             if( image.getPlatform().isWindows() ) {
-                xml.append("<WindowsProvisioningConfigurationSet>");
+                xml.append("<ConfigurationSet>");
+                xml.append("<ConfigurationSetType>WindowsProvisioningConfiguration</ConfigurationSetType>");
                 xml.append("<ComputerName>").append(hostName).append("</ComputerName>");
                 xml.append("<AdminPassword>").append(password).append("</AdminPassword>");
-                xml.append("<ResetPasswordOnFirstLogon>true</ResetPasswordOnFirstLogon>");
                 xml.append("<EnableAutomaticUpdate>true</EnableAutomaticUpdate>");
                 xml.append("<TimeZone>UTC</TimeZone>");
                 /*
@@ -460,7 +460,7 @@ public class AzureVM implements VirtualMachineSupport {
                     xml.append("</StoredCertificateSettings>");
                 }
                 */
-                xml.append("</WindowsProvisioningConfigurationSet>");
+                xml.append("</ConfigurationSet>");
             }
             else {
                 xml.append("<ConfigurationSet>");
@@ -469,9 +469,9 @@ public class AzureVM implements VirtualMachineSupport {
 
                 //dmayne using root causes vm to fail provisioning
                // if( options.getBootstrapUser() == null ) {
-                    xml.append("<UserName>dasein</UserName>");
-                    xml.append("<UserPassword>").append(password).append("</UserPassword>");
-                    xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
+                xml.append("<UserName>dasein</UserName>");
+                xml.append("<UserPassword>").append(password).append("</UserPassword>");
+                xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
                /* }
                 else {
                     xml.append("<UserName>").append(options.getBootstrapUser()).append("</UserName>");
@@ -491,10 +491,16 @@ public class AzureVM implements VirtualMachineSupport {
             xml.append("<ConfigurationSet>");
             xml.append("<ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>") ;
             xml.append("<InputEndpoints><InputEndpoint>");
-            xml.append("<LoadBalancedEndpointSetName>blah</LoadBalancedEndpointSetName>");
-            xml.append("<LocalPort>22</LocalPort>");
-            xml.append("<Name>SSH</Name>");
-            xml.append("<Port>60256</Port>");
+            if( image.getPlatform().isWindows() ) {
+                xml.append("<LocalPort>3389</LocalPort>");
+                xml.append("<Name>RemoteDesktop</Name>");
+                xml.append("<Port>58622</Port>");
+            }
+            else {
+                xml.append("<LocalPort>22</LocalPort>");
+                xml.append("<Name>SSH</Name>");
+                xml.append("<Port>22</Port>");
+            }
             xml.append("<Protocol>TCP</Protocol>");
             xml.append("</InputEndpoint></InputEndpoints>");
             //dmayne assuming this is a subnet
