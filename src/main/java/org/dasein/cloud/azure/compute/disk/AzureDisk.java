@@ -70,6 +70,13 @@ public class AzureDisk extends AbstractVolumeSupport {
             if( ctx == null ) {
                 throw new AzureConfigException("No context was specified for this request");
             }
+
+            if (device != null) {
+                if (device.startsWith("/dev/")) {
+                    device = device.substring(5);
+                }
+
+            }
                       
             Volume disk ;
             StringBuilder xml = new StringBuilder();
@@ -246,9 +253,9 @@ public class AzureDisk extends AbstractVolumeSupport {
             if( providerVirtualMachineId != null ) {
                 vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(providerVirtualMachineId);
             }
-            if( vm != null ) {
-            	logger.trace("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + "Or the VM id is not having the desired format !!!");
-            	throw new InternalException("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + "Or the VM id is not having the desired format !!!");
+            if( vm == null ) {
+            	logger.trace("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + " or the VM id is not in the desired format !!!");
+            	throw new InternalException("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + " or the VM id is not in the desired format !!!");
             }
             String lun = getDiskLun(disk.getProviderVolumeId(), providerVirtualMachineId);
             
@@ -297,9 +304,9 @@ public class AzureDisk extends AbstractVolumeSupport {
             if( providerVirtualMachineId != null ) {
                 vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(providerVirtualMachineId);
             }
-            if( vm != null ) {
-                logger.trace("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + "Or the VM id is not having the desired format !!!");
-                throw new InternalException("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + "Or the VM id is not having the desired format !!!");
+            if( vm == null ) {
+                logger.trace("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + " or the VM id is not in the desired format !!!");
+                throw new InternalException("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + " or the VM id is not in the desired format !!!");
             }
             String lun = getDiskLun(disk.getProviderVolumeId(), providerVirtualMachineId);
 

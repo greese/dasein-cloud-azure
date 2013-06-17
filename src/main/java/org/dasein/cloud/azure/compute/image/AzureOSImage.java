@@ -138,8 +138,8 @@ public class AzureOSImage extends AbstractImageSupport {
                     xml.append("<CaptureRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                     xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
                     xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
-                    xml.append("<TargetImageLabel>").append(label).append("</TargetImageLabel>\n");
-                    xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
+                    xml.append("<TargetImageLabel>").append(name).append("</TargetImageLabel>\n");
+                    xml.append("<TargetImageName>").append(label).append("</TargetImageName>\n");
                     xml.append("</CaptureRoleOperation>\n");
 
                     System.out.println("About to image machine: "+name);
@@ -241,8 +241,8 @@ public class AzureOSImage extends AbstractImageSupport {
                             xml.append("<CaptureRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                             xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
                             xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
-                            xml.append("<TargetImageLabel>").append(label).append("</TargetImageLabel>\n");
-                            xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
+                            xml.append("<TargetImageLabel>").append(name).append("</TargetImageLabel>\n");
+                            xml.append("<TargetImageName>").append(label).append("</TargetImageName>\n");
                             xml.append("</CaptureRoleOperation>\n");
 
                             method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
@@ -298,73 +298,66 @@ public class AzureOSImage extends AbstractImageSupport {
             provider.getComputeServices().getVirtualMachineSupport().stop(options.getVirtualMachineId());
 
             try {
+                ProviderContext ctx = provider.getContext();
+
+                if( ctx == null ) {
+                    throw new AzureConfigException("No context was set for this request");
+                }
+                String label;
+
                 try {
-                    ProviderContext ctx = provider.getContext();
-
-                    if( ctx == null ) {
-                        throw new AzureConfigException("No context was set for this request");
-                    }
-                    String label;
-
-                    try {
-                        label = new String(Base64.encodeBase64(description.getBytes("utf-8")));
-                    }
-                    catch( UnsupportedEncodingException e ) {
-                        throw new InternalException(e);
-                    }
-
-                    String vmId = vm.getProviderVirtualMachineId();
-                    String[] parts = vmId.split(":");
-                    String serviceName, deploymentName, roleName;
-
-                    if (parts.length == 3)    {
-                        serviceName = parts[0];
-                        deploymentName = parts[1];
-                        roleName= parts[2];
-                    }
-                    else if( parts.length == 2 ) {
-                        serviceName = parts[0];
-                        deploymentName = parts[1];
-                        roleName = serviceName;
-                    }
-                    else {
-                        serviceName = vmId;
-                        deploymentName = vmId;
-                        roleName = vmId;
-                    }
-                    String resourceDir = AzureVM.HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
-                    AzureMethod method = new AzureMethod(provider);
-                    StringBuilder xml = new StringBuilder();
-
-                    xml.append("<CaptureRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-                    xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
-                    xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
-                    xml.append("<TargetImageLabel>").append(label).append("</TargetImageLabel>\n");
-                    xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
-                    xml.append("</CaptureRoleOperation>\n");
-
-                    method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-
-                    MachineImage img = getMachineImage(name);;
-
-                    if (img == null) {
-                        throw new CloudException("Drive cloning completed, but no ID was provided for clone");
-                    }if( task != null ) {
-                        task.completeWithResult(img);
-                    }
-                    return img;
+                    label = new String(Base64.encodeBase64(description.getBytes("utf-8")));
                 }
-                finally {
-                    if( logger.isTraceEnabled() ) {
-                        logger.trace("EXIT: " + AzureOSImage.class.getName() + ".launch()");
-                    }
+                catch( UnsupportedEncodingException e ) {
+                    throw new InternalException(e);
                 }
+
+                String vmId = vm.getProviderVirtualMachineId();
+                String[] parts = vmId.split(":");
+                String serviceName, deploymentName, roleName;
+
+                if (parts.length == 3)    {
+                    serviceName = parts[0];
+                    deploymentName = parts[1];
+                    roleName= parts[2];
+                }
+                else if( parts.length == 2 ) {
+                    serviceName = parts[0];
+                    deploymentName = parts[1];
+                    roleName = serviceName;
+                }
+                else {
+                    serviceName = vmId;
+                    deploymentName = vmId;
+                    roleName = vmId;
+                }
+                String resourceDir = AzureVM.HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
+                AzureMethod method = new AzureMethod(provider);
+                StringBuilder xml = new StringBuilder();
+
+                xml.append("<CaptureRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+                xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
+                xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
+                xml.append("<TargetImageLabel>").append(name).append("</TargetImageLabel>\n");
+                xml.append("<TargetImageName>").append(label).append("</TargetImageName>\n");
+                xml.append("</CaptureRoleOperation>\n");
+
+                method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
+
+                System.out.println("image name: "+name);
+
+                MachineImage img = getMachineImage(name);;
+
+                if (img == null) {
+                    throw new CloudException("Drive cloning completed, but no ID was provided for clone");
+                }if( task != null ) {
+                    task.completeWithResult(img);
+                }
+                return img;
             }
             finally {
-                try {
-                    provider.getComputeServices().getVirtualMachineSupport().start(options.getVirtualMachineId());
-                } catch (Throwable ignore) {
-                    logger.warn("Failed to restart " + options.getVirtualMachineId() + " after drive cloning");
+                if( logger.isTraceEnabled() ) {
+                    logger.trace("EXIT: " + AzureOSImage.class.getName() + ".launch()");
                 }
             }
         } finally {
