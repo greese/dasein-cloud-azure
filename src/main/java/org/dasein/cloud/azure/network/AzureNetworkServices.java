@@ -1,13 +1,10 @@
 package org.dasein.cloud.azure.network;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import org.dasein.cloud.azure.Azure;
-import org.dasein.cloud.network.DNSSupport;
-import org.dasein.cloud.network.FirewallSupport;
-import org.dasein.cloud.network.IpAddressSupport;
-import org.dasein.cloud.network.LoadBalancerSupport;
-import org.dasein.cloud.network.NetworkServices;
+import org.dasein.cloud.network.*;
 
 public class AzureNetworkServices implements NetworkServices {
 	
@@ -39,7 +36,7 @@ public class AzureNetworkServices implements NetworkServices {
 		return null;
 	}
 
-	@Override
+    @Override
 	public AzureVlanSupport getVlanSupport() {
 		return new AzureVlanSupport(provider);
 	}
@@ -72,10 +69,9 @@ public class AzureNetworkServices implements NetworkServices {
 		return false;
 	}
 
-	@Override
+    @Override
 	public boolean hasVlanSupport() {
-		// TODO Auto-generated method stub
-		return false;
+		return true;
 	}
 
 	@Override

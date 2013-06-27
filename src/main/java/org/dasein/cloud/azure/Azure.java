@@ -1,5 +1,6 @@
 package org.dasein.cloud.azure;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.AbstractCloud;
 import org.dasein.cloud.CloudException;
@@ -14,6 +15,7 @@ import org.w3c.dom.NodeList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.UnsupportedEncodingException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Random;
@@ -58,6 +60,9 @@ public class Azure extends AbstractCloud {
 
     public Azure() { }
 
+    public String affinityGroup = null;
+    public String affinityRegion = null;
+
     static private final Random random = new Random();
     
     public @Nonnull String generateToken(int minLength, int maxLength) {
@@ -93,12 +98,12 @@ public class Azure extends AbstractCloud {
     	return regionId;
     }
 
-    /*
+
     @Override
     public @Nonnull AzureComputeServices getComputeServices() {
         return new AzureComputeServices(this);
     }
-    */
+
     @Override
     public @Nonnull AzureLocation getDataCenterServices() {
         return new AzureLocation(this);
@@ -106,9 +111,9 @@ public class Azure extends AbstractCloud {
     
     @Override
     public @Nonnull AzureNetworkServices getNetworkServices() {
-    	return null;
+    	//return null;
     	//Not ready yet
-    	//return new AzureNetworkServices(this);
+    	return new AzureNetworkServices(this);
     }
 
     private transient String storageEndpoint;
@@ -191,6 +196,74 @@ public class Azure extends AbstractCloud {
         return "Microsoft";
     }
 
+    public String getAffinityGroup() throws InternalException,CloudException{
+        if(affinityGroup == null){
+            ProviderContext ctx = getContext();
+
+            if( ctx == null ) {
+                throw new AzureConfigException("No context was specified for this request");
+            }
+            AzureMethod method = new AzureMethod(this);
+
+            Document doc = method.getAsXML(ctx.getAccountNumber(), "/affinitygroups");
+
+            NodeList entries = doc.getElementsByTagName("AffinityGroup");
+
+            for (int i = 0; i<entries.getLength(); i++) {
+                Node entry = entries.item(i);
+
+                NodeList attributes = entry.getChildNodes();
+
+                for( int j=0; j<attributes.getLength(); j++ ) {
+                    Node attribute = attributes.item(j);
+                    if(attribute.getNodeType() == Node.TEXT_NODE) continue;
+                    String nodeName = attribute.getNodeName();
+
+                    if (nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
+                        affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                    }
+                    else if (nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes()) {
+                        affinityRegion = attribute.getFirstChild().getNodeValue().trim();
+                        if (!ctx.getRegionId().equalsIgnoreCase(affinityRegion)) {
+                            affinityGroup = null;
+                            affinityRegion = null;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (affinityGroup == null) {
+                //create new affinityGroup
+                String name = "EnstratiusAffinity";
+                String label;
+                try {
+                    StringBuilder xml = new StringBuilder();
+
+                    try {
+                        label = new String(Base64.encodeBase64(name.getBytes("utf-8")));
+                    }
+                    catch( UnsupportedEncodingException e ) {
+                        throw new InternalException(e);
+                    }
+
+                    xml.append("<CreateAffinityGroup xmlns=\"http://schemas.microsoft.com/windowsazure/\">") ;
+                    xml.append("<Name>").append(name).append("</Name>");
+                    xml.append("<Label>").append(label).append("</Label>");
+                    xml.append("<Location>").append(ctx.getRegionId()).append("</Location>");
+                    xml.append("</CreateAffinityGroup>");
+                    method.post(ctx.getAccountNumber(),"affinitygroups", xml.toString());
+                }
+                catch (CloudException e) {
+                    logger.error("Unable to create affinity group",e);
+                    throw new CloudException(e);
+                }
+                affinityGroup = name;
+            }
+        }
+
+        return affinityGroup;
+    }
+
     public long parseTimestamp(@Nullable String time) throws CloudException {
         if( time == null ) {
             return 0L;
@@ -228,6 +301,13 @@ public class Azure extends AbstractCloud {
                     logger.error("No context was specified for a context test");
                     return null;
                 }
+
+               /* logger.debug("--------------Context-------------");
+                logger.debug("Account number: "+ctx.getAccountNumber());
+                logger.debug("X509 cert: "+new String(ctx.getX509Cert(), "utf-8"));
+                logger.debug("X509 key: "+new String(ctx.getX509Key(), "utf-8"));
+                logger.debug("--------------Context-------------");
+                */
                 if( method.getAsStream(ctx.getAccountNumber(), "/locations") == null ) {
                     logger.warn("Account number was invalid for context test: " + ctx.getAccountNumber());
                     return null;
