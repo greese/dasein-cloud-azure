@@ -28,6 +28,7 @@ import org.w3c.dom.NodeList;
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.servlet.http.HttpServletResponse;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
@@ -496,7 +497,7 @@ public class AzureVM extends AbstractVMSupport {
             xml.append("<OSVirtualHardDisk>");
             xml.append("<HostCaching>ReadWrite</HostCaching>");
             xml.append("<DiskLabel>OS</DiskLabel>");
-            xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("communityimages/").append(hostName).append(".vhd</MediaLink>");
+            xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(hostName).append(".vhd</MediaLink>");
             xml.append("<SourceImageName>").append(options.getMachineImageId()).append("</SourceImageName>");
             xml.append("</OSVirtualHardDisk>");
             xml.append("<RoleSize>").append(options.getStandardProductId()).append("</RoleSize>");
@@ -507,21 +508,38 @@ public class AzureVM extends AbstractVMSupport {
                 xml.append("<VirtualNetworkName>").append(vlanName).append("</VirtualNetworkName>");
             }
             xml.append("</Deployment>");
-            method.post(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + hostName + "/deployments", xml.toString());
-            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
 
+            String requestId = method.post(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + hostName + "/deployments", xml.toString());
+
+            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
             VirtualMachine vm = null ;
 
-            while( timeout > System.currentTimeMillis() ) {
-                try { vm = getVirtualMachine(hostName + ":" + hostName+":"+hostName); }
-                catch( Throwable ignore ) { }
-                if( vm != null ) {
-                    vm.setRootUser("dasein");
-                    vm.setRootPassword(password);
-                    break;
+            if (requestId != null) {
+                int httpCode = method.getOperationStatus(requestId);
+                while (httpCode == -1) {
+                    httpCode = method.getOperationStatus(requestId);
                 }
-                try { Thread.sleep(15000L); }
-                catch( InterruptedException ignore ) { }
+                if (httpCode == HttpServletResponse.SC_OK) {
+                    try { vm = getVirtualMachine(hostName + ":" + hostName+":"+hostName); }
+                    catch( Throwable ignore ) { }
+                    if( vm != null ) {
+                        vm.setRootUser("dasein");
+                        vm.setRootPassword(password);
+                    }
+                }
+            }
+            else {
+                while( timeout > System.currentTimeMillis() ) {
+                    try { vm = getVirtualMachine(hostName + ":" + hostName+":"+hostName); }
+                    catch( Throwable ignore ) { }
+                    if( vm != null ) {
+                        vm.setRootUser("dasein");
+                        vm.setRootPassword(password);
+                        break;
+                    }
+                    try { Thread.sleep(15000L); }
+                    catch( InterruptedException ignore ) { }
+                }
             }
             if( vm == null ) {
                 throw new CloudException("System timed out waiting for virtual machine to appear");
@@ -1524,7 +1542,7 @@ public class AzureVM extends AbstractVMSupport {
             logger.debug("__________________________________________________________");
             method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
 
-            waitForState(vm,(CalendarWrapper.MINUTE * 5L), VmState.STOPPED);
+            waitForState(vm,(CalendarWrapper.MINUTE * 15L), VmState.STOPPED);
         }
         finally {
             if( logger.isTraceEnabled() ) {

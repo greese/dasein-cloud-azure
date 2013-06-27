@@ -6,6 +6,7 @@ import java.util.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.servlet.http.HttpServletResponse;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
@@ -121,8 +122,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
 	@Override
 	public String createInternetGateway(String forVlanId)
 			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+        throw new OperationNotSupportedException("Internet gateways not supported");
 	}
 
 	@Override
@@ -244,9 +244,21 @@ public class AzureVlanSupport extends AbstractVLANSupport {
             }
 
             String resourceDir = NETWORKING_SERVICES + "/media";
-            method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
+            String requestId = method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
 
-            return getSubnet(subName);
+            if (requestId != null) {
+                int httpCode = method.getOperationStatus(requestId);
+                while (httpCode == -1) {
+                    httpCode = method.getOperationStatus(requestId);
+                }
+                if (httpCode == HttpServletResponse.SC_OK) {
+                    try {
+                        return getSubnet(subName);
+                    }
+                    catch( Throwable ignore ) { }
+                }
+            }
+            return null;
         }
         finally {
             if( logger.isTraceEnabled() ) {
@@ -363,9 +375,21 @@ public class AzureVlanSupport extends AbstractVLANSupport {
             }
 
             String resourceDir = NETWORKING_SERVICES + "/media";
-            method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
+            String requestId = method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
 
-            return getSubnet(subName);
+            if (requestId != null) {
+                int httpCode = method.getOperationStatus(requestId);
+                while (httpCode == -1) {
+                    httpCode = method.getOperationStatus(requestId);
+                }
+                if (httpCode == HttpServletResponse.SC_OK) {
+                    try {
+                        return getSubnet(subName);
+                    }
+                    catch( Throwable ignore ) { }
+                }
+            }
+            return null;
         }
         finally {
             if( logger.isTraceEnabled() ) {
@@ -469,9 +493,21 @@ public class AzureVlanSupport extends AbstractVLANSupport {
             }
 
             String resourceDir = NETWORKING_SERVICES + "/media";
-            method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
+            String requestId = method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
 
-            return getVlan(name);
+            if (requestId != null) {
+                int httpCode = method.getOperationStatus(requestId);
+                while (httpCode == -1) {
+                    httpCode = method.getOperationStatus(requestId);
+                }
+                if (httpCode == HttpServletResponse.SC_OK) {
+                    try {
+                        return getVlan(name);
+                    }
+                    catch( Throwable ignore ) { }
+                }
+            }
+            return null;
         }
         finally {
             if( logger.isTraceEnabled() ) {
@@ -512,7 +548,6 @@ public class AzureVlanSupport extends AbstractVLANSupport {
 
 	@Override
 	public String getProviderTermForVlan(Locale locale) {
-		// TODO Auto-generated method stub
 		return "Address Space";
 	}
 
@@ -821,8 +856,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
 
 	@Override
 	public void removeInternetGateway(String forVlanId) throws CloudException,InternalException {
-		// TODO Auto-generated method stub
-
+        throw new OperationNotSupportedException("Internet gateways not supported");
 	}
 
 	@Override
@@ -1212,19 +1246,9 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                 cidr = attribute.getFirstChild().getNodeValue().trim();
             }
         }
-         Subnet subnet = new Subnet();
-        subnet.setProviderOwnerId(ctx.getAccountNumber());
-        subnet.setProviderRegionId(ctx.getRegionId());
-        subnet.setProviderVlanId(vlanId);
-        subnet.setProviderSubnetId(name);
-        subnet.setCurrentState(SubnetState.AVAILABLE);
-        subnet.setName(name);
-        subnet.setDescription(name);
-        subnet.setCidr(cidr);
-        subnet.setProviderDataCenterId(ctx.getRegionId());
 
-        //Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, name, SubnetState.AVAILABLE, name, name, cidr);
-       // subnet.constrainedToDataCenter(ctx.getRegionId());
+        Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, name, SubnetState.AVAILABLE, name, name, cidr);
+        subnet.constrainedToDataCenter(ctx.getRegionId());
         return subnet;
     }
 }
