@@ -496,34 +496,6 @@ public class AzureDisk implements VolumeSupport {
     	
     }
 
-    /*
-    @Nonnull
-    @Override
-    public Iterable<Volume> listVolumes(@Nullable VolumeFilterOptions volumeFilterOptions) throws InternalException, CloudException {
-        ProviderContext ctx = provider.getContext();
-
-        if( ctx == null ) {
-            throw new AzureConfigException("No context was specified for this request");
-        }
-        AzureMethod method = new AzureMethod(provider);
-
-        Document doc = method.getAsXML(ctx.getAccountNumber(), DISK_SERVICES);
-
-
-        NodeList entries = doc.getElementsByTagName("Disk");
-        ArrayList<Volume> disks = new ArrayList<Volume>();
-
-        for( int i=0; i<entries.getLength(); i++ ) {
-            Node entry = entries.item(i);
-            Volume disk = toVolume(ctx, entry);
-            if( disk != null ) {
-                disks.add(disk);
-            }
-        }
-        return disks;
-    }
-    */
-
     private boolean isWithinDeviceList(String device) throws InternalException, CloudException{
     	ArrayList<String> list = (ArrayList<String>) listPossibleDeviceIds(Platform.UNIX);
     	
@@ -610,9 +582,6 @@ public class AzureDisk implements VolumeSupport {
             		}
             	} 
             	
-            	/**
-            	 * VM ID = hostedServiceName +  AzureVM.SERVICE_VM_NAME_SPLIT + roleName
-            	 */
             	if(hostedServiceName != null && deploymentName != null && vmRoleName != null){
             		disk.setProviderVirtualMachineId(hostedServiceName+":"+deploymentName+":"+vmRoleName);
             	}
@@ -620,9 +589,6 @@ public class AzureDisk implements VolumeSupport {
             else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {            	
             	disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));            	
             }
-            /*else if( attribute.getNodeName().equalsIgnoreCase("Label") && attribute.hasChildNodes() ) {
-            	disk.setDescription(attribute.getFirstChild().getNodeValue().trim());
-            } */
             else if( attribute.getNodeName().equalsIgnoreCase("Location") && attribute.hasChildNodes() ) {
             	if( !regionId.equals(attribute.getFirstChild().getNodeValue().trim()) ) {
                      return null;

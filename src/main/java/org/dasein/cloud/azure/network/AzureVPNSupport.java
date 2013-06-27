@@ -65,6 +65,7 @@ public class AzureVPNSupport implements VPNSupport {
 
 	@Override
 	public void connectToGateway(String providerVpnId, String toGatewayId) throws CloudException, InternalException {
+        //TODO this existing method call is for creating a gateway but is it terminology issue or is this different?
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVPNSupport.class.getName() + ".connectToGateway()");
         }
@@ -92,7 +93,8 @@ public class AzureVPNSupport implements VPNSupport {
 
 	@Override
 	public VPN createVPN(String inProviderDataCenterId, String name,String description, VPNProtocol protocol) throws CloudException, InternalException {
-        if( logger.isTraceEnabled() ) {
+       //TODO difference between vpn and vlan as this same method call is used to create vlan?
+       if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVPNSupport.class.getName() + ".createVPN()");
         }
         
@@ -153,6 +155,7 @@ public class AzureVPNSupport implements VPNSupport {
 	// Create local network for connecting VPN?
 	@Override
 	public VPNGateway createVPNGateway(String endpoint, String name,String description, VPNProtocol protocol, String bgpAsn)throws CloudException, InternalException {
+        //todo why is this creating a local site instead of a gateway?
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVPNSupport.class.getName() + ".createVPNGateway()");
         }
