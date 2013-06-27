@@ -36,6 +36,8 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
@@ -460,7 +462,7 @@ public class AzureMethod {
         }
     }
 
-    public void post(@Nonnull String account, @Nonnull String resource, @Nonnull String body) throws CloudException, InternalException {
+    public String post(@Nonnull String account, @Nonnull String resource, @Nonnull String body) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + AzureMethod.class.getName() + ".post(" + account + "," + resource + ")");
         }
@@ -468,6 +470,7 @@ public class AzureMethod {
             wire.debug("POST --------------------------------------------------------> " + endpoint + account + resource);
             wire.debug("");
         }
+        String requestId = null;
         try {
             HttpClient client = getClient();
             String url = endpoint + account + resource;
@@ -531,6 +534,9 @@ public class AzureMethod {
                 for( Header h : headers ) {
                     if( h.getValue() != null ) {
                         wire.debug(h.getName() + ": " + h.getValue().trim());
+                        if (h.getName().equalsIgnoreCase("x-ms-request-id")) {
+                            requestId = h.getValue().trim();
+                        }
                     }
                     else {
                         wire.debug(h.getName() + ":");
@@ -574,6 +580,7 @@ public class AzureMethod {
                 wire.debug("POST --------------------------------------------------------> " + endpoint + account + resource);
             }
         }
+        return requestId;
     }
     
     protected HttpRequestBase getMethod(String httpMethod,String url) {
@@ -598,7 +605,7 @@ public class AzureMethod {
         return method;
     }
     
-    public void invoke(@Nonnull String method, @Nonnull String account, @Nonnull String resource, @Nonnull String body) throws CloudException, InternalException {
+    public String invoke(@Nonnull String method, @Nonnull String account, @Nonnull String resource, @Nonnull String body) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + AzureMethod.class.getName() + ".post(" + account + "," + resource + ")");
         }
@@ -606,6 +613,7 @@ public class AzureMethod {
             wire.debug("POST --------------------------------------------------------> " + endpoint + account + resource);
             wire.debug("");
         }
+        String requestId = null;
         try {
             HttpClient client = getClient();
             String url = endpoint + account + resource;
@@ -652,8 +660,7 @@ public class AzureMethod {
 					try {
 						entityEnclosingMethod.setEntity(new StringEntity(body, "application/xml", "utf-8"));
 					} catch (UnsupportedEncodingException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+                        throw new CloudException(e);
 					}
 	            }           	
             }          
@@ -682,6 +689,9 @@ public class AzureMethod {
                 for( Header h : headers ) {
                     if( h.getValue() != null ) {
                         wire.debug(h.getName() + ": " + h.getValue().trim());
+                        if (h.getName().equalsIgnoreCase("x-ms-request-id")) {
+                            requestId = h.getValue().trim();
+                        }
                     }
                     else {
                         wire.debug(h.getName() + ":");
@@ -748,6 +758,7 @@ public class AzureMethod {
                 wire.debug("POST --------------------------------------------------------> " + endpoint + account + resource);
             }
         }
+        return requestId;
     }
 
     public void tempRedirectInvoke(@Nonnull String tempEndpoint, @Nonnull String method, @Nonnull String account, @Nonnull String resource, @Nonnull String body) throws CloudException, InternalException {
@@ -877,5 +888,73 @@ public class AzureMethod {
                 wire.debug("POST --------------------------------------------------------> " + endpoint + account + resource);
             }
         }
+    }
+
+    public @Nonnull int getOperationStatus(String requestID) throws CloudException, InternalException {
+        ProviderContext ctx = provider.getContext();
+        Document doc = getAsXML(ctx.getAccountNumber(),"/operations/"+requestID);
+
+        if (doc == null) {
+            return -2;
+        }
+
+        NodeList entries = doc.getElementsByTagName("Operation");
+        Node entry = entries.item(0);
+
+        NodeList s = entry.getChildNodes();
+
+        String status = "";
+        String httpCode = "";
+
+        for (int i =0; i<s.getLength(); i++) {
+            Node attribute = s.item(i);
+            System.out.println(attribute.getNodeName()+" found");
+            if( attribute.getNodeType() == Node.TEXT_NODE) {
+                continue;
+            }
+            if( attribute.getNodeName().equalsIgnoreCase("status") && attribute.hasChildNodes() ) {
+                status = attribute.getFirstChild().getNodeValue().trim();
+                continue;
+            }
+            if (status.length() > 0 && !status.equalsIgnoreCase("inProgress")) {
+                if( attribute.getNodeName().equalsIgnoreCase("httpstatuscode") && attribute.hasChildNodes() ) {
+                    httpCode = attribute.getFirstChild().getNodeValue().trim();
+                }
+            }
+        }
+
+        if (status.equalsIgnoreCase("succeeded")) {
+           return HttpServletResponse.SC_OK;
+        }
+        else if (status.equalsIgnoreCase("failed")) {
+            String errMsg = checkError(s, httpCode);
+            throw new CloudException(errMsg);
+        }
+        return -1;
+    }
+
+    private String checkError(NodeList s, String httpCode) throws CloudException, InternalException {
+        String errMsg = httpCode+": ";
+        for (int i=0; i<s.getLength(); i++) {
+            Node attribute = s.item(i);
+            System.out.println(attribute.getNodeName()+" found");
+            if( attribute.getNodeType() == Node.TEXT_NODE) {
+                continue;
+            }
+            if( attribute.getNodeName().equalsIgnoreCase("Error") && attribute.hasChildNodes() ) {
+                NodeList errors = attribute.getChildNodes();
+                for (int error = 0; error < errors.getLength(); error++) {
+                    Node node = errors.item(error);
+                    if (node.getNodeName().equalsIgnoreCase("code") && node.hasChildNodes()) {
+                        errMsg = errMsg + node.getFirstChild().getNodeValue().trim();
+                        continue;
+                    }
+                    if (node.getNodeName().equalsIgnoreCase("message") && node.hasChildNodes()) {
+                        errMsg = errMsg + ". reason: " + node.getFirstChild().getNodeValue().trim();
+                    }
+                }
+            }
+        }
+        return errMsg;
     }
 }
