@@ -34,6 +34,7 @@ import org.w3c.dom.NodeList;
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.servlet.http.HttpServletResponse;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -162,7 +163,7 @@ public class AzureDisk implements VolumeSupport {
             if( ctx == null ) {
                 throw new AzureConfigException("No context was specified for this request");
             }
-            
+
             String fromVolumeId = options.getSnapshotId();
             Volume disk ;
             if(fromVolumeId != null){
@@ -187,7 +188,6 @@ public class AzureDisk implements VolumeSupport {
             }
                         
             xml.append("<Disk xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-            xml.append("<HasOperatingSystem>false</HasOperatingSystem>");
             xml.append("<Label>" + label + "</Label>");
             xml.append("<MediaLink>" + disk.getMediaLink()+"</MediaLink>");
             xml.append("<Name>" + options.getName() + "</Name>");
@@ -213,15 +213,28 @@ public class AzureDisk implements VolumeSupport {
                 }
             }
 
-            method.post(ctx.getAccountNumber(), DISK_SERVICES, xml.toString());
-            // TODO: return ID
-            return "";
+            String requestId = method.post(ctx.getAccountNumber(), DISK_SERVICES, xml.toString());
+            Volume v = null;
+            if (requestId != null) {
+                int httpCode = method.getOperationStatus(requestId);
+                while (httpCode == -1) {
+                    httpCode = method.getOperationStatus(requestId);
+                }
+                if (httpCode == HttpServletResponse.SC_OK) {
+                    try {
+                        v = getVolume(options.getName());
+                        return v.getProviderVolumeId();
+                    }
+                    catch( Throwable ignore ) { }
+                }
+            }
         }
         finally {
             if( logger.isTraceEnabled() ) {
                 logger.trace("EXIT: " + AzureDisk.class.getName() + ".launch()");
             }
         }
+        return null;
     }
     
     @Override
@@ -359,11 +372,13 @@ public class AzureDisk implements VolumeSupport {
                 	diskName = attribute.getFirstChild().getNodeValue().trim();
                 }
                 else if( attribute.getNodeName().equalsIgnoreCase("Lun") && attribute.hasChildNodes() ) {
-                	lunValue = attribute.getFirstChild().getNodeValue().trim();
+                	if (diskName != null && diskName.equalsIgnoreCase(providerVolumeId)) {
+                        lunValue = attribute.getFirstChild().getNodeValue().trim();
+                    }
                 }
                 
             }
-            if(diskName != null){
+            if(diskName != null && diskName.equalsIgnoreCase(providerVolumeId)){
             	if(lunValue == null){
             		lunValue = "0";	
             	}            	
