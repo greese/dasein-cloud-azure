@@ -330,7 +330,6 @@ public class AzureOSImage extends AbstractImageSupport {
             AzureMachineImage image = toImage(ctx, entry);
 
             if (image != null) {
-                image.setImageClass(ImageClass.MACHINE);
 
                 if (imageFilterOptions.matches(image)) {
                    if (imageFilterOptions.getAccountNumber() == null) {
@@ -729,9 +728,12 @@ public class AzureOSImage extends AbstractImageSupport {
         AzureMachineImage image= new AzureMachineImage();
 
         HashMap<String,String> tags = new HashMap<String,String>();
-        image.setCurrentState(MachineImageState.ACTIVE);
-        image.setProviderRegionId(ctx.getRegionId());
-        image.setArchitecture(Architecture.I64);
+        MachineImageState state = MachineImageState.ACTIVE;
+        Architecture arch = Architecture.I64;
+
+        String providerMachineImageId = "", providerOwnerId = "", name = "", description = "",
+            mediaLink = "", software = "";
+        Platform platform = null;
 
         NodeList attributes = entry.getChildNodes();
 
@@ -741,41 +743,41 @@ public class AzureOSImage extends AbstractImageSupport {
             String nodeName = attribute.getNodeName();
 
             if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
-                image.setProviderMachineImageId(attribute.getFirstChild().getNodeValue().trim());
+                providerMachineImageId = attribute.getFirstChild().getNodeValue().trim();
             }
             if( nodeName.equalsIgnoreCase("category") && attribute.hasChildNodes() ) {
                 String c = attribute.getFirstChild().getNodeValue().trim();
                 if( "user".equalsIgnoreCase(c) ) {
-                    image.setProviderOwnerId(ctx.getAccountNumber());
+                    providerOwnerId = (ctx.getAccountNumber());
                 }
                 else if( c.toLowerCase().contains("microsoft") ) {
-                    image.setProviderOwnerId(MICROSOFT);
+                    providerOwnerId = (MICROSOFT);
                 }
                 else if( c.toLowerCase().contains("partner") ) {
-                    image.setProviderOwnerId("--public--");
+                    providerOwnerId = ("--public--");
                 }
                 else if( c.toLowerCase().contains("canonical") ) {
-                    image.setProviderOwnerId("--Canonical--");
+                    providerOwnerId = ("--Canonical--");
                 }
                 else if( c.toLowerCase().contains("rightscale with linux") ) {
-                    image.setProviderOwnerId("--RightScaleLinux--");
+                    providerOwnerId = ("--RightScaleLinux--");
                 }
                 else if( c.toLowerCase().contains("rightscale with windows") ) {
-                    image.setProviderOwnerId("--RightScaleWindows--");
+                    providerOwnerId = ("--RightScaleWindows--");
                 }
                 else if( c.toLowerCase().contains("openlogic") ) {
-                    image.setProviderOwnerId("--OpenLogic--");
+                    providerOwnerId = ("--OpenLogic--");
                 }
                 else if( c.toLowerCase().contains("suse") ) {
-                    image.setProviderOwnerId("--SUSE--");
+                    providerOwnerId = ("--SUSE--");
                 }
             }
             else if( nodeName.equalsIgnoreCase("label") && attribute.hasChildNodes() ) {
-                image.setName(attribute.getFirstChild().getNodeValue().trim());
+                name = (attribute.getFirstChild().getNodeValue().trim());
 
             }
             else if( nodeName.equalsIgnoreCase("description") && attribute.hasChildNodes() ) {
-                image.setDescription(attribute.getFirstChild().getNodeValue().trim());
+                description = (attribute.getFirstChild().getNodeValue().trim());
             }
             else if( nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes() ) {
                 String location = attribute.getFirstChild().getNodeValue().trim();
@@ -792,16 +794,16 @@ public class AzureOSImage extends AbstractImageSupport {
                 }
             }
             else if( nodeName.equalsIgnoreCase("medialink") && attribute.hasChildNodes() ) {
-                image.setMediaLink(attribute.getFirstChild().getNodeValue().trim());
+                mediaLink = (attribute.getFirstChild().getNodeValue().trim());
             }
             else if( nodeName.equalsIgnoreCase("os") && attribute.hasChildNodes() ) {
                 String os = attribute.getFirstChild().getNodeValue().trim();
 
                 if( os.equalsIgnoreCase("windows") ) {
-                    image.setPlatform(Platform.WINDOWS);
+                    platform = (Platform.WINDOWS);
                 }
                 else if( os.equalsIgnoreCase("linux") ) {
-                    image.setPlatform(Platform.UNIX);
+                    platform = (Platform.UNIX);
                 }
             }
         }
@@ -809,10 +811,10 @@ public class AzureOSImage extends AbstractImageSupport {
             return null;
         }
         if( image.getName() == null ) {
-            image.setName(image.getProviderMachineImageId());
+            name = (image.getProviderMachineImageId());
         }
         if( image.getDescription() == null ) {
-            image.setDescription(image.getName());
+            description = (image.getName());
         }
         String descriptor = image.getProviderMachineImageId() + " " + image.getName() + " " + image.getDescription();
 
@@ -820,16 +822,15 @@ public class AzureOSImage extends AbstractImageSupport {
             Platform p = Platform.guess(descriptor);
 
             if( image.getPlatform() == null || !Platform.UNKNOWN.equals(p) ) {
-                image.setPlatform(p);
+                platform = (p);
             }
         }
-        image.setSoftware(descriptor.contains("SQL Server") ? "SQL Server" : "");
-        image.setTags(tags);
-        image.setType(MachineImageType.VOLUME);
+        software = (descriptor.contains("SQL Server") ? "SQL Server" : "");
 
-      //  AzureMachineImage img = (AzureMachineImage) MachineImage.getMachineImageInstance(image.getProviderOwnerId(), image.getProviderRegionId(), image.getProviderMachineImageId(), image.getCurrentState(), image.getName(), image.getDescription(), image.getArchitecture(), image.getPlatform());
-       // img.setMediaLink(image.getMediaLink());
-       // img.withSoftware(image.getSoftware());
+        AzureMachineImage img = (AzureMachineImage) MachineImage.getMachineImageInstance(providerOwnerId, regionID, providerMachineImageId, state, name, description, arch, platform);
+        img.setMediaLink(mediaLink);
+        img.withSoftware(software);
+        img.setTags(tags);
 
         return image;
     }
