@@ -136,23 +136,7 @@ public class AzureDisk extends AbstractVolumeSupport {
     	
     }
 
-   // static private final Random random = new Random();
-    
-   /* @Override
-    public @Nonnull String create(@Nullable String fromSnapshot, @Nonnegative int sizeInGb, @Nonnull String inZone) throws InternalException, CloudException {
-        String name = "dsn" + System.currentTimeMillis();
-        VolumeCreateOptions options;
-
-        if( fromSnapshot == null ) {
-            options = VolumeCreateOptions.getInstance(new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE), name, name).inDataCenter(inZone);
-        }
-        else {
-            options = VolumeCreateOptions.getInstanceForSnapshot(fromSnapshot,new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE), name, name).inDataCenter(inZone);
-        }
-        return createVolume(options);
-    } */
-
-    @Override
+   @Override
     public @Nonnull String createVolume(@Nonnull VolumeCreateOptions options) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureDisk.class.getName() + ".createVolume(" + options + ")");
@@ -225,58 +209,7 @@ public class AzureDisk extends AbstractVolumeSupport {
         }
     }
     
-   /* @Override
-    public void detach(@Nonnull String volumeId) throws InternalException, CloudException {
-        if( logger.isTraceEnabled() ) {
-            logger.trace("ENTER: " + AzureDisk.class.getName() + ".detach(" + volumeId+")");
-        }
-        try {
-            ProviderContext ctx = provider.getContext();
-
-            if( ctx == null ) {
-                throw new AzureConfigException("No context was specified for this request");
-            }
-                      
-            Volume disk ;
-            if(volumeId != null){
-            	 disk = getVolume(volumeId);
-            	 if(disk == null ){
-            		throw new InternalException("Can not find the source snapshot !"); 
-            	 }            	
-            }else{
-            	throw new InternalException("volumeId is null !");
-            }
-            
-           	String providerVirtualMachineId = disk.getProviderVirtualMachineId();
-            VirtualMachine vm = null;
-
-            if( providerVirtualMachineId != null ) {
-                vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(providerVirtualMachineId);
-            }
-            if( vm == null ) {
-            	logger.trace("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + " or the VM id is not in the desired format !!!");
-            	throw new InternalException("Sorry, the disk is not attached to the VM with id " + providerVirtualMachineId  + " or the VM id is not in the desired format !!!");
-            }
-            String lun = getDiskLun(disk.getProviderVolumeId(), providerVirtualMachineId);
-            
-            if(lun == null){
-            	logger.trace("Can not identify the lun number");
-            	throw new InternalException("logical unit number of disk is null, detach operation can not be continue!");
-           	}
-         	String resourceDir = HOSTED_SERVICES + "/" + vm.getTag("serviceName") + "/deployments" + "/" +  vm.getTag("deploymentName") + "/roles"+"/" + vm.getTag("roleName") + "/DataDisks" + "/" + lun;
-         	                                
-            AzureMethod method = new AzureMethod(provider);
-            
-            method.invoke("DELETE",ctx.getAccountNumber(), resourceDir, null);
-        }
-        finally {
-            if( logger.isTraceEnabled() ) {
-                logger.trace("EXIT: " + AzureDisk.class.getName() + ".detach()");
-            }
-        }
-    }   */
-
-    @Override
+   @Override
     public void detach(@Nonnull String volumeId, boolean force) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureDisk.class.getName() + ".detach(" + volumeId+")");
@@ -629,9 +562,6 @@ public class AzureDisk extends AbstractVolumeSupport {
             		}
             	} 
             	
-            	/**
-            	 * VM ID = hostedServiceName +  AzureVM.SERVICE_VM_NAME_SPLIT + roleName
-            	 */
             	if(hostedServiceName != null && deploymentName != null && vmRoleName != null){
             		disk.setProviderVirtualMachineId(hostedServiceName+":"+deploymentName+":"+vmRoleName);
             	}
@@ -639,9 +569,6 @@ public class AzureDisk extends AbstractVolumeSupport {
             else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {            	
             	disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));            	
             }
-            /*else if( attribute.getNodeName().equalsIgnoreCase("Label") && attribute.hasChildNodes() ) {
-            	disk.setDescription(attribute.getFirstChild().getNodeValue().trim());
-            } */
             else if( attribute.getNodeName().equalsIgnoreCase("Location") && attribute.hasChildNodes() ) {
             	if( !regionId.equals(attribute.getFirstChild().getNodeValue().trim()) ) {
                      return null;

@@ -450,17 +450,6 @@ public class AzureVM extends AbstractVMSupport {
                 xml.append("<AdminPassword>").append(password).append("</AdminPassword>");
                 xml.append("<EnableAutomaticUpdate>true</EnableAutomaticUpdate>");
                 xml.append("<TimeZone>UTC</TimeZone>");
-                /*
-                if( options.getBootstrapKey() != null ) {
-                    xml.append("<StoredCertificateSettings>");
-                    xml.append("<CertificateSetting>");
-                    xml.append("<StoreLocation>LocalMachine</StoreLocation>");
-                    xml.append("<StoreName>").append(hostName).append("-kp</StoreName>");
-                    xml.append("<Thumbprint>").append(options.getBootstrapKey()).append("</Thumbprint>");
-                    xml.append("</CertificateSetting");
-                    xml.append("</StoredCertificateSettings>");
-                }
-                */
                 xml.append("</ConfigurationSet>");
             }
             else {
@@ -469,24 +458,9 @@ public class AzureVM extends AbstractVMSupport {
                 xml.append("<HostName>").append(hostName).append("</HostName>");
 
                 //dmayne using root causes vm to fail provisioning
-               // if( options.getBootstrapUser() == null ) {
                 xml.append("<UserName>dasein</UserName>");
                 xml.append("<UserPassword>").append(password).append("</UserPassword>");
                 xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
-               /* }
-                else {
-                    xml.append("<UserName>").append(options.getBootstrapUser()).append("</UserName>");
-                    xml.append("<UserPassword>").append(password).append("</UserPassword>");
-                    xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
-                }
-                /*
-                else {
-                    xml.append("<DisableSshPasswordAuthentication>true</DisableSshPasswordAuthentication>");
-                    xml.append("<SSH><PublicKeys><PublicKey><FingerPrint>");
-                    xml.append(options.getBootstrapKey());
-                    xml.append("</FingerPrint><Path>/etc/ssh/root</Path></PublicKey></PublicKeys></SSH>");
-                }
-                */
                 xml.append("</ConfigurationSet>");
             }
             xml.append("<ConfigurationSet>");
@@ -736,34 +710,6 @@ public class AzureVM extends AbstractVMSupport {
     @Nonnull
     @Override
     public Iterable<VirtualMachine> listVirtualMachines(@Nullable VMFilterOptions vmFilterOptions) throws InternalException, CloudException {
-        /*ArrayList<VirtualMachine> list = new ArrayList<VirtualMachine>();
-        ProviderContext ctx = provider.getContext();
-
-        if( ctx == null ) {
-            throw new AzureConfigException("No context was specified for this request");
-        }
-        AzureMethod method = new AzureMethod(provider);
-
-        Document doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES);
-
-        if( doc == null ) {
-            return Collections.emptyList();
-        }
-        NodeList entries = doc.getElementsByTagName("HostedService");
-        ArrayList<VirtualMachine> vms = new ArrayList<VirtualMachine>();
-
-        for( int i=0; i<entries.getLength(); i++ ) {
-            filterHostedService(ctx, entries.item(i), null, vms);
-        }
-
-        for (VirtualMachine vm: vms) {
-            if (vm.getName().matches(vmFilterOptions.getRegex())) {
-                 list.add(vm);
-            }
-        }
-        return list; */
-
-        //dmayne 20130422: java heap space error
         Iterable<VirtualMachine> vms = listVirtualMachines();
         ArrayList<VirtualMachine> list = new ArrayList<VirtualMachine>();
         for (VirtualMachine vm : vms) {
@@ -1521,72 +1467,6 @@ public class AzureVM extends AbstractVMSupport {
         throw new OperationNotSupportedException("Pause/unpause is not supported in Microsoft Azure");
     }
 
-   /* @Override
-    public void stop(@Nonnull String vmId) throws InternalException, CloudException {
-        if( logger.isTraceEnabled() ) {
-            logger.trace("ENTER: " + AzureVM.class.getName() + ".Boot()");
-        }
-        try {
-            ProviderContext ctx = provider.getContext();
-
-            if( ctx == null ) {
-                throw new AzureConfigException("No context was set for this request");
-            }
-            VirtualMachine vm = getVirtualMachine(vmId);
-
-            if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
-            }
-            String[] parts = vmId.split(":");
-            String serviceName, deploymentName, roleName;
-
-            if (parts.length == 3)    {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName= parts[2];
-            }
-            else if( parts.length == 2 ) {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName = serviceName;
-            }
-            else {
-                serviceName = vmId;
-                deploymentName = vmId;
-                roleName = vmId;
-            }
-            String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
-            logger.debug("__________________________________________________________");
-            logger.debug("Stop vm "+resourceDir);
-
-            AzureMethod method = new AzureMethod(provider);
-
-            StringBuilder xml = new StringBuilder();
-            xml.append("<ShutdownRoleOperation  xmlns=\"http://schemas.microsoft.com/windowsazure\"");
-            xml.append(" ");
-            xml.append("xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-            xml.append("\n");
-            xml.append("<OperationType>ShutdownRoleOperation </OperationType>");
-            xml.append("\n");
-            xml.append("</ShutdownRoleOperation>");
-            xml.append("\n");
-
-            if( logger.isInfoEnabled() ) {
-                logger.info("Stopping the " + provider.getCloudName() + " virtual machine: " + vmId);
-            }
-            logger.debug(xml);
-            logger.debug("__________________________________________________________");
-            method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-
-            waitForState(vm,(CalendarWrapper.MINUTE * 5L), VmState.STOPPED);
-        }
-        finally {
-            if( logger.isTraceEnabled() ) {
-                logger.trace("EXIT: " + AzureVM.class.getName() + ".launch()");
-            }
-        }
-    } */
-
     @Override
     public void stop(@Nonnull String vmId, boolean force) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
@@ -1652,11 +1532,6 @@ public class AzureVM extends AbstractVMSupport {
             }
         }
     }
-
-   /* @Override
-    public boolean supportsAnalytics() throws CloudException, InternalException {
-        return false;
-    }  */
 
     @Override
     public boolean supportsPauseUnpause(@Nonnull VirtualMachine vm) {

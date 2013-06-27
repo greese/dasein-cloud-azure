@@ -614,12 +614,6 @@ public class AzureVlanSupport extends AbstractVLANSupport {
 		return null;		
 	}
 
-    /*@Nonnull
-    @Override
-    public Requirement identifySubnetDCRequirement() throws CloudException, InternalException {
-        return Requirement.REQUIRED;
-    } */
-
     @Override
     public boolean isConnectedViaInternetGateway(@Nonnull String s) throws CloudException, InternalException {
         return false;  //To change body of implemented methods use File | Settings | File Templates.
