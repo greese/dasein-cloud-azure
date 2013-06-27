@@ -203,11 +203,11 @@
                         </property>
                         <property>
                             <name>x509Cert</name>
-                            <value>${x509Cert}</value>
+                            <value>${x509CertFile}</value>
                         </property>
                         <property>
                             <name>x509Key</name>
-                            <value>${x509Key}</value>
+                            <value>${x509KeyFile}</value>
                         </property>
                         <property>
                             <name>apiSecretKey</name>
@@ -244,8 +244,9 @@
 
                     </systemProperties>
                     <includes>
-                        <!-- <include>**/AzureTestSuite.java</include> -->
+                      <!--   <include>**/AzureTestSuite.java</include>   -->
                     </includes>
+                  <!--  <argLine>-Ddasein.inclusions=VirtualMachineTestCase</argLine> -->
                 </configuration>
             </plugin>
             <plugin>
