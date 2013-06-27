@@ -83,31 +83,21 @@ public class AzureOSImage implements MachineImageSupport {
             String name = options.getName();
             String description = options.getDescription();
 
-            System.out.println("capture image vmid: "+vmid);
-            System.out.println("capture image name: "+name);
-            System.out.println("capture image description: "+description);
-
             VirtualMachine vm;
 
             vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(options.getVirtualMachineId());
             if (vm == null) {
                 throw new CloudException("Virtual machine not found: " + options.getVirtualMachineId());
             }
-            provider.getComputeServices().getVirtualMachineSupport().stop(options.getVirtualMachineId());
+            if (!vm.getCurrentState().equals(VmState.STOPPED)) {
+                throw new CloudException("Server must be stopped before making an image of it");
+            }
 
             try {
                 ProviderContext ctx = provider.getContext();
 
                 if( ctx == null ) {
                     throw new AzureConfigException("No context was set for this request");
-                }
-                String label;
-
-                try {
-                    label = new String(Base64.encodeBase64(description.getBytes("utf-8")));
-                }
-                catch( UnsupportedEncodingException e ) {
-                    throw new InternalException(e);
                 }
 
                 String vmId = vm.getProviderVirtualMachineId();
@@ -137,12 +127,11 @@ public class AzureOSImage implements MachineImageSupport {
                 xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
                 xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
                 xml.append("<TargetImageLabel>").append(name).append("</TargetImageLabel>\n");
-                xml.append("<TargetImageName>").append(label).append("</TargetImageName>\n");
+                xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
                 xml.append("</CaptureRoleOperation>\n");
 
-                System.out.println("About to image machine: "+name);
+                logger.debug("About to image machine from capture: "+name);
                 method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-                System.out.println("Returned from image call");
                 return getMachineImage(name);
             }
             finally {
@@ -167,6 +156,9 @@ public class AzureOSImage implements MachineImageSupport {
                         if (vm == null) {
                             throw new CloudException("Virtual machine not found: " + options.getVirtualMachineId());
                         }
+                        if (!vm.getCurrentState().equals(VmState.STOPPED))  {
+                            throw new CloudException("Server must be stopped before making an image of it");
+                        }
                     } catch (CloudException e) {
                         logger.error("Unable to load virtual machine: " + e.getMessage());
                         taskTracker.complete(e);
@@ -177,86 +169,59 @@ public class AzureOSImage implements MachineImageSupport {
                         return;
                     }
 
-                    try {
-                        provider.getComputeServices().getVirtualMachineSupport().stop(options.getVirtualMachineId());
-                    } catch (CloudException e) {
-                        logger.error("Unable to stop virtual machine: " + e.getMessage());
-                        taskTracker.complete(e);
-                        return;
-                    } catch (InternalException e) {
-                        logger.error("Unable to stop virtual machine: " + e.getMessage());
-                        taskTracker.complete(e);
-                        return;
+                    ProviderContext ctx = provider.getContext();
+
+                try {
+                    if (ctx == null) {
+                        throw new AzureConfigException("No context was set for this request");
                     }
-                    try {
-                        ProviderContext ctx = provider.getContext();
-
-                        try {
-                            if (ctx == null) {
-                                throw new AzureConfigException("No context was set for this request");
-                            }
-                            String label;
-                            String description = options.getDescription();
-
-                            try {
-                                label = new String(Base64.encodeBase64(description.getBytes("utf-8")));
-                            } catch (UnsupportedEncodingException e) {
-                                throw new InternalException(e);
-                            }
-
-                            String name = options.getName();
+                    String name = options.getName();
 
 
-                            String[] parts = vmid.split(":");
-                            String serviceName, deploymentName, roleName;
+                    String[] parts = vmid.split(":");
+                    String serviceName, deploymentName, roleName;
 
-                            if (parts.length == 3) {
-                                serviceName = parts[0];
-                                deploymentName = parts[1];
-                                roleName = parts[2];
-                            } else if (parts.length == 2) {
-                                serviceName = parts[0];
-                                deploymentName = parts[1];
-                                roleName = serviceName;
-                            } else {
-                                serviceName = vmid;
-                                deploymentName = vmid;
-                                roleName = vmid;
-                            }
-                            String resourceDir = AzureVM.HOSTED_SERVICES + "/" + serviceName + "/deployments/" + deploymentName + "/roleInstances/" + roleName + "/Operations";
-
-                            AzureMethod method = new AzureMethod(provider);
-                            StringBuilder xml = new StringBuilder();
-
-                            xml.append("<CaptureRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-                            xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
-                            xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
-                            xml.append("<TargetImageLabel>").append(label).append("</TargetImageLabel>\n");
-                            xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
-                            xml.append("</CaptureRoleOperation>\n");
-
-                            method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-                            taskTracker.completeWithResult(getImage(name));
-                        } catch (CloudException e) {
-                            logger.error("Unable to clone drive: " + e.getMessage());
-                            taskTracker.complete(e);
-                            return;
-                        } catch (InternalException e) {
-                            logger.error("Unable to clone drive: " + e.getMessage());
-                            taskTracker.complete(e);
-                            return;
-                        } finally {
-                            if (logger.isTraceEnabled()) {
-                                logger.trace("EXIT: " + AzureOSImage.class.getName() + ".launch()");
-                            }
-                        }
-                    } finally {
-                        try {
-                            provider.getComputeServices().getVirtualMachineSupport().start(options.getVirtualMachineId());
-                        } catch (Throwable ignore) {
-                            logger.warn("Failed to restart " + options.getVirtualMachineId() + " after drive cloning");
-                        }
+                    if (parts.length == 3) {
+                        serviceName = parts[0];
+                        deploymentName = parts[1];
+                        roleName = parts[2];
+                    } else if (parts.length == 2) {
+                        serviceName = parts[0];
+                        deploymentName = parts[1];
+                        roleName = serviceName;
+                    } else {
+                        serviceName = vmid;
+                        deploymentName = vmid;
+                        roleName = vmid;
                     }
+                    String resourceDir = AzureVM.HOSTED_SERVICES + "/" + serviceName + "/deployments/" + deploymentName + "/roleInstances/" + roleName + "/Operations";
+
+                    AzureMethod method = new AzureMethod(provider);
+                    StringBuilder xml = new StringBuilder();
+
+                    xml.append("<CaptureRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+                    xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
+                    xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
+                    xml.append("<TargetImageLabel>").append(name).append("</TargetImageLabel>\n");
+                    xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
+                    xml.append("</CaptureRoleOperation>\n");
+
+                    logger.debug("about to image machine from async: "+name);
+                    method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
+                    taskTracker.completeWithResult(getImage(name));
+                } catch (CloudException e) {
+                    logger.error("Unable to clone drive: " + e.getMessage());
+                    taskTracker.complete(e);
+                    return;
+                } catch (InternalException e) {
+                    logger.error("Unable to clone drive: " + e.getMessage());
+                    taskTracker.complete(e);
+                    return;
+                } finally {
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("EXIT: " + AzureOSImage.class.getName() + ".launch()");
+                    }
+                }
                 } finally {
                     provider.release();
                 }
@@ -267,102 +232,6 @@ public class AzureOSImage implements MachineImageSupport {
         t.setDaemon(true);
         t.start();
     }
-
-    /*
-    @Override
-    protected @Nonnull MachineImage capture(@Nonnull ImageCreateOptions options, @Nullable AsynchronousTask<MachineImage> task) throws CloudException, InternalException {
-        try {
-            if( task != null ) {
-                task.setStartTime(System.currentTimeMillis());
-            }
-
-            String vmid = options.getVirtualMachineId();
-            String name = options.getName();
-            String description = options.getDescription();
-
-            VirtualMachine vm;
-
-            vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(options.getVirtualMachineId());
-            if (vm == null) {
-                throw new CloudException("Virtual machine not found: " + options.getVirtualMachineId());
-            }
-            provider.getComputeServices().getVirtualMachineSupport().stop(options.getVirtualMachineId());
-
-            try {
-                try {
-                    ProviderContext ctx = provider.getContext();
-
-                    if( ctx == null ) {
-                        throw new AzureConfigException("No context was set for this request");
-                    }
-                    String label;
-
-                    try {
-                        label = new String(Base64.encodeBase64(description.getBytes("utf-8")));
-                    }
-                    catch( UnsupportedEncodingException e ) {
-                        throw new InternalException(e);
-                    }
-
-                    String vmId = vm.getProviderVirtualMachineId();
-                    String[] parts = vmId.split(":");
-                    String serviceName, deploymentName, roleName;
-
-                    if (parts.length == 3)    {
-                        serviceName = parts[0];
-                        deploymentName = parts[1];
-                        roleName= parts[2];
-                    }
-                    else if( parts.length == 2 ) {
-                        serviceName = parts[0];
-                        deploymentName = parts[1];
-                        roleName = serviceName;
-                    }
-                    else {
-                        serviceName = vmId;
-                        deploymentName = vmId;
-                        roleName = vmId;
-                    }
-                    String resourceDir = AzureVM.HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
-                    AzureMethod method = new AzureMethod(provider);
-                    StringBuilder xml = new StringBuilder();
-
-                    xml.append("<CaptureRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-                    xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
-                    xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
-                    xml.append("<TargetImageLabel>").append(label).append("</TargetImageLabel>\n");
-                    xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
-                    xml.append("</CaptureRoleOperation>\n");
-
-                    method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-
-                    MachineImage img = getMachineImage(name);;
-
-                    if (img == null) {
-                        throw new CloudException("Drive cloning completed, but no ID was provided for clone");
-                    }if( task != null ) {
-                        task.completeWithResult(img);
-                    }
-                    return img;
-                }
-                finally {
-                    if( logger.isTraceEnabled() ) {
-                        logger.trace("EXIT: " + AzureOSImage.class.getName() + ".launch()");
-                    }
-                }
-            }
-            finally {
-                try {
-                    provider.getComputeServices().getVirtualMachineSupport().start(options.getVirtualMachineId());
-                } catch (Throwable ignore) {
-                    logger.warn("Failed to restart " + options.getVirtualMachineId() + " after drive cloning");
-                }
-            }
-        } finally {
-            provider.release();
-        }
-    }
-    */
 
     @Override
     public MachineImage getImage(@Nonnull String machineImageId) throws CloudException, InternalException {
@@ -469,11 +338,8 @@ public class AzureOSImage implements MachineImageSupport {
         if( server == null ) {
             throw new CloudException("No such virtual machine: " + vmId);
         }
-        final boolean restart = !server.getCurrentState().equals(VmState.STOPPED);
         if( !server.getCurrentState().equals(VmState.STOPPED) ) {
-           //todo change this back
-           // throw new CloudException("The server must be paused in order to create an image.");
-            provider.getComputeServices().getVirtualMachineSupport().stop(vmId);
+           throw new CloudException("The server must be paused in order to create an image.");
         }
         final AsynchronousTask<String> task = new AsynchronousTask<String>();
         final String fname = name;
@@ -483,10 +349,6 @@ public class AzureOSImage implements MachineImageSupport {
             public void run() {
                 try {
                     String imageId = imageVirtualMachine(server, fname, fdesc, task);
-                    //todo remove following three lines
-                    if (restart) {
-                        provider.getComputeServices().getVirtualMachineSupport().start(server.getProviderVirtualMachineId());
-                    }
                     task.completeWithResult(imageId);
                 }
                 catch( Throwable t ) {
@@ -508,14 +370,6 @@ public class AzureOSImage implements MachineImageSupport {
 
             if( ctx == null ) {
                 throw new AzureConfigException("No context was set for this request");
-            }
-            String label;
-
-            try {
-                label = new String(Base64.encodeBase64(description.getBytes("utf-8")));
-            }
-            catch( UnsupportedEncodingException e ) {
-                throw new InternalException(e);
             }
 
             String vmId = vm.getProviderVirtualMachineId();
@@ -544,7 +398,7 @@ public class AzureOSImage implements MachineImageSupport {
             xml.append("<CaptureRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
             xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
             xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
-            xml.append("<TargetImageLabel>").append(label).append("</TargetImageLabel>\n");
+            xml.append("<TargetImageLabel>").append(name).append("</TargetImageLabel>\n");
             xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
             xml.append("</CaptureRoleOperation>\n");
 
@@ -558,18 +412,7 @@ public class AzureOSImage implements MachineImageSupport {
             }
         }
     }
-    
-    /*
-    @Override
-    public @Nonnull AsynchronousTask<String> imageVirtualMachineToStorage(String vmId, String name, String description, String directory) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Not currently supported");
-    }
 
-    @Override
-    public @Nonnull String installImageFromUpload(@Nonnull MachineImageFormat format, @Nonnull InputStream imageStream) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Not currently supported");
-    }
-    */
     @Override
     public boolean isImageSharedWithPublic(@Nonnull String machineImageId) throws CloudException, InternalException {
         MachineImage img = getMachineImage(machineImageId);
@@ -619,37 +462,6 @@ public class AzureOSImage implements MachineImageSupport {
 
         for( int i=0; i<entries.getLength(); i++ ) {
             Node entry = entries.item(i);
-            /*NodeList attributes = entry.getChildNodes();
-            for( int j=0; j<attributes.getLength(); j++ ) {
-                Node attribute = attributes.item(j);
-                if(attribute.getNodeType() == Node.TEXT_NODE) continue;
-                String nodeName = attribute.getNodeName();
-
-                if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
-                    id = (attribute.getFirstChild().getNodeValue().trim());
-                }
-                else if( nodeName.equalsIgnoreCase("category") && attribute.hasChildNodes() ) {
-                    String c = attribute.getFirstChild().getNodeValue().trim();
-
-                    if( "user".equalsIgnoreCase(c) ) {
-                        ownerId = (ctx.getAccountNumber());
-                    }
-                    else if( "microsoft".equalsIgnoreCase(c) ) {
-                        ownerId = (MICROSOFT);
-                    }
-                    else if( "partner".equalsIgnoreCase(c) ) {
-                        ownerId = ("--public--");
-                    }
-                    else if( "Canonical".equalsIgnoreCase(c) ) {
-                        ownerId = ("--Canonical--");
-                    }
-                }
-                else if( nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes() ) {
-                    if (!regionId.equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
-                        return null;
-                    }
-                }
-            } */
             ResourceStatus status = toStatus(ctx, entry);
 
             if( status != null ) {
@@ -685,53 +497,6 @@ public class AzureOSImage implements MachineImageSupport {
         }
         return new ResourceStatus(id, MachineImageState.ACTIVE);
     }
-
-    /*
-    @Nonnull
-    @Override
-    public Iterable<MachineImage> listImages(@Nullable ImageFilterOptions imageFilterOptions) throws CloudException, InternalException {
-        if (!imageFilterOptions.getImageClass().equals(ImageClass.MACHINE)) {
-            return Collections.emptyList();
-        }
-
-        final ProviderContext ctx = provider.getContext();
-
-        if( ctx == null ) {
-            throw new AzureConfigException("No context was specified for this request");
-        }
-
-        ArrayList<MachineImage> images = new ArrayList<MachineImage>();
-        AzureMethod method = new AzureMethod(provider);
-
-        Document doc = method.getAsXML(ctx.getAccountNumber(), IMAGES);
-
-        if( doc == null ) {
-            throw new CloudException(CloudErrorType.AUTHENTICATION, HttpServletResponse.SC_FORBIDDEN, "Illegal Access", "Illegal access to requested resource");
-        }
-        NodeList entries = doc.getElementsByTagName("OSImage");
-
-        for( int i=0; i<entries.getLength(); i++ ) {
-            Node entry = entries.item(i);
-            AzureMachineImage image = toImage(ctx, entry);
-
-            if (image != null) {
-                image.setImageClass(ImageClass.MACHINE);
-
-                if (imageFilterOptions.matches(image)) {
-                   if (imageFilterOptions.getAccountNumber() == null) {
-                       if (ctx.getAccountNumber().equals(image.getProviderOwnerId())) {
-                           images.add(image);
-                       }
-                   }
-                   else if (image.getProviderOwnerId().equalsIgnoreCase(imageFilterOptions.getAccountNumber())) {
-                           images.add(image);
-                   }
-                }
-            }
-        }
-        return images;
-    }
-    */
 
     @Nonnull
     @Override
@@ -903,13 +668,6 @@ public class AzureOSImage implements MachineImageSupport {
         }
     }
 
-    /*
-    @Override
-    public @Nonnull String registerMachineImage(String atStorageLocation) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Image registration is not required in Azure");
-    }
-    */
-
     @Override
     public void remove(@Nonnull String machineImageId) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
@@ -976,7 +734,7 @@ public class AzureOSImage implements MachineImageSupport {
         populator = new PopulatorThread<MachineImage>(new JiteratorPopulator<MachineImage>() {
             public void populate(@Nonnull Jiterator<MachineImage> iterator) throws CloudException, InternalException {
                 try {
-                    populateImages(ctx, iterator, MICROSOFT, ctx.getAccountNumber(), "--public--",
+                    populateImages(ctx, iterator, MICROSOFT, "--public--",
                             "--Canonical--", "--RightScaleLinux--", "--RightScaleWindows--",
                             "--OpenLogic--", "--SUSE--");
                 }
@@ -1025,16 +783,6 @@ public class AzureOSImage implements MachineImageSupport {
         }
         return images;
     }
-
-    /*
-    @Nonnull
-    @Override
-    public Iterable<MachineImage> searchPublicImages(@Nonnull ImageFilterOptions imageFilterOptions) throws InternalException, CloudException {
-        Platform platform = imageFilterOptions.getPlatform();
-        ImageClass cls = imageFilterOptions.getImageClass();
-        return searchPublicImages(null, platform, null, cls);
-    }
-    */
 
     @Nonnull
     @Override
@@ -1100,12 +848,6 @@ public class AzureOSImage implements MachineImageSupport {
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    /*
-@Override
-public @Nonnull String transfer(@Nonnull CloudProvider fromCloud, @Nonnull String machineImageId) throws CloudException, InternalException {
-throw new OperationNotSupportedException("You cannot transfer Azure images");
-}
-    */
     @Override
     public @Nonnull String[] mapServiceAction(@Nonnull ServiceAction action) {
         return new String[0];
@@ -1217,10 +959,6 @@ throw new OperationNotSupportedException("You cannot transfer Azure images");
         image.setSoftware(descriptor.contains("SQL Server") ? "SQL Server" : "");
         image.setTags(tags);
         image.setType(MachineImageType.VOLUME);
-
-      //  AzureMachineImage img = (AzureMachineImage) MachineImage.getMachineImageInstance(image.getProviderOwnerId(), image.getProviderRegionId(), image.getProviderMachineImageId(), image.getCurrentState(), image.getName(), image.getDescription(), image.getArchitecture(), image.getPlatform());
-       // img.setMediaLink(image.getMediaLink());
-       // img.withSoftware(image.getSoftware());
 
         return image;
     }
