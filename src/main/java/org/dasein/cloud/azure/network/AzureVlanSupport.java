@@ -136,137 +136,6 @@ public class AzureVlanSupport extends AbstractVLANSupport {
         throw new OperationNotSupportedException("Network interfaces not supported");
 	}
 
-	@Override
-	public Subnet createSubnet(String cidr, String inProviderVlanId,String name, String description) throws CloudException,InternalException {
-        if( logger.isTraceEnabled() ) {
-            logger.trace("ENTER: " + AzureVlanSupport.class.getName() + ".createSubnet()");
-        }
-
-        try {
-            ProviderContext ctx = provider.getContext();
-
-            if( ctx == null ) {
-                throw new AzureConfigException("No context was specified for this request");
-            }
-
-            VLAN vlan = getVlan(inProviderVlanId);
-            String vlanName = vlan.getName();
-
-            String subName = name;
-            String subCidr = cidr;
-
-            AzureMethod method = new AzureMethod(provider);
-            StringBuilder xml = new StringBuilder();
-
-            Document doc = getNetworkConfig();
-            NodeList entries = doc.getElementsByTagName("VirtualNetworkConfiguration");
-
-            for (int i = 0; i < entries.getLength(); i++) {
-                Node node = entries.item(i);
-
-                Element element = (Element) node;
-
-                NodeList virtualNetworkSites = element.getElementsByTagName("VirtualNetworkSites");
-                for (int j = 0; j<virtualNetworkSites.getLength(); j++) {
-                    Node item = virtualNetworkSites.item(j);
-
-                    if(item.getNodeType() == Node.TEXT_NODE) continue;
-
-                    Element elItem = (Element) item;
-                    NodeList vns = elItem.getElementsByTagName("VirtualNetworkSite");
-                    for (int k = 0; k<vns.getLength(); k++) {
-                        Node vn = vns.item(k);
-                        String vnName = vn.getNodeName();
-
-                        if( vnName.equalsIgnoreCase("VirtualNetworkSite") && vn.hasChildNodes() ) {
-                            Element el = (Element) vn;
-                            String siteName = el.getAttribute("name");
-                            if (siteName.equalsIgnoreCase(vlanName)) {
-                                NodeList subnets = el.getElementsByTagName("Subnets");
-
-                                if (subnets != null && subnets.getLength() > 0) {
-                                    logger.debug("Subnets element exists");
-                                    Element subnetList = (Element) subnets.item(0);
-                                    Element subnet = doc.createElement("Subnet");
-                                    subnet.setAttribute("name", subName);
-
-                                    Element addressPrefix = doc.createElement("AddressPrefix");
-                                    addressPrefix.appendChild(doc.createTextNode(subCidr));
-
-                                    subnet.appendChild(addressPrefix);
-                                    subnetList.appendChild(subnet);
-                                    break;
-                                }
-                                else {
-                                    logger.debug("Subnets element does not exist");
-                                    Element subnetList = doc.createElement("Subnets");
-                                    Element subnet = doc.createElement("Subnet");
-                                    subnet.setAttribute("name", subName);
-
-                                    Element addressPrefix = doc.createElement("AddressPrefix");
-                                    addressPrefix.appendChild(doc.createTextNode(subCidr));
-
-                                    subnet.appendChild(addressPrefix);
-                                    subnetList.appendChild(subnet);
-                                    el.appendChild(subnetList);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                }
-            }
-
-            String output="";
-            try{
-                TransformerFactory tf = TransformerFactory.newInstance();
-                Transformer transformer = tf.newTransformer();
-                transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-                StringWriter writer = new StringWriter();
-                transformer.transform(new DOMSource(doc), new StreamResult(writer));
-                output = writer.getBuffer().toString().replaceAll("\n|\r", "");
-            }
-            catch (Exception e){
-                System.err.println(e);
-            }
-            xml.append(output);
-
-            if( logger.isDebugEnabled() ) {
-                try {
-                    method.parseResponse(xml.toString(), false);
-                }
-                catch( Exception e ) {
-                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
-                    logger.warn("XML:");
-                    logger.warn(xml.toString());
-                }
-            }
-
-            String resourceDir = NETWORKING_SERVICES + "/media";
-            String requestId = method.invoke("PUT", ctx.getAccountNumber(),resourceDir, xml.toString());
-
-            if (requestId != null) {
-                int httpCode = method.getOperationStatus(requestId);
-                while (httpCode == -1) {
-                    httpCode = method.getOperationStatus(requestId);
-                }
-                if (httpCode == HttpServletResponse.SC_OK) {
-                    try {
-                        return getSubnet(subName);
-                    }
-                    catch( Throwable ignore ) { }
-                }
-            }
-            return null;
-        }
-        finally {
-            if( logger.isTraceEnabled() ) {
-                logger.trace("EXIT: " + AzureVlanSupport.class.getName() + ".createSubnet()");
-            }
-        }
-	}
-
     @Nonnull
     @Override
     public Subnet createSubnet(@Nonnull SubnetCreateOptions subnetCreateOptions) throws CloudException, InternalException {
@@ -829,31 +698,6 @@ public class AzureVlanSupport extends AbstractVLANSupport {
         return list;
 	}
 	
-	public Iterable<VLAN> listVlans(String vpnId) throws CloudException, InternalException {
-
-        ProviderContext ctx = provider.getContext();
-
-        if( ctx == null ) {
-            throw new AzureConfigException("No context was specified for this request");
-        }
-        AzureMethod method = new AzureMethod(provider);
-
-        Document doc = method.getAsXML(ctx.getAccountNumber(), NETWORKING_SERVICES+"/virtualnetwork");
-                
-        NodeList entries = doc.getElementsByTagName("VirtualNetworkSite");
-        ArrayList<VLAN> list = new ArrayList<VLAN>();
-
-        for( int i=0; i<entries.getLength(); i++ ) {
-            Node entry = entries.item(i);
-            ArrayList<VLAN> vlans = (ArrayList<VLAN>) toVLAN(ctx, entry);
-            if( vlans != null ) {
-            	list.addAll(vlans);
-            }
-        }        
-        return list;
-	}
-		
-
 	@Override
 	public void removeInternetGateway(String forVlanId) throws CloudException,InternalException {
         throw new OperationNotSupportedException("Internet gateways not supported");
@@ -1084,9 +928,6 @@ public class AzureVlanSupport extends AbstractVLANSupport {
     public void updateVLANTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
         //To change body of implemented methods use File | Settings | File Templates.
     }
-
-
-
 
     private @Nullable Iterable<VLAN> toVLAN(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
         if( entry == null ) {
