@@ -93,21 +93,14 @@ public class AzureOSImage extends AbstractImageSupport {
             if (vm == null) {
                 throw new CloudException("Virtual machine not found: " + options.getVirtualMachineId());
             }
-            provider.getComputeServices().getVirtualMachineSupport().stop(options.getVirtualMachineId());
-
+            if (!vm.getCurrentState().equals(VmState.STOPPED)) {
+                throw new CloudException("Server must be stopped before making an image of it");
+            }
             try {
                 ProviderContext ctx = provider.getContext();
 
                 if( ctx == null ) {
                     throw new AzureConfigException("No context was set for this request");
-                }
-                String label;
-
-                try {
-                    label = new String(Base64.encodeBase64(description.getBytes("utf-8")));
-                }
-                catch( UnsupportedEncodingException e ) {
-                    throw new InternalException(e);
                 }
 
                 String vmId = vm.getProviderVirtualMachineId();
@@ -137,12 +130,10 @@ public class AzureOSImage extends AbstractImageSupport {
                 xml.append("<OperationType>CaptureRoleOperation</OperationType>\n");
                 xml.append("<PostCaptureAction>Delete</PostCaptureAction>\n");
                 xml.append("<TargetImageLabel>").append(name).append("</TargetImageLabel>\n");
-                xml.append("<TargetImageName>").append(label).append("</TargetImageName>\n");
+                xml.append("<TargetImageName>").append(name).append("</TargetImageName>\n");
                 xml.append("</CaptureRoleOperation>\n");
 
                 method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-
-                System.out.println("image name: "+name);
 
                 MachineImage img = getMachineImage(name);;
 
@@ -592,7 +583,7 @@ public class AzureOSImage extends AbstractImageSupport {
         populator = new PopulatorThread<MachineImage>(new JiteratorPopulator<MachineImage>() {
             public void populate(@Nonnull Jiterator<MachineImage> iterator) throws CloudException, InternalException {
                 try {
-                    populateImages(ctx, iterator, MICROSOFT, ctx.getAccountNumber(), "--public--",
+                    populateImages(ctx, iterator, MICROSOFT, "--public--",
                             "--Canonical--", "--RightScaleLinux--", "--RightScaleWindows--",
                             "--OpenLogic--", "--SUSE--");
                 }
