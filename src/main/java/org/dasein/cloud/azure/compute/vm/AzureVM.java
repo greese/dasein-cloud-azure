@@ -1430,8 +1430,6 @@ public class AzureVM extends AbstractVMSupport {
             logger.debug(xml);
             logger.debug("__________________________________________________________");
             method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-
-            waitForState(vm,(CalendarWrapper.MINUTE * 15L), VmState.STOPPED);
         }
         finally {
             if( logger.isTraceEnabled() ) {
@@ -1616,30 +1614,5 @@ public class AzureVM extends AbstractVMSupport {
             id = name + "-" + i;
         }
         return id;
-    }
-
-    private @Nullable VirtualMachine waitForState(@Nonnull VirtualMachine vm, long timeoutPeriod, @Nonnull VmState... states) {
-        long timeout = System.currentTimeMillis() + timeoutPeriod;
-        VirtualMachine newVm = vm;
-
-        while (timeout > System.currentTimeMillis()) {
-            if (newVm == null) {
-                return null;
-            }
-            for (VmState state : states) {
-                if (state.equals(newVm.getCurrentState())) {
-                    return newVm;
-                }
-            }
-            try {
-                Thread.sleep(15000L);
-            } catch (InterruptedException ignore) {
-            }
-            try {
-                newVm = getVirtualMachine(vm.getProviderVirtualMachineId());
-            } catch (Exception ignore) {
-            }
-        }
-        return newVm;
     }
 }
