@@ -230,13 +230,20 @@ public class Azure extends AbstractCloud {
                             affinityRegion = null;
                             break;
                         }
+                        else {
+                            if (affinityGroup != null) {
+                                return affinityGroup;
+                            }
+                            continue;
+                        }
                     }
                 }
             }
             if (affinityGroup == null) {
                 logger.info("Create new affinity group for "+ctx.getRegionId());
                 //create new affinityGroup
-                String name = "EnstratiusAffinity";
+                String name = "EnstratiusAffinity"+(ctx.getRegionId().replaceAll(" ", ""));
+                logger.info(name);
                 String label;
                 try {
                     StringBuilder xml = new StringBuilder();
