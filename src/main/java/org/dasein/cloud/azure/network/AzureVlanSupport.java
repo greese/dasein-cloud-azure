@@ -954,10 +954,6 @@ public class AzureVlanSupport implements VLANSupport {
                 vlan.setProviderVlanId(id);
             }
             else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
-                if (!provider.getAffinityGroup().equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
-                    logger.warn("Affinity group is not for this region");
-                    return null;
-                }
                 tags.put("AffinityGroup", attribute.getFirstChild().getNodeValue().trim());
             }
             else if (nodeName.equalsIgnoreCase("state") && attribute.hasChildNodes() ) {

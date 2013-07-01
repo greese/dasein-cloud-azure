@@ -203,6 +203,7 @@ public class Azure extends AbstractCloud {
             if( ctx == null ) {
                 throw new AzureConfigException("No context was specified for this request");
             }
+            logger.info("Get affinity group for "+ctx.getRegionId()+" for account "+ctx.getAccountNumber());
             AzureMethod method = new AzureMethod(this);
 
             Document doc = method.getAsXML(ctx.getAccountNumber(), "/affinitygroups");
@@ -229,12 +230,20 @@ public class Azure extends AbstractCloud {
                             affinityRegion = null;
                             break;
                         }
+                        else {
+                            if (affinityGroup != null) {
+                                return affinityGroup;
+                            }
+                            continue;
+                        }
                     }
                 }
             }
             if (affinityGroup == null) {
+                logger.info("Create affinity group for "+ctx.getRegionId());
                 //create new affinityGroup
-                String name = "EnstratiusAffinity";
+                String name = "EnstratiusAffinity"+(ctx.getRegionId().replaceAll(" ", ""));
+                logger.info(name);
                 String label;
                 try {
                     StringBuilder xml = new StringBuilder();
@@ -246,12 +255,12 @@ public class Azure extends AbstractCloud {
                         throw new InternalException(e);
                     }
 
-                    xml.append("<CreateAffinityGroup xmlns=\"http://schemas.microsoft.com/windowsazure/\">") ;
+                    xml.append("<CreateAffinityGroup xmlns=\"http://schemas.microsoft.com/windowsazure\">") ;
                     xml.append("<Name>").append(name).append("</Name>");
                     xml.append("<Label>").append(label).append("</Label>");
                     xml.append("<Location>").append(ctx.getRegionId()).append("</Location>");
                     xml.append("</CreateAffinityGroup>");
-                    method.post(ctx.getAccountNumber(),"affinitygroups", xml.toString());
+                    method.post(ctx.getAccountNumber(),"/affinitygroups", xml.toString());
                 }
                 catch (CloudException e) {
                     logger.error("Unable to create affinity group",e);
