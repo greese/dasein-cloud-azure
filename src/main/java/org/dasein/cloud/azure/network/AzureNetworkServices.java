@@ -4,7 +4,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.dasein.cloud.azure.Azure;
-import org.dasein.cloud.network.*;
+import org.dasein.cloud.network.AbstractNetworkServices;
+import org.dasein.cloud.network.DNSSupport;
+import org.dasein.cloud.network.FirewallSupport;
+import org.dasein.cloud.network.IpAddressSupport;
+import org.dasein.cloud.network.LoadBalancerSupport;
+import org.dasein.cloud.network.NetworkFirewallSupport;
 
 public class AzureNetworkServices implements NetworkServices {
 	

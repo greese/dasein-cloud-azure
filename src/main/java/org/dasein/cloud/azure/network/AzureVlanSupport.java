@@ -19,7 +19,18 @@ import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.identity.ServiceAction;
-import org.dasein.cloud.network.*;
+import org.dasein.cloud.network.AbstractVLANSupport;
+import org.dasein.cloud.network.IPVersion;
+import org.dasein.cloud.network.NICCreateOptions;
+import org.dasein.cloud.network.NetworkInterface;
+import org.dasein.cloud.network.Networkable;
+import org.dasein.cloud.network.RoutingTable;
+import org.dasein.cloud.network.Subnet;
+import org.dasein.cloud.network.SubnetCreateOptions;
+import org.dasein.cloud.network.SubnetState;
+import org.dasein.cloud.network.VLAN;
+import org.dasein.cloud.network.VLANState;
+import org.dasein.cloud.network.VLANSupport;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -125,8 +136,9 @@ public class AzureVlanSupport implements VLANSupport {
         throw new OperationNotSupportedException("Network interfaces not supported");
 	}
 
-	@Override
-	public Subnet createSubnet(String cidr, String inProviderVlanId,String name, String description) throws CloudException,InternalException {
+    @Nonnull
+    @Override
+    public Subnet createSubnet(@Nonnull SubnetCreateOptions subnetCreateOptions) throws CloudException, InternalException {
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVlanSupport.class.getName() + ".createSubnet()");
         }
@@ -138,11 +150,12 @@ public class AzureVlanSupport implements VLANSupport {
                 throw new AzureConfigException("No context was specified for this request");
             }
 
-            VLAN vlan = getVlan(inProviderVlanId);
+            String vlanId = subnetCreateOptions.getProviderVlanId();
+            VLAN vlan = getVlan(vlanId);
             String vlanName = vlan.getName();
 
-            String subName = name;
-            String subCidr = cidr;
+            String subName = subnetCreateOptions.getName();
+            String subCidr = subnetCreateOptions.getCidr();
 
             AzureMethod method = new AzureMethod(provider);
             StringBuilder xml = new StringBuilder();
@@ -174,7 +187,7 @@ public class AzureVlanSupport implements VLANSupport {
                                 NodeList subnets = el.getElementsByTagName("Subnets");
 
                                 if (subnets != null && subnets.getLength() > 0) {
-                                    logger.debug("Subnets element exists");
+                                    logger.debug("Subnet exists");
                                     Element subnetList = (Element) subnets.item(0);
                                     Element subnet = doc.createElement("Subnet");
                                     subnet.setAttribute("name", subName);
@@ -187,7 +200,7 @@ public class AzureVlanSupport implements VLANSupport {
                                     break;
                                 }
                                 else {
-                                    logger.debug("Subnets element does not exist");
+                                    logger.debug("Subnet does not exist");
                                     Element subnetList = doc.createElement("Subnets");
                                     Element subnet = doc.createElement("Subnet");
                                     subnet.setAttribute("name", subName);
@@ -195,40 +208,16 @@ public class AzureVlanSupport implements VLANSupport {
                                     Element addressPrefix = doc.createElement("AddressPrefix");
                                     addressPrefix.appendChild(doc.createTextNode(subCidr));
 
-                                    subnet.appendChild(addressPrefix);
-                                    subnetList.appendChild(subnet);
-                                    el.appendChild(subnetList);
-                                    break;
-                                }
-                            }
-                        }
+            if (requestId != null) {
+                int httpCode = method.getOperationStatus(requestId);
+                while (httpCode == -1) {
+                    httpCode = method.getOperationStatus(requestId);
+                }
+                if (httpCode == HttpServletResponse.SC_OK) {
+                    try {
+                        return getSubnet(subName);
                     }
-
-                }
-            }
-
-            String output="";
-            try{
-                TransformerFactory tf = TransformerFactory.newInstance();
-                Transformer transformer = tf.newTransformer();
-                transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-                StringWriter writer = new StringWriter();
-                transformer.transform(new DOMSource(doc), new StreamResult(writer));
-                output = writer.getBuffer().toString().replaceAll("\n|\r", "");
-            }
-            catch (Exception e){
-                System.err.println(e);
-            }
-            xml.append(output);
-
-            if( logger.isDebugEnabled() ) {
-                try {
-                    method.parseResponse(xml.toString(), false);
-                }
-                catch( Exception e ) {
-                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
-                    logger.warn("XML:");
-                    logger.warn(xml.toString());
+                    catch( Throwable ignore ) { }
                 }
             }
 
@@ -508,6 +497,11 @@ public class AzureVlanSupport implements VLANSupport {
 	}
 
     @Override
+    public boolean isConnectedViaInternetGateway(@Nonnull String s) throws CloudException, InternalException {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public boolean isNetworkInterfaceSupportEnabled() throws CloudException,InternalException {
 		return false;
 	}
@@ -682,31 +676,6 @@ public class AzureVlanSupport implements VLANSupport {
         return list;
 	}
 	
-	public Iterable<VLAN> listVlans(String vpnId) throws CloudException, InternalException {
-
-        ProviderContext ctx = provider.getContext();
-
-        if( ctx == null ) {
-            throw new AzureConfigException("No context was specified for this request");
-        }
-        AzureMethod method = new AzureMethod(provider);
-
-        Document doc = method.getAsXML(ctx.getAccountNumber(), NETWORKING_SERVICES+"/virtualnetwork");
-                
-        NodeList entries = doc.getElementsByTagName("VirtualNetworkSite");
-        ArrayList<VLAN> list = new ArrayList<VLAN>();
-
-        for( int i=0; i<entries.getLength(); i++ ) {
-            Node entry = entries.item(i);
-            ArrayList<VLAN> vlans = (ArrayList<VLAN>) toVLAN(ctx, entry);
-            if( vlans != null ) {
-            	list.addAll(vlans);
-            }
-        }        
-        return list;
-	}
-		
-
 	@Override
 	public void removeInternetGateway(String forVlanId) throws CloudException,InternalException {
         throw new OperationNotSupportedException("Internet gateways not supported");
@@ -918,6 +887,16 @@ public class AzureVlanSupport implements VLANSupport {
 		return false;
 	}
 
+    @Override
+    public void updateVLANTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public void updateVLANTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
     private @Nullable Iterable<VLAN> toVLAN(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
         if( entry == null ) {
             return null;
@@ -1072,17 +1051,9 @@ public class AzureVlanSupport implements VLANSupport {
                 cidr = attribute.getFirstChild().getNodeValue().trim();
             }
         }
-        Subnet subnet = new Subnet();
-        subnet.setProviderOwnerId(ctx.getAccountNumber());
-        subnet.setProviderRegionId(ctx.getRegionId());
-        subnet.setProviderVlanId(vlanId);
-        subnet.setProviderSubnetId(name);
-        subnet.setCurrentState(SubnetState.AVAILABLE);
-        subnet.setName(name);
-        subnet.setDescription(name);
-        subnet.setCidr(cidr);
-        subnet.setProviderDataCenterId(ctx.getRegionId());
 
+        Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, name, SubnetState.AVAILABLE, name, name, cidr);
+        subnet.constrainedToDataCenter(ctx.getRegionId());
         return subnet;
     }
 }

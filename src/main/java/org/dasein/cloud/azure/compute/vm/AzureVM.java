@@ -14,7 +14,19 @@ import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.AzureService;
 import org.dasein.cloud.azure.compute.image.AzureMachineImage;
-import org.dasein.cloud.compute.*;
+import org.dasein.cloud.compute.AbstractVMSupport;
+import org.dasein.cloud.compute.Architecture;
+import org.dasein.cloud.compute.ImageClass;
+import org.dasein.cloud.compute.MachineImage;
+import org.dasein.cloud.compute.Platform;
+import org.dasein.cloud.compute.VMFilterOptions;
+import org.dasein.cloud.compute.VMLaunchOptions;
+import org.dasein.cloud.compute.VMScalingCapabilities;
+import org.dasein.cloud.compute.VMScalingOptions;
+import org.dasein.cloud.compute.VirtualMachine;
+import org.dasein.cloud.compute.VirtualMachineProduct;
+import org.dasein.cloud.compute.VmState;
+import org.dasein.cloud.compute.VmStatistics;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.Subnet;
 import org.dasein.util.CalendarWrapper;
@@ -40,7 +52,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 
@@ -509,8 +520,8 @@ public class AzureVM implements VirtualMachineSupport {
             xml.append("</Deployment>");
 
             String requestId = method.post(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + hostName + "/deployments", xml.toString());
-            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
 
+            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
             VirtualMachine vm = null ;
 
             if (requestId != null) {
@@ -553,58 +564,6 @@ public class AzureVM implements VirtualMachineSupport {
                 logger.trace("EXIT: " + AzureVM.class.getName() + ".launch()");
             }
         }
-    }
-
-    @Override
-    public @Nonnull VirtualMachine launch(@Nonnull String fromMachineImageId, @Nonnull VirtualMachineProduct product, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String inVlanId, boolean withAnalytics, boolean asSandbox, @Nullable String... firewallIds) throws InternalException, CloudException {
-        VMLaunchOptions options = VMLaunchOptions.getInstance(product.getProviderProductId(), fromMachineImageId, name, description);
-        
-        if( inVlanId == null ) {
-            options.inDataCenter(dataCenterId);
-        }
-        else {
-            options.inVlan(null, dataCenterId, inVlanId);
-        }
-        if( withKeypairId != null ) {
-            options.withBoostrapKey(withKeypairId);
-        }
-        if( withAnalytics ) {
-            options.withExtendedAnalytics();
-        }
-        if( firewallIds != null ) {
-            options.behindFirewalls(firewallIds);
-        }
-        return launch(options);
-    }
-
-    @Override
-    public @Nonnull VirtualMachine launch(@Nonnull String fromMachineImageId, @Nonnull VirtualMachineProduct product, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String inVlanId, boolean withAnalytics, boolean asSandbox, @Nullable String[] firewallIds, @Nullable Tag... tags) throws InternalException, CloudException {
-        VMLaunchOptions options = VMLaunchOptions.getInstance(product.getProviderProductId(), fromMachineImageId, name, description);
-
-        if( inVlanId == null ) {
-            options.inDataCenter(dataCenterId);
-        }
-        else {
-            options.inVlan(null, dataCenterId, inVlanId);
-        }
-        if( withKeypairId != null ) {
-            options.withBoostrapKey(withKeypairId);
-        }
-        if( withAnalytics ) {
-            options.withExtendedAnalytics();
-        }
-        if( firewallIds != null ) {
-            options.behindFirewalls(firewallIds);
-        }
-        if( tags != null && tags.length > 0 ) {
-            HashMap<String,Object> md = new HashMap<String, Object>();
-            
-            for( Tag t : tags ) {
-                md.put(t.getKey(), t.getValue());
-            }
-            options.withMetaData(md);
-        }
-        return launch(options);
     }
 
     @Override
@@ -722,6 +681,19 @@ public class AzureVM implements VirtualMachineSupport {
             parseHostedService(ctx, entries.item(i), null, vms);
         }
         return vms;
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<VirtualMachine> listVirtualMachines(@Nullable VMFilterOptions vmFilterOptions) throws InternalException, CloudException {
+        Iterable<VirtualMachine> vms = listVirtualMachines();
+        ArrayList<VirtualMachine> list = new ArrayList<VirtualMachine>();
+        for (VirtualMachine vm : vms) {
+            if (vm.getName().matches(vmFilterOptions.getRegex())) {
+                list.add(vm);
+            }
+        }
+        return list;
     }
 
     private void parseDeployment(@Nonnull ProviderContext ctx, @Nonnull String regionId, @Nonnull String serviceName, @Nonnull Node node, @Nonnull List<VirtualMachine> virtualMachines) {
@@ -1245,65 +1217,6 @@ public class AzureVM implements VirtualMachineSupport {
         }
     }
 
-    private void filterHostedService(@Nonnull ProviderContext ctx, @Nonnull Node entry, @Nullable String serviceName, @Nonnull List<VirtualMachine> virtualMachines) throws CloudException, InternalException {
-        String regionId = ctx.getRegionId();
-
-        if( regionId == null ) {
-            throw new AzureConfigException("No region ID was specified for this request");
-        }
-
-        NodeList attributes = entry.getChildNodes();
-        String uri = null;
-        long created = 0L;
-        String service = null;
-
-        for( int i=0; i<attributes.getLength(); i++ ) {
-            Node attribute = attributes.item(i);
-
-            if(attribute.getNodeType() == Node.TEXT_NODE) {
-                continue;
-            }
-            if( attribute.getNodeName().equalsIgnoreCase("url") && attribute.hasChildNodes() ) {
-                uri = attribute.getFirstChild().getNodeValue().trim();
-            }
-            else if( attribute.getNodeName().equalsIgnoreCase("servicename") && attribute.hasChildNodes() ) {
-                service = attribute.getFirstChild().getNodeValue().trim();
-                if( serviceName != null && !service.equals(serviceName) ) {
-                    return;
-                }
-            }
-            else if( attribute.getNodeName().equalsIgnoreCase("hostedserviceproperties") && attribute.hasChildNodes() ) {
-                NodeList properties = attribute.getChildNodes();
-
-                for( int j=0; j<properties.getLength(); j++ ) {
-                    Node property = properties.item(j);
-
-                    if(property.getNodeType() == Node.TEXT_NODE) {
-                        continue;
-                    }
-                    if( property.getNodeName().equalsIgnoreCase("location") && property.hasChildNodes() ) {
-                        if( !regionId.equals(property.getFirstChild().getNodeValue().trim()) ) {
-                            return;
-                        }
-                    }
-                    else if( property.getNodeName().equalsIgnoreCase("datecreated") && property.hasChildNodes() ) {
-                        created = provider.parseTimestamp(property.getFirstChild().getNodeValue().trim());
-                    }
-                }
-            }
-        }
-        if( uri == null || service == null ) {
-            return;
-        }
-
-        VirtualMachine vm = new VirtualMachine();
-        vm.setProviderVirtualMachineId(service);
-        vm.setName(service);
-        vm.setProviderRegionId(regionId);
-        vm.setCreationTimestamp(created);
-        virtualMachines.add(vm);
-    }
-
     private void parseHostedServiceForStatus(@Nonnull ProviderContext ctx, @Nonnull Node entry, @Nullable String serviceName, @Nonnull List<ResourceStatus> status) throws CloudException, InternalException {
         String regionId = ctx.getRegionId();
 
@@ -1471,17 +1384,13 @@ public class AzureVM implements VirtualMachineSupport {
         throw new OperationNotSupportedException("Pause/unpause is not supported in Microsoft Azure");
     }
 
-   @Override
-    public void stop(@Nonnull String vmId) throws InternalException, CloudException{
-        stop(vmId, false);
-    }
-
     @Override
     public void stop(@Nonnull String vmId, boolean force) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".Boot()");
         }
         try {
+            // TODO: force vs not force
             ProviderContext ctx = provider.getContext();
 
             if( ctx == null ) {
@@ -1538,11 +1447,6 @@ public class AzureVM implements VirtualMachineSupport {
                 logger.trace("EXIT: " + AzureVM.class.getName() + ".launch()");
             }
         }
-    }
-
-    @Override
-    public boolean supportsAnalytics() throws CloudException, InternalException {
-        return false;
     }
 
     @Override

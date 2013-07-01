@@ -614,7 +614,6 @@ public class AzureMethod {
             wire.debug("");
         }
         String requestId = null;
-
         try {
             HttpClient client = getClient();
             String url = endpoint + account + resource;

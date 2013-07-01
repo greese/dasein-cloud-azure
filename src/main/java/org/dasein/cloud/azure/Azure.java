@@ -240,7 +240,7 @@ public class Azure extends AbstractCloud {
                 }
             }
             if (affinityGroup == null) {
-                logger.info("Create affinity group for "+ctx.getRegionId());
+                logger.info("Create new affinity group for "+ctx.getRegionId());
                 //create new affinityGroup
                 String name = "EnstratiusAffinity"+(ctx.getRegionId().replaceAll(" ", ""));
                 logger.info(name);
