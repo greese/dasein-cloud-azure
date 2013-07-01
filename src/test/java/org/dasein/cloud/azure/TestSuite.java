@@ -21,5 +21,5 @@ package org.dasein.cloud.azure;
 import org.dasein.cloud.test.GlobalTestSuite;
 import org.dasein.cloud.test.StatelessTestSuite;
 
-public class AzureTestSuite extends GlobalTestSuite{
+public class TestSuite extends GlobalTestSuite{
 }
