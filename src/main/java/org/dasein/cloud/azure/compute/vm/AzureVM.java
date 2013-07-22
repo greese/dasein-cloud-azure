@@ -90,25 +90,12 @@ public class AzureVM extends AbstractVMSupport {
         if( ctx == null ) {
             throw new AzureConfigException("No context was set for this request");
         }
-        String[] parts = vmId.split(":");
         String serviceName, deploymentName, roleName;
 
-        if (parts.length == 3)    {
-            serviceName = parts[0];
-            deploymentName = parts[1];
-            roleName= parts[2];
-        }
-        else if( parts.length == 2 ) {
-            serviceName = parts[0];
-            deploymentName = parts[1];
-            roleName = serviceName;
-        }
-        else {
-            serviceName = vmId;
-            deploymentName = vmId;
-            roleName = vmId;
+        serviceName = vm.getTag("serviceName").toString();
+        deploymentName = vm.getTag("deploymentName").toString();
+        roleName = vm.getTag("roleName").toString();
 
-        }
         String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
         logger.debug("_______________________________________________________");
         logger.debug("Start operation - "+resourceDir);
@@ -156,25 +143,12 @@ public class AzureVM extends AbstractVMSupport {
         if( ctx == null ) {
             throw new AzureConfigException("No context was set for this request");
         }
-        String[] parts = vmId.split(":");
         String serviceName, deploymentName, roleName;
 
-        if (parts.length == 3)    {
-            serviceName = parts[0];
-            deploymentName = parts[1];
-            roleName= parts[2];
-        }
-        else if( parts.length == 2 ) {
-            serviceName = parts[0];
-            deploymentName = parts[1];
-            roleName = serviceName;
-        }
-        else {
-            serviceName = vmId;
-            deploymentName = vmId;
-            roleName = vmId;
+        serviceName = vm.getTag("serviceName").toString();
+        deploymentName = vm.getTag("deploymentName").toString();
+        roleName = vm.getTag("roleName").toString();
 
-        }
         String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName;
 
         try{
@@ -1329,24 +1303,12 @@ public class AzureVM extends AbstractVMSupport {
             if( vm == null ) {
                 throw new CloudException("No such virtual machine: " + vmId);
             }
-            String[] parts = vmId.split(":");
             String serviceName, deploymentName, roleName;
 
-            if (parts.length == 3)    {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName= parts[2];
-            }
-            else if( parts.length == 2 ) {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName = serviceName;
-            }
-            else {
-                serviceName = vmId;
-                deploymentName = vmId;
-                roleName = vmId;
-            }
+            serviceName = vm.getTag("serviceName").toString();
+            deploymentName = vm.getTag("deploymentName").toString();
+            roleName = vm.getTag("roleName").toString();
+
             String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
 
             AzureMethod method = new AzureMethod(provider);
@@ -1402,24 +1364,12 @@ public class AzureVM extends AbstractVMSupport {
             if( vm == null ) {
                 throw new CloudException("No such virtual machine: " + vmId);
             }
-            String[] parts = vmId.split(":");
             String serviceName, deploymentName, roleName;
 
-            if (parts.length == 3)    {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName= parts[2];
-            }
-            else if( parts.length == 2 ) {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName = serviceName;
-            }
-            else {
-                serviceName = vmId;
-                deploymentName = vmId;
-                roleName = vmId;
-            }
+            serviceName = vm.getTag("serviceName").toString();
+            deploymentName = vm.getTag("deploymentName").toString();
+            roleName = vm.getTag("roleName").toString();
+
             String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
             logger.debug("__________________________________________________________");
             logger.debug("Stop vm "+resourceDir);
@@ -1500,24 +1450,11 @@ public class AzureVM extends AbstractVMSupport {
             if( ctx == null ) {
                 throw new AzureConfigException("No context was set for this request");
             }
-            String[] parts = vmId.split(":");
-            String serviceName, deploymentName, roleName;
+            String serviceName, deploymentName;
 
-            if (parts.length == 3)    {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName= parts[2];
-            }
-            else if( parts.length == 2 ) {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName = serviceName;
-            }
-            else {
-                serviceName = vmId;
-                deploymentName = vmId;
-                roleName = vmId;
-            }
+            serviceName = vm.getTag("serviceName").toString();
+            deploymentName = vm.getTag("deploymentName").toString();
+
             String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName;
             AzureMethod method = new AzureMethod(provider);
 
