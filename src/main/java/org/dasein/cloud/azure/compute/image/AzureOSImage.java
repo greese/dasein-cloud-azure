@@ -100,24 +100,12 @@ public class AzureOSImage extends AbstractImageSupport {
                 }
 
                 String vmId = vm.getProviderVirtualMachineId();
-                String[] parts = vmId.split(":");
                 String serviceName, deploymentName, roleName;
 
-                if (parts.length == 3)    {
-                    serviceName = parts[0];
-                    deploymentName = parts[1];
-                    roleName= parts[2];
-                }
-                else if( parts.length == 2 ) {
-                    serviceName = parts[0];
-                    deploymentName = parts[1];
-                    roleName = serviceName;
-                }
-                else {
-                    serviceName = vmId;
-                    deploymentName = vmId;
-                    roleName = vmId;
-                }
+                serviceName = vm.getTag("serviceName").toString();
+                deploymentName = vm.getTag("deploymentName").toString();
+                roleName = vm.getTag("roleName").toString();
+
                 String resourceDir = AzureVM.HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
                 AzureMethod method = new AzureMethod(provider);
                 StringBuilder xml = new StringBuilder();
