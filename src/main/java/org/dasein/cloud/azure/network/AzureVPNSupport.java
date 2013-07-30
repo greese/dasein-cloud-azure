@@ -132,8 +132,7 @@ public class AzureVPNSupport implements VPNSupport {
                     logger.warn(xml.toString());
                 }
             }
-            
-            System.out.println("body -> " + xml.toString());
+
             String resourceDir = NETWORKING_SERVICES + "/media";
             method.post(ctx.getAccountNumber(),resourceDir, xml.toString());
             // TODO: return VLAN
@@ -193,8 +192,7 @@ public class AzureVPNSupport implements VPNSupport {
                     logger.warn(xml.toString());
                 }
             }
-            
-            System.out.println("body -> " + xml.toString());
+
             String resourceDir = NETWORKING_SERVICES + "/media";
             method.post(ctx.getAccountNumber(),resourceDir , xml.toString());
             // TODO: VPNGateway
