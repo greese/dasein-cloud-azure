@@ -90,25 +90,12 @@ public class AzureVM extends AbstractVMSupport {
         if( ctx == null ) {
             throw new AzureConfigException("No context was set for this request");
         }
-        String[] parts = vmId.split(":");
         String serviceName, deploymentName, roleName;
 
-        if (parts.length == 3)    {
-            serviceName = parts[0];
-            deploymentName = parts[1];
-            roleName= parts[2];
-        }
-        else if( parts.length == 2 ) {
-            serviceName = parts[0];
-            deploymentName = parts[1];
-            roleName = serviceName;
-        }
-        else {
-            serviceName = vmId;
-            deploymentName = vmId;
-            roleName = vmId;
+        serviceName = vm.getTag("serviceName").toString();
+        deploymentName = vm.getTag("deploymentName").toString();
+        roleName = vm.getTag("roleName").toString();
 
-        }
         String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
         logger.debug("_______________________________________________________");
         logger.debug("Start operation - "+resourceDir);
@@ -156,25 +143,12 @@ public class AzureVM extends AbstractVMSupport {
         if( ctx == null ) {
             throw new AzureConfigException("No context was set for this request");
         }
-        String[] parts = vmId.split(":");
         String serviceName, deploymentName, roleName;
 
-        if (parts.length == 3)    {
-            serviceName = parts[0];
-            deploymentName = parts[1];
-            roleName= parts[2];
-        }
-        else if( parts.length == 2 ) {
-            serviceName = parts[0];
-            deploymentName = parts[1];
-            roleName = serviceName;
-        }
-        else {
-            serviceName = vmId;
-            deploymentName = vmId;
-            roleName = vmId;
+        serviceName = vm.getTag("serviceName").toString();
+        deploymentName = vm.getTag("deploymentName").toString();
+        roleName = vm.getTag("roleName").toString();
 
-        }
         String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName;
 
         try{
@@ -316,7 +290,7 @@ public class AzureVM extends AbstractVMSupport {
 
     @Override
     public @Nullable VmStatistics getVMStatistics(String vmId, long from, long to) throws InternalException, CloudException {
-        return null;
+        return new VmStatistics();
     }
 
     @Override
@@ -433,132 +407,139 @@ public class AzureVM extends AbstractVMSupport {
             else if( !deploymentSlot.equalsIgnoreCase("Production") && !deploymentSlot.equalsIgnoreCase("Staging") ) {
                 deploymentSlot = "Production";
             }
-            xml.append("<CreateHostedService xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-            xml.append("<ServiceName>").append(hostName).append("</ServiceName>");
-            xml.append("<Label>").append(label).append("</Label>");
-            xml.append("<Description>").append(options.getDescription()).append("</Description>");
-            xml.append("<AffinityGroup>").append(provider.getAffinityGroup()).append("</AffinityGroup>");
-            xml.append("</CreateHostedService>");
-            method.post(ctx.getAccountNumber(), HOSTED_SERVICES, xml.toString());
 
-            xml = new StringBuilder();
-            xml.append("<Deployment xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-            xml.append("<Name>").append(hostName).append("</Name>");
-            xml.append("<DeploymentSlot>").append(deploymentSlot).append("</DeploymentSlot>");
-            xml.append("<Label>").append(label).append("</Label>");
-            xml.append("<RoleList>");
-            xml.append("<Role>");
-            xml.append("<RoleName>").append(hostName).append("</RoleName>");
-            xml.append("<RoleType>PersistentVMRole</RoleType>");
-            xml.append("<ConfigurationSets>");
+            //check if the requested service name already exists
+            if (method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+hostName) == null) {
 
-            String password = (options.getBootstrapPassword() == null ? provider.generateToken(8, 15) : options.getBootstrapPassword());
-            System.out.println("VM password "+password);
+                xml.append("<CreateHostedService xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+                xml.append("<ServiceName>").append(hostName).append("</ServiceName>");
+                xml.append("<Label>").append(label).append("</Label>");
+                xml.append("<Description>").append(options.getDescription()).append("</Description>");
+                xml.append("<AffinityGroup>").append(provider.getAffinityGroup()).append("</AffinityGroup>");
+                xml.append("</CreateHostedService>");
+                method.post(ctx.getAccountNumber(), HOSTED_SERVICES, xml.toString());
 
-            if( image.getPlatform().isWindows() ) {
-                xml.append("<ConfigurationSet>");
-                xml.append("<ConfigurationSetType>WindowsProvisioningConfiguration</ConfigurationSetType>");
-                xml.append("<ComputerName>").append(hostName).append("</ComputerName>");
-                xml.append("<AdminPassword>").append(password).append("</AdminPassword>");
-                xml.append("<EnableAutomaticUpdate>true</EnableAutomaticUpdate>");
-                xml.append("<TimeZone>UTC</TimeZone>");
-                xml.append("</ConfigurationSet>");
-            }
-            else {
-                xml.append("<ConfigurationSet>");
-                xml.append("<ConfigurationSetType>LinuxProvisioningConfiguration</ConfigurationSetType>");
-                xml.append("<HostName>").append(hostName).append("</HostName>");
+                xml = new StringBuilder();
+                xml.append("<Deployment xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+                xml.append("<Name>").append(hostName).append("</Name>");
+                xml.append("<DeploymentSlot>").append(deploymentSlot).append("</DeploymentSlot>");
+                xml.append("<Label>").append(label).append("</Label>");
+                xml.append("<RoleList>");
+                xml.append("<Role>");
+                xml.append("<RoleName>").append(hostName).append("</RoleName>");
+                xml.append("<RoleType>PersistentVMRole</RoleType>");
+                xml.append("<ConfigurationSets>");
 
-                //dmayne using root causes vm to fail provisioning
-                xml.append("<UserName>dasein</UserName>");
-                xml.append("<UserPassword>").append(password).append("</UserPassword>");
-                xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
-                xml.append("</ConfigurationSet>");
-            }
-            xml.append("<ConfigurationSet>");
-            xml.append("<ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>") ;
-            xml.append("<InputEndpoints><InputEndpoint>");
-            if( image.getPlatform().isWindows() ) {
-                xml.append("<LocalPort>3389</LocalPort>");
-                xml.append("<Name>RemoteDesktop</Name>");
-                xml.append("<Port>58622</Port>");
-            }
-            else {
-                xml.append("<LocalPort>22</LocalPort>");
-                xml.append("<Name>SSH</Name>");
-                xml.append("<Port>22</Port>");
-            }
-            xml.append("<Protocol>TCP</Protocol>");
-            xml.append("</InputEndpoint></InputEndpoints>");
-            //dmayne assuming this is a subnet
-            Subnet subnet = null;
-            String vlanName = null;
-            if (options.getVlanId() != null) {
-                subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getVlanId());
-                xml.append("<SubnetNames>");
-                xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
-                xml.append("</SubnetNames>");
+                String password = (options.getBootstrapPassword() == null ? provider.generateToken(8, 15) : options.getBootstrapPassword());
 
-                //dmayne needed for virtual network name later
-                vlanName = provider.getNetworkServices().getVlanSupport().getVlan(subnet.getProviderVlanId()).getName();
-            }
-            xml.append("</ConfigurationSet>");
-            xml.append("</ConfigurationSets>");
-            xml.append("<DataVirtualHardDisks/>");
-            xml.append("<OSVirtualHardDisk>");
-            xml.append("<HostCaching>ReadWrite</HostCaching>");
-            xml.append("<DiskLabel>OS</DiskLabel>");
-            xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(hostName).append(".vhd</MediaLink>");
-            xml.append("<SourceImageName>").append(options.getMachineImageId()).append("</SourceImageName>");
-            xml.append("</OSVirtualHardDisk>");
-            xml.append("<RoleSize>").append(options.getStandardProductId()).append("</RoleSize>");
-            xml.append("</Role>");
-            xml.append("</RoleList>");
-
-            if (options.getVlanId() != null) {
-                xml.append("<VirtualNetworkName>").append(vlanName).append("</VirtualNetworkName>");
-            }
-            xml.append("</Deployment>");
-
-            String requestId = method.post(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + hostName + "/deployments", xml.toString());
-
-            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
-            VirtualMachine vm = null ;
-
-            if (requestId != null) {
-                int httpCode = method.getOperationStatus(requestId);
-                while (httpCode == -1) {
-                    httpCode = method.getOperationStatus(requestId);
+                if( image.getPlatform().isWindows() ) {
+                    xml.append("<ConfigurationSet>");
+                    xml.append("<ConfigurationSetType>WindowsProvisioningConfiguration</ConfigurationSetType>");
+                    xml.append("<ComputerName>").append(hostName).append("</ComputerName>");
+                    xml.append("<AdminPassword>").append(password).append("</AdminPassword>");
+                    xml.append("<EnableAutomaticUpdate>true</EnableAutomaticUpdate>");
+                    xml.append("<TimeZone>UTC</TimeZone>");
+                    xml.append("</ConfigurationSet>");
                 }
-                if (httpCode == HttpServletResponse.SC_OK) {
-                    try { vm = getVirtualMachine(hostName + ":" + hostName+":"+hostName); }
-                    catch( Throwable ignore ) { }
-                    if( vm != null ) {
-                        vm.setRootUser("dasein");
-                        vm.setRootPassword(password);
+                else {
+                    xml.append("<ConfigurationSet>");
+                    xml.append("<ConfigurationSetType>LinuxProvisioningConfiguration</ConfigurationSetType>");
+                    xml.append("<HostName>").append(hostName).append("</HostName>");
+
+                    //dmayne using root causes vm to fail provisioning
+                    xml.append("<UserName>dasein</UserName>");
+                    xml.append("<UserPassword>").append(password).append("</UserPassword>");
+                    xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
+                    xml.append("</ConfigurationSet>");
+                }
+                xml.append("<ConfigurationSet>");
+                xml.append("<ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>") ;
+                xml.append("<InputEndpoints><InputEndpoint>");
+                if( image.getPlatform().isWindows() ) {
+                    xml.append("<LocalPort>3389</LocalPort>");
+                    xml.append("<Name>RemoteDesktop</Name>");
+                    xml.append("<Port>58622</Port>");
+                }
+                else {
+                    xml.append("<LocalPort>22</LocalPort>");
+                    xml.append("<Name>SSH</Name>");
+                    xml.append("<Port>22</Port>");
+                }
+                xml.append("<Protocol>TCP</Protocol>");
+                xml.append("</InputEndpoint></InputEndpoints>");
+                //dmayne assuming this is a subnet
+                Subnet subnet = null;
+                String vlanName = null;
+                if (options.getVlanId() != null) {
+                    subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getVlanId());
+                    xml.append("<SubnetNames>");
+                    xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
+                    xml.append("</SubnetNames>");
+
+                    //dmayne needed for virtual network name later
+                    vlanName = provider.getNetworkServices().getVlanSupport().getVlan(subnet.getProviderVlanId()).getName();
+                }
+                xml.append("</ConfigurationSet>");
+                xml.append("</ConfigurationSets>");
+                xml.append("<DataVirtualHardDisks/>");
+                xml.append("<OSVirtualHardDisk>");
+                xml.append("<HostCaching>ReadWrite</HostCaching>");
+                xml.append("<DiskLabel>OS</DiskLabel>");
+                xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(hostName).append(".vhd</MediaLink>");
+                xml.append("<SourceImageName>").append(options.getMachineImageId()).append("</SourceImageName>");
+                xml.append("</OSVirtualHardDisk>");
+                xml.append("<RoleSize>").append(options.getStandardProductId()).append("</RoleSize>");
+                xml.append("</Role>");
+                xml.append("</RoleList>");
+
+                if (options.getVlanId() != null) {
+                    xml.append("<VirtualNetworkName>").append(vlanName).append("</VirtualNetworkName>");
+                }
+                xml.append("</Deployment>");
+
+                String requestId = method.post(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + hostName + "/deployments", xml.toString());
+
+                long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+                VirtualMachine vm = null ;
+
+                if (requestId != null) {
+                    int httpCode = method.getOperationStatus(requestId);
+                    while (httpCode == -1) {
+                        httpCode = method.getOperationStatus(requestId);
+                    }
+                    if (httpCode == HttpServletResponse.SC_OK) {
+                        try { vm = getVirtualMachine(hostName + ":" + hostName+":"+hostName); }
+                        catch( Throwable ignore ) { }
+                        if( vm != null ) {
+                            vm.setRootUser("dasein");
+                            vm.setRootPassword(password);
+                        }
                     }
                 }
+                else {
+                    while( timeout > System.currentTimeMillis() ) {
+                        try { vm = getVirtualMachine(hostName + ":" + hostName+":"+hostName); }
+                        catch( Throwable ignore ) { }
+                        if( vm != null ) {
+                            vm.setRootUser("dasein");
+                            vm.setRootPassword(password);
+                            break;
+                        }
+                        try { Thread.sleep(15000L); }
+                        catch( InterruptedException ignore ) { }
+                    }
+                }
+                if( vm == null ) {
+                    throw new CloudException("System timed out waiting for virtual machine to appear");
+                }
+                if( VmState.STOPPED.equals(vm.getCurrentState()) ) {
+                    start(vm.getProviderVirtualMachineId());
+                }
+                return vm;
             }
             else {
-                while( timeout > System.currentTimeMillis() ) {
-                    try { vm = getVirtualMachine(hostName + ":" + hostName+":"+hostName); }
-                    catch( Throwable ignore ) { }
-                    if( vm != null ) {
-                        vm.setRootUser("dasein");
-                        vm.setRootPassword(password);
-                        break;
-                    }
-                    try { Thread.sleep(15000L); }
-                    catch( InterruptedException ignore ) { }
-                }
+                throw new CloudException("Service name already in use");
             }
-            if( vm == null ) {
-                throw new CloudException("System timed out waiting for virtual machine to appear");
-            }
-            if( VmState.STOPPED.equals(vm.getCurrentState()) ) {
-                start(vm.getProviderVirtualMachineId());
-            }
-            return vm;
         }
         finally {
             if( logger.isTraceEnabled() ) {
@@ -844,7 +825,6 @@ public class AzureVM extends AbstractVMSupport {
                                 }
                                 else {
                                     logger.warn("DEBUG: Unknown Azure status: " + powerStatus);
-                                    System.out.println("DEBUG: Unknown Azure status: " + powerStatus);
                                 }
                             }
                         }
@@ -1093,7 +1073,6 @@ public class AzureVM extends AbstractVMSupport {
                                 }
                                 else {
                                     logger.warn("DEBUG: Unknown Azure status: " + powerStatus);
-                                    System.out.println("DEBUG: Unknown Azure status: " + powerStatus);
                                 }
                             }
                         }
@@ -1329,24 +1308,12 @@ public class AzureVM extends AbstractVMSupport {
             if( vm == null ) {
                 throw new CloudException("No such virtual machine: " + vmId);
             }
-            String[] parts = vmId.split(":");
             String serviceName, deploymentName, roleName;
 
-            if (parts.length == 3)    {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName= parts[2];
-            }
-            else if( parts.length == 2 ) {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName = serviceName;
-            }
-            else {
-                serviceName = vmId;
-                deploymentName = vmId;
-                roleName = vmId;
-            }
+            serviceName = vm.getTag("serviceName").toString();
+            deploymentName = vm.getTag("deploymentName").toString();
+            roleName = vm.getTag("roleName").toString();
+
             String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
 
             AzureMethod method = new AzureMethod(provider);
@@ -1402,24 +1369,12 @@ public class AzureVM extends AbstractVMSupport {
             if( vm == null ) {
                 throw new CloudException("No such virtual machine: " + vmId);
             }
-            String[] parts = vmId.split(":");
             String serviceName, deploymentName, roleName;
 
-            if (parts.length == 3)    {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName= parts[2];
-            }
-            else if( parts.length == 2 ) {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName = serviceName;
-            }
-            else {
-                serviceName = vmId;
-                deploymentName = vmId;
-                roleName = vmId;
-            }
+            serviceName = vm.getTag("serviceName").toString();
+            deploymentName = vm.getTag("deploymentName").toString();
+            roleName = vm.getTag("roleName").toString();
+
             String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
             logger.debug("__________________________________________________________");
             logger.debug("Stop vm "+resourceDir);
@@ -1471,8 +1426,8 @@ public class AzureVM extends AbstractVMSupport {
     }
 
     @Override
-    public void terminate(@Nonnull String vmId) throws InternalException, CloudException {
-    	if( logger.isTraceEnabled() ) {
+    public void terminate(@Nonnull String vmId, @Nullable String explanation) throws InternalException, CloudException {
+        if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".terminate()");
         }
         try {
@@ -1500,24 +1455,11 @@ public class AzureVM extends AbstractVMSupport {
             if( ctx == null ) {
                 throw new AzureConfigException("No context was set for this request");
             }
-            String[] parts = vmId.split(":");
-            String serviceName, deploymentName, roleName;
+            String serviceName, deploymentName;
 
-            if (parts.length == 3)    {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName= parts[2];
-            }
-            else if( parts.length == 2 ) {
-                serviceName = parts[0];
-                deploymentName = parts[1];
-                roleName = serviceName;
-            }
-            else {
-                serviceName = vmId;
-                deploymentName = vmId;
-                roleName = vmId;
-            }
+            serviceName = vm.getTag("serviceName").toString();
+            deploymentName = vm.getTag("deploymentName").toString();
+
             String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName;
             AzureMethod method = new AzureMethod(provider);
 

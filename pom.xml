@@ -45,7 +45,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-core</artifactId>
-            <version>2013.07-SNAPSHOT</version>
+            <version>2013.07.0</version>
             <scope>compile</scope>
             <optional>false</optional>
         </dependency>
@@ -98,7 +98,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-test</artifactId>
-            <version>2013.07-SNAPSHOT</version>
+            <version>2013.07.0</version>
             <scope>test</scope>
             <optional>false</optional>
         </dependency>
@@ -265,6 +265,7 @@
                     <includes>
                        <include>**/TestSuite.java</include>
                     </includes>
+                   <!-- <argLine>-Ddasein.inclusions=StatefulImageTests</argLine>-->
                 </configuration>
             </plugin>
             <plugin>
