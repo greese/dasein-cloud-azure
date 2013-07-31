@@ -908,7 +908,6 @@ public class AzureMethod {
 
         for (int i =0; i<s.getLength(); i++) {
             Node attribute = s.item(i);
-            System.out.println(attribute.getNodeName()+" found");
             if( attribute.getNodeType() == Node.TEXT_NODE) {
                 continue;
             }
@@ -937,7 +936,6 @@ public class AzureMethod {
         String errMsg = httpCode+": ";
         for (int i=0; i<s.getLength(); i++) {
             Node attribute = s.item(i);
-            System.out.println(attribute.getNodeName()+" found");
             if( attribute.getNodeType() == Node.TEXT_NODE) {
                 continue;
             }

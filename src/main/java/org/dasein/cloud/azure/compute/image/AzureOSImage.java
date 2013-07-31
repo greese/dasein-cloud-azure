@@ -30,6 +30,7 @@ import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.VmState;
 import org.dasein.cloud.identity.ServiceAction;
+import org.dasein.util.CalendarWrapper;
 import org.dasein.util.Jiterator;
 import org.dasein.util.JiteratorPopulator;
 import org.dasein.util.PopulatorThread;
@@ -74,6 +75,7 @@ public class AzureOSImage extends AbstractImageSupport {
 
     @Override
     protected @Nonnull MachineImage capture(@Nonnull ImageCreateOptions options, @Nullable AsynchronousTask<MachineImage> task) throws CloudException, InternalException {
+        logger.debug("Capture image of "+options.getVirtualMachineId()+" with new name "+options.getName());
         try {
             if( task != null ) {
                 task.setStartTime(System.currentTimeMillis());
@@ -90,7 +92,23 @@ public class AzureOSImage extends AbstractImageSupport {
                 throw new CloudException("Virtual machine not found: " + options.getVirtualMachineId());
             }
             if (!vm.getCurrentState().equals(VmState.STOPPED)) {
-                throw new CloudException("Server must be stopped before making an image of it");
+                logger.debug("Stopping server");
+                provider.getComputeServices().getVirtualMachineSupport().stop(vmid, false);
+                try {
+                    long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+                    vm = null;
+                    while (timeout > System.currentTimeMillis()) {
+                        vm =  provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(options.getVirtualMachineId());
+                        if (vm.getCurrentState().equals(VmState.STOPPED)) {
+                            logger.debug("Server stopped");
+                            break;
+                        }
+                        try { Thread.sleep(15000L); }
+                        catch( InterruptedException ignore ) { }
+                    }
+                }
+                catch (Throwable ignore) {
+                }
             }
             try {
                 ProviderContext ctx = provider.getContext();
@@ -100,24 +118,12 @@ public class AzureOSImage extends AbstractImageSupport {
                 }
 
                 String vmId = vm.getProviderVirtualMachineId();
-                String[] parts = vmId.split(":");
                 String serviceName, deploymentName, roleName;
 
-                if (parts.length == 3)    {
-                    serviceName = parts[0];
-                    deploymentName = parts[1];
-                    roleName= parts[2];
-                }
-                else if( parts.length == 2 ) {
-                    serviceName = parts[0];
-                    deploymentName = parts[1];
-                    roleName = serviceName;
-                }
-                else {
-                    serviceName = vmId;
-                    deploymentName = vmId;
-                    roleName = vmId;
-                }
+                serviceName = vm.getTag("serviceName").toString();
+                deploymentName = vm.getTag("deploymentName").toString();
+                roleName = vm.getTag("roleName").toString();
+
                 String resourceDir = AzureVM.HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
                 AzureMethod method = new AzureMethod(provider);
                 StringBuilder xml = new StringBuilder();
@@ -131,7 +137,7 @@ public class AzureOSImage extends AbstractImageSupport {
 
                 method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
 
-                MachineImage img = getMachineImage(name);;
+                MachineImage img = getMachineImage(name);
 
                 if (img == null) {
                     throw new CloudException("Drive cloning completed, but no ID was provided for clone");
@@ -324,6 +330,7 @@ public class AzureOSImage extends AbstractImageSupport {
         for( int i=0; i<entries.getLength(); i++ ) {
             Node entry = entries.item(i);
             AzureMachineImage image = toImage(ctx, entry);
+            image.setImageClass(ImageClass.MACHINE);
 
             if (image != null) {
 
@@ -578,7 +585,7 @@ public class AzureOSImage extends AbstractImageSupport {
         populator = new PopulatorThread<MachineImage>(new JiteratorPopulator<MachineImage>() {
             public void populate(@Nonnull Jiterator<MachineImage> iterator) throws CloudException, InternalException {
                 try {
-                    populateImages(ctx, iterator, MICROSOFT, "--public--",
+                    populateImages(ctx, iterator, MICROSOFT, "--public--", ctx.getAccountNumber(),
                             "--Canonical--", "--RightScaleLinux--", "--RightScaleWindows--",
                             "--OpenLogic--", "--SUSE--");
                 }
@@ -714,7 +721,7 @@ public class AzureOSImage extends AbstractImageSupport {
     public @Nonnull String[] mapServiceAction(@Nonnull ServiceAction action) {
         return new String[0];
     }
-    
+
     private @Nullable AzureMachineImage toImage(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
         if( entry == null ) {
             return null;
@@ -724,12 +731,9 @@ public class AzureOSImage extends AbstractImageSupport {
         AzureMachineImage image= new AzureMachineImage();
 
         HashMap<String,String> tags = new HashMap<String,String>();
-        MachineImageState state = MachineImageState.ACTIVE;
-        Architecture arch = Architecture.I64;
-
-        String providerMachineImageId = "", providerOwnerId = "", name = "", description = "",
-            mediaLink = "", software = "";
-        Platform platform = null;
+        image.setCurrentState(MachineImageState.ACTIVE);
+        image.setProviderRegionId(ctx.getRegionId());
+        image.setArchitecture(Architecture.I64);
 
         NodeList attributes = entry.getChildNodes();
 
@@ -739,41 +743,41 @@ public class AzureOSImage extends AbstractImageSupport {
             String nodeName = attribute.getNodeName();
 
             if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
-                providerMachineImageId = attribute.getFirstChild().getNodeValue().trim();
+                image.setProviderMachineImageId(attribute.getFirstChild().getNodeValue().trim());
             }
             if( nodeName.equalsIgnoreCase("category") && attribute.hasChildNodes() ) {
                 String c = attribute.getFirstChild().getNodeValue().trim();
                 if( "user".equalsIgnoreCase(c) ) {
-                    providerOwnerId = (ctx.getAccountNumber());
+                    image.setProviderOwnerId(ctx.getAccountNumber());
                 }
                 else if( c.toLowerCase().contains("microsoft") ) {
-                    providerOwnerId = (MICROSOFT);
+                    image.setProviderOwnerId(MICROSOFT);
                 }
                 else if( c.toLowerCase().contains("partner") ) {
-                    providerOwnerId = ("--public--");
+                    image.setProviderOwnerId("--public--");
                 }
                 else if( c.toLowerCase().contains("canonical") ) {
-                    providerOwnerId = ("--Canonical--");
+                    image.setProviderOwnerId("--Canonical--");
                 }
                 else if( c.toLowerCase().contains("rightscale with linux") ) {
-                    providerOwnerId = ("--RightScaleLinux--");
+                    image.setProviderOwnerId("--RightScaleLinux--");
                 }
                 else if( c.toLowerCase().contains("rightscale with windows") ) {
-                    providerOwnerId = ("--RightScaleWindows--");
+                    image.setProviderOwnerId("--RightScaleWindows--");
                 }
                 else if( c.toLowerCase().contains("openlogic") ) {
-                    providerOwnerId = ("--OpenLogic--");
+                    image.setProviderOwnerId("--OpenLogic--");
                 }
                 else if( c.toLowerCase().contains("suse") ) {
-                    providerOwnerId = ("--SUSE--");
+                    image.setProviderOwnerId("--SUSE--");
                 }
             }
             else if( nodeName.equalsIgnoreCase("label") && attribute.hasChildNodes() ) {
-                name = (attribute.getFirstChild().getNodeValue().trim());
+                image.setName(attribute.getFirstChild().getNodeValue().trim());
 
             }
             else if( nodeName.equalsIgnoreCase("description") && attribute.hasChildNodes() ) {
-                description = (attribute.getFirstChild().getNodeValue().trim());
+                image.setDescription(attribute.getFirstChild().getNodeValue().trim());
             }
             else if( nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes() ) {
                 String location = attribute.getFirstChild().getNodeValue().trim();
@@ -790,16 +794,16 @@ public class AzureOSImage extends AbstractImageSupport {
                 }
             }
             else if( nodeName.equalsIgnoreCase("medialink") && attribute.hasChildNodes() ) {
-                mediaLink = (attribute.getFirstChild().getNodeValue().trim());
+                image.setMediaLink(attribute.getFirstChild().getNodeValue().trim());
             }
             else if( nodeName.equalsIgnoreCase("os") && attribute.hasChildNodes() ) {
                 String os = attribute.getFirstChild().getNodeValue().trim();
 
                 if( os.equalsIgnoreCase("windows") ) {
-                    platform = (Platform.WINDOWS);
+                    image.setPlatform(Platform.WINDOWS);
                 }
                 else if( os.equalsIgnoreCase("linux") ) {
-                    platform = (Platform.UNIX);
+                    image.setPlatform(Platform.UNIX);
                 }
             }
         }
@@ -807,10 +811,10 @@ public class AzureOSImage extends AbstractImageSupport {
             return null;
         }
         if( image.getName() == null ) {
-            name = (image.getProviderMachineImageId());
+            image.setName(image.getProviderMachineImageId());
         }
         if( image.getDescription() == null ) {
-            description = (image.getName());
+            image.setDescription(image.getName());
         }
         String descriptor = image.getProviderMachineImageId() + " " + image.getName() + " " + image.getDescription();
 
@@ -818,15 +822,12 @@ public class AzureOSImage extends AbstractImageSupport {
             Platform p = Platform.guess(descriptor);
 
             if( image.getPlatform() == null || !Platform.UNKNOWN.equals(p) ) {
-                platform = (p);
+                image.setPlatform(p);
             }
         }
-        software = (descriptor.contains("SQL Server") ? "SQL Server" : "");
-
-        AzureMachineImage img = (AzureMachineImage) MachineImage.getMachineImageInstance(providerOwnerId, regionID, providerMachineImageId, state, name, description, arch, platform);
-        img.setMediaLink(mediaLink);
-        img.withSoftware(software);
-        img.setTags(tags);
+        image.setSoftware(descriptor.contains("SQL Server") ? "SQL Server" : "");
+        image.setTags(tags);
+        image.setType(MachineImageType.VOLUME);
 
         return image;
     }

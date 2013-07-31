@@ -27,7 +27,7 @@ public class AzureStorageServices extends AbstractStorageServices {
     
     public AzureStorageServices(Azure azure) { this.azure = azure; }
     
-    public BlobStore getBlobStoreSupport() {
+    public BlobStore getOnlineStorageSupport() {
         return new BlobStore(azure);
     }
 }
