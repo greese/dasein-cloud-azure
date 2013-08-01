@@ -1143,9 +1143,9 @@ public class AzureVM extends AbstractVMSupport {
                     if(property.getNodeType() == Node.TEXT_NODE) {
                         continue;
                     }
-                    if( attribute.getNodeName().equalsIgnoreCase("AffinityGroup") && attribute.hasChildNodes() ) {
+                    if( property.getNodeName().equalsIgnoreCase("AffinityGroup") && property.hasChildNodes() ) {
                         //get the region for this affinity group
-                        String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                        String affinityGroup = property.getFirstChild().getNodeValue().trim();
                         if (affinityGroup != null && !affinityGroup.equals("")) {
                             dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
                             if (dc.getRegionId().equals(regionId)) {
@@ -1269,9 +1269,9 @@ public class AzureVM extends AbstractVMSupport {
                     if(property.getNodeType() == Node.TEXT_NODE) {
                         continue;
                     }
-                    if( attribute.getNodeName().equalsIgnoreCase("AffinityGroup") && attribute.hasChildNodes() ) {
+                    if( property.getNodeName().equalsIgnoreCase("AffinityGroup") && property.hasChildNodes() ) {
                         //get the region for this affinity group
-                        String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                        String affinityGroup = property.getFirstChild().getNodeValue().trim();
                         if (affinityGroup != null && !affinityGroup.equals("")) {
                             DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
                             if (dc.getRegionId().equals(regionId)) {

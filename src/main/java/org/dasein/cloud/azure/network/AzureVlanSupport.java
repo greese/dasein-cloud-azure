@@ -977,6 +977,13 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                 vlan.setProviderVlanId(id);
             }
             else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
+                String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                if (affinityGroup != null && !affinityGroup.equals("")) {
+                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    if (!dc.getRegionId().equals(ctx.getRegionId())) {
+                        return null;
+                    }
+                }
                 tags.put("AffinityGroup", attribute.getFirstChild().getNodeValue().trim());
             }
             else if (nodeName.equalsIgnoreCase("state") && attribute.hasChildNodes() ) {
