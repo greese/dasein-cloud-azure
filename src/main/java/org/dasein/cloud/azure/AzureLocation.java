@@ -1,10 +1,8 @@
 package org.dasein.cloud.azure;
 
-import org.apache.commons.codec.binary.Base64;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.azure.compute.image.AzureMachineImage;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.dc.DataCenterServices;
 import org.dasein.cloud.dc.Region;
@@ -14,7 +12,6 @@ import org.w3c.dom.NodeList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -71,60 +68,6 @@ public class AzureLocation implements DataCenterServices {
             }
         }
         return null;
-    }
-
-    public boolean isSubscribed(AzureService toService) throws InternalException, CloudException {
-        ProviderContext ctx = provider.getContext();
-
-        if( ctx == null ) {
-            throw new AzureConfigException("No context was specified for this request");
-        }
-        AzureMethod method = new AzureMethod(provider);
-
-        Document doc = method.getAsXML(ctx.getAccountNumber(), LOCATIONS);
-
-        if( doc == null ) {
-            return false;
-        }
-        NodeList entries = doc.getElementsByTagName("Location");
-
-        for( int i=0; i<entries.getLength(); i++ ) {
-            Node entry = entries.item(i);
-
-            if( entry != null ) {
-                NodeList attributes = entry.getChildNodes();
-                String regionId = null;
-                boolean subscribed = false;
-                
-                for( int j=0; j<attributes.getLength(); j++ ) {
-                    Node attribute = attributes.item(j);
-
-                    if( attribute.getNodeName().equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
-                        regionId = attribute.getFirstChild().getNodeValue().trim();
-                    }
-                    else if( attribute.getNodeName().equalsIgnoreCase("availableservices") && attribute.hasChildNodes() ) {
-                        NodeList services = attribute.getChildNodes();
-
-                        for( int k=0; k<services.getLength(); k++ ) {
-                            Node service = services.item(k);
-                            
-                            if( service != null && service.getNodeName().equalsIgnoreCase("availableservice") && service.hasChildNodes() ) {
-                                String serviceName = service.getFirstChild().getNodeValue().trim();
-                                
-                                if( toService.toString().equalsIgnoreCase(serviceName) ) {
-                                    subscribed = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-                if( regionId != null && regionId.equalsIgnoreCase(ctx.getRegionId()) ) {
-                    return subscribed;
-                }
-            }
-        }
-        return false;
     }
     
     @Override
