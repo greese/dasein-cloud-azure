@@ -1,6 +1,7 @@
 package org.dasein.cloud.azure;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.log4j.Logger;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
@@ -27,6 +28,7 @@ import java.util.Locale;
  * @version 2012.04.1
  */
 public class AzureLocation implements DataCenterServices {
+    static private final Logger logger = Azure.getLogger(AzureLocation.class);
     static private final String LOCATIONS = "/locations";
     
     private Azure provider;
@@ -134,15 +136,95 @@ public class AzureLocation implements DataCenterServices {
         if( region == null ) {
             return Collections.emptyList();
         }
-        DataCenter dc = new DataCenter();
+        ArrayList<DataCenter> dcs = new ArrayList<DataCenter>();
 
-        dc.setActive(true);
-        dc.setAvailable(true);
-        dc.setName(region.getName() + " (DC)");
-        dc.setProviderDataCenterId(providerRegionId);
-        dc.setRegionId(providerRegionId);
+        ProviderContext ctx = provider.getContext();
 
-        return Collections.singletonList(dc);
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
+        logger.info("Get affinity group for "+providerRegionId+" for account "+ctx.getAccountNumber());
+        AzureMethod method = new AzureMethod(provider);
+
+        Document doc = method.getAsXML(ctx.getAccountNumber(), "/affinitygroups");
+
+        NodeList entries = doc.getElementsByTagName("AffinityGroup");
+
+        String affinityGroup = "";
+        String affinityRegion = "";
+
+        for (int i = 0; i<entries.getLength(); i++) {
+            Node entry = entries.item(i);
+
+            NodeList attributes = entry.getChildNodes();
+
+            for( int j=0; j<attributes.getLength(); j++ ) {
+                Node attribute = attributes.item(j);
+                if(attribute.getNodeType() == Node.TEXT_NODE) continue;
+                String nodeName = attribute.getNodeName();
+
+                if (nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
+                    affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                }
+                else if (nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes()) {
+                    affinityRegion = attribute.getFirstChild().getNodeValue().trim();
+                    if (providerRegionId.equalsIgnoreCase(affinityRegion)) {
+                        if (affinityGroup != null && !affinityGroup.equals("")) {
+                            DataCenter dc = new DataCenter();
+
+                            dc.setActive(true);
+                            dc.setAvailable(true);
+                            dc.setName(affinityGroup);
+                            dc.setProviderDataCenterId(affinityGroup);
+                            dc.setRegionId(providerRegionId);
+                            dcs.add(dc);
+                        }
+                    }
+                    else {
+                        affinityGroup = null;
+                        affinityRegion = null;
+                    }
+                }
+            }
+        }
+        if (dcs.isEmpty()) {
+            logger.info("Create new affinity group for "+providerRegionId);
+            //create new affinityGroup
+            String name = "EnstratiusAffinity"+(providerRegionId.replaceAll(" ", ""));
+            logger.info(name);
+            String label;
+            try {
+                StringBuilder xml = new StringBuilder();
+
+                try {
+                    label = new String(Base64.encodeBase64(name.getBytes("utf-8")));
+                }
+                catch( UnsupportedEncodingException e ) {
+                    throw new InternalException(e);
+                }
+
+                xml.append("<CreateAffinityGroup xmlns=\"http://schemas.microsoft.com/windowsazure\">") ;
+                xml.append("<Name>").append(name).append("</Name>");
+                xml.append("<Label>").append(label).append("</Label>");
+                xml.append("<Location>").append(providerRegionId).append("</Location>");
+                xml.append("</CreateAffinityGroup>");
+                method.post(ctx.getAccountNumber(),"/affinitygroups", xml.toString());
+            }
+            catch (CloudException e) {
+                logger.error("Unable to create affinity group",e);
+                throw new CloudException(e);
+            }
+            affinityGroup = name;
+            DataCenter dc = new DataCenter();
+
+            dc.setActive(true);
+            dc.setAvailable(true);
+            dc.setName(affinityGroup);
+            dc.setProviderDataCenterId(affinityGroup);
+            dc.setRegionId(providerRegionId);
+            dcs.add(dc);
+        }
+        return dcs;
     }
 
     @Override
