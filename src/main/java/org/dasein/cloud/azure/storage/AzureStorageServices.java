@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2011 enStratusNetworks LLC
+ * Copyright (C) 2012 enStratus Networks Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
