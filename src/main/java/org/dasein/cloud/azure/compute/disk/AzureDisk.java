@@ -34,6 +34,7 @@ import org.dasein.cloud.compute.VolumeProduct;
 import org.dasein.cloud.compute.VolumeState;
 import org.dasein.cloud.compute.VolumeSupport;
 import org.dasein.cloud.compute.VolumeType;
+import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Storage;
@@ -86,7 +87,6 @@ public class AzureDisk extends AbstractVolumeSupport {
                 if (device.startsWith("/dev/")) {
                     device = device.substring(5);
                 }
-
             }
                       
             Volume disk ;
@@ -144,12 +144,13 @@ public class AzureDisk extends AbstractVolumeSupport {
                 logger.trace("EXIT: " + AzureDisk.class.getName() + ".attach()");
             }
         }
-    	
     }
 
     @Override
     public @Nonnull String createVolume(@Nonnull VolumeCreateOptions options) throws InternalException, CloudException {
-        if( logger.isTraceEnabled() ) {
+        throw new OperationNotSupportedException("Azure does not support creating standalone volumes");
+
+        /*if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureDisk.class.getName() + ".createVolume(" + options + ")");
         }
         try {
@@ -158,14 +159,14 @@ public class AzureDisk extends AbstractVolumeSupport {
             if( ctx == null ) {
                 throw new AzureConfigException("No context was specified for this request");
             }
-            
+
             String fromVolumeId = options.getSnapshotId();
             Volume disk ;
             if(fromVolumeId != null){
             	 disk = getVolume(fromVolumeId);
             	 if(disk == null ){
             		throw new InternalException("Can not find the source snapshot !"); 
-            	 }            	
+            	 }
             }else{
             	throw new InternalException("Azure needs a source snapshot Id to create a new disk volume !");
             }
@@ -183,19 +184,16 @@ public class AzureDisk extends AbstractVolumeSupport {
             }
                         
             xml.append("<Disk xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+            Platform platform = disk.getGuestOperatingSystem();
+            if(platform.isWindows()){
+                xml.append("<OS>Windows</OS>");
+            }else{
+                xml.append("<OS>Linux</OS>");
+            }
             xml.append("<Label>" + label + "</Label>");
             xml.append("<MediaLink>" + disk.getMediaLink()+"</MediaLink>");
             xml.append("<Name>" + options.getName() + "</Name>");
-            //<OS>Linux|Windows</OS>
-            Platform platform = disk.getGuestOperatingSystem();
-            if(platform.isWindows()){
-            	xml.append("<OS>Windows</OS>");
-            }else{
-            	xml.append("<OS>Linux</OS>");
-            }
-                        
             xml.append("</Disk>");
-      
 
             if( logger.isDebugEnabled() ) {
                 try {
@@ -229,7 +227,7 @@ public class AzureDisk extends AbstractVolumeSupport {
                 logger.trace("EXIT: " + AzureDisk.class.getName() + ".launch()");
             }
         }
-       return null;
+       return null; */
     }
     
     @Override
@@ -320,7 +318,6 @@ public class AzureDisk extends AbstractVolumeSupport {
                         lunValue = attribute.getFirstChild().getNodeValue().trim();
                     }
                 }
-                
             }
             if(diskName != null && diskName.equalsIgnoreCase(providerVolumeId)){
             	if(lunValue == null){
@@ -439,8 +436,7 @@ public class AzureDisk extends AbstractVolumeSupport {
         AzureMethod method = new AzureMethod(provider);
 
         Document doc = method.getAsXML(ctx.getAccountNumber(), DISK_SERVICES);
-        
-        
+
         NodeList entries = doc.getElementsByTagName("Disk");
         ArrayList<Volume> disks = new ArrayList<Volume>();
 
@@ -452,7 +448,6 @@ public class AzureDisk extends AbstractVolumeSupport {
             }
         }
         return disks;
-    	
     }
 
     @Nonnull
@@ -557,10 +552,10 @@ public class AzureDisk extends AbstractVolumeSupport {
         }
         Volume disk = new Volume();
         disk.setProviderRegionId(regionId);
-        disk.setProviderDataCenterId(provider.getDataCenterId(regionId));
         disk.setCurrentState(VolumeState.AVAILABLE);
         disk.setType(VolumeType.HDD);
-                
+        boolean mediaLocationFound = false;
+
         NodeList attributes = volumeNode.getChildNodes();
         
         for( int i=0; i<attributes.getLength(); i++ ) {
@@ -594,8 +589,25 @@ public class AzureDisk extends AbstractVolumeSupport {
             else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {            	
             	disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));            	
             }
+
+            // disk may have either affinity group or location depending on how storage account is set up
+            else if( attribute.getNodeName().equalsIgnoreCase("AffinityGroup") && attribute.hasChildNodes() ) {
+                //get the region for this affinity group
+                String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                if (affinityGroup != null && !affinityGroup.equals("")) {
+                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    if (dc.getRegionId().equals(disk.getProviderRegionId())) {
+                        disk.setProviderDataCenterId(dc.getProviderDataCenterId());
+                        mediaLocationFound = true;
+                    }
+                    else {
+                        // not correct region/datacenter
+                        return null;
+                    }
+                }
+            }
             else if( attribute.getNodeName().equalsIgnoreCase("Location") && attribute.hasChildNodes() ) {
-            	if( !regionId.equals(attribute.getFirstChild().getNodeValue().trim()) ) {
+            	if( !mediaLocationFound && !regionId.equals(attribute.getFirstChild().getNodeValue().trim()) ) {
                      return null;
                 }
             }
@@ -622,6 +634,10 @@ public class AzureDisk extends AbstractVolumeSupport {
         if( disk.getDescription() == null ) {
         	disk.setDescription(disk.getName());
         }
+        if (disk.getProviderDataCenterId() == null) {
+            DataCenter dc = provider.getDataCenterServices().listDataCenters(regionId).iterator().next();
+            disk.setProviderDataCenterId(dc.getProviderDataCenterId());
+        }
        
         return disk;
     }
@@ -638,6 +654,7 @@ public class AzureDisk extends AbstractVolumeSupport {
         }
 
         String id = "";
+        boolean mediaLocationFound = false;
 
         NodeList attributes = volumeNode.getChildNodes();
 
@@ -648,8 +665,22 @@ public class AzureDisk extends AbstractVolumeSupport {
             if( attribute.getNodeName().equalsIgnoreCase("Name") && attribute.hasChildNodes() ) {
                 id = attribute.getFirstChild().getNodeValue().trim();
             }
+            else if( attribute.getNodeName().equalsIgnoreCase("AffinityGroup") && attribute.hasChildNodes() ) {
+                //get the region for this affinity group
+                String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                if (affinityGroup != null && !affinityGroup.equals("")) {
+                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    if (dc.getRegionId().equals(regionId)) {
+                        mediaLocationFound = true;
+                    }
+                    else {
+                        // not correct region/datacenter
+                        return null;
+                    }
+                }
+            }
             else if( attribute.getNodeName().equalsIgnoreCase("Location") && attribute.hasChildNodes() ) {
-                if( !regionId.equals(attribute.getFirstChild().getNodeValue().trim()) ) {
+                if( !mediaLocationFound && !regionId.equals(attribute.getFirstChild().getNodeValue().trim()) ) {
                     return null;
                 }
             }

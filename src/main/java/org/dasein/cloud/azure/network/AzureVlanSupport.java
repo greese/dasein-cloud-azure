@@ -18,6 +18,7 @@ import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
+import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.AbstractVLANSupport;
 import org.dasein.cloud.network.IPVersion;
@@ -304,6 +305,10 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                 throw new AzureConfigException("No context was specified for this request");
             }
 
+            String regionId = ctx.getRegionId();
+            Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(regionId);
+            String dataCenterId = dcs.iterator().next().getProviderDataCenterId();
+
             AzureMethod method = new AzureMethod(provider);
             StringBuilder xml = new StringBuilder();
 
@@ -313,7 +318,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                 xml.append("<VirtualNetworkConfiguration>");
                 xml.append("<Dns />");
                 xml.append("<VirtualNetworkSites>");
-                xml.append("<VirtualNetworkSite name=\"" + name+ "\" AffinityGroup=\"" +  this.getAffinityGroup(name) +"\">");
+                xml.append("<VirtualNetworkSite name=\"" + name+ "\" AffinityGroup=\"" +  dataCenterId +"\">");
                 xml.append("<AddressSpace>");
                 xml.append("<AddressPrefix>").append(cidr).append("</AddressPrefix>");
                 xml.append("</AddressSpace>");
@@ -336,7 +341,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
 
                 Element vns = doc.createElement("VirtualNetworkSite");
                 vns.setAttribute("name", name);
-                vns.setAttribute("AffinityGroup", this.getAffinityGroup(name));
+                vns.setAttribute("AffinityGroup", dataCenterId);
 
                 Element addressSpace = doc.createElement("AddressSpace");
                 Element addressPrefix = doc.createElement("AddressPrefix");
@@ -394,10 +399,6 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                 logger.trace("EXIT: " + AzureVlanSupport.class.getName() + ".createVlan()");
             }
         }
-	}
-	
-	private String getAffinityGroup(String vlanName) throws InternalException,CloudException{
-		return provider.getAffinityGroup();
 	}
 
 	@Override
@@ -976,6 +977,13 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                 vlan.setProviderVlanId(id);
             }
             else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
+                String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                if (affinityGroup != null && !affinityGroup.equals("")) {
+                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    if (!dc.getRegionId().equals(ctx.getRegionId())) {
+                        return null;
+                    }
+                }
                 tags.put("AffinityGroup", attribute.getFirstChild().getNodeValue().trim());
             }
             else if (nodeName.equalsIgnoreCase("state") && attribute.hasChildNodes() ) {
@@ -1061,8 +1069,12 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                 }
             }
             else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
-                if (!provider.getAffinityGroup().equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
-                    return null;
+                String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                if (affinityGroup != null && !affinityGroup.equals("")) {
+                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    if (!dc.getRegionId().equals(ctx.getRegionId())) {
+                        return null;
+                    }
                 }
             }
 

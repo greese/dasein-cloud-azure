@@ -27,6 +27,7 @@ import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.VirtualMachineProduct;
 import org.dasein.cloud.compute.VmState;
 import org.dasein.cloud.compute.VmStatistics;
+import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.Subnet;
 import org.dasein.util.CalendarWrapper;
@@ -50,10 +51,7 @@ import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 /**
  * Implements virtual machine support for Microsoft Azure.
@@ -149,7 +147,7 @@ public class AzureVM extends AbstractVMSupport {
         deploymentName = vm.getTag("deploymentName").toString();
         roleName = vm.getTag("roleName").toString();
 
-        String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName;
+        String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roles/" + roleName;
 
         try{
             AzureMethod method = new AzureMethod(provider);
@@ -157,13 +155,18 @@ public class AzureVM extends AbstractVMSupport {
             Document doc = method.getAsXML(ctx.getAccountNumber(), resourceDir);
             String xml = null;
 
-            NodeList entries = doc.getElementsByTagName("RoleSize");
+            NodeList roles = doc.getElementsByTagName("PersistentVMRole");
+            Node role = roles.item(0);
 
-            Node vn = entries.item(0);
-            String vnName = vn.getNodeName();
+            NodeList entries = role.getChildNodes();
 
-            if( vnName.equalsIgnoreCase("RoleSize") && vn.hasChildNodes() ) {
-                vn.setNodeValue(options.getProviderProductId());
+            for (int i = 0; i<entries.getLength(); i++) {
+                Node vn = entries.item(i);
+                String vnName = vn.getNodeName();
+
+                if( vnName.equalsIgnoreCase("RoleSize") && vn.hasChildNodes() ) {
+                    vn.setNodeValue(options.getProviderProductId());
+                }
             }
 
             String output="";
@@ -182,6 +185,8 @@ public class AzureVM extends AbstractVMSupport {
 
             logger.debug(xml);
             logger.debug("___________________________________________________");
+
+            resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName;
             method.invoke("PUT", ctx.getAccountNumber(), resourceDir, xml.toString());
 
             return getVirtualMachine(vmId);
@@ -401,6 +406,12 @@ public class AzureVM extends AbstractVMSupport {
             String hostName = toUniqueId(options.getHostName());
             String deploymentSlot = (String)options.getMetaData().get("environment");
 
+            String dataCenterId = options.getDataCenterId();
+            if (dataCenterId == null) {
+                Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(ctx.getRegionId());
+                dataCenterId = dcs.iterator().next().getProviderDataCenterId();
+            }
+
             if( deploymentSlot == null ) {
                 deploymentSlot = "Production";
             }
@@ -415,7 +426,7 @@ public class AzureVM extends AbstractVMSupport {
                 xml.append("<ServiceName>").append(hostName).append("</ServiceName>");
                 xml.append("<Label>").append(label).append("</Label>");
                 xml.append("<Description>").append(options.getDescription()).append("</Description>");
-                xml.append("<AffinityGroup>").append(provider.getAffinityGroup()).append("</AffinityGroup>");
+                xml.append("<AffinityGroup>").append(dataCenterId).append("</AffinityGroup>");
                 xml.append("</CreateHostedService>");
                 method.post(ctx.getAccountNumber(), HOSTED_SERVICES, xml.toString());
 
@@ -1105,6 +1116,9 @@ public class AzureVM extends AbstractVMSupport {
         long created = 0L;
         String service = null;
 
+        boolean mediaLocationFound = false;
+        DataCenter dc = null;
+
         for( int i=0; i<attributes.getLength(); i++ ) {
             Node attribute = attributes.item(i);
 
@@ -1129,10 +1143,25 @@ public class AzureVM extends AbstractVMSupport {
                     if(property.getNodeType() == Node.TEXT_NODE) {
                         continue;
                     }
-                    if( property.getNodeName().equalsIgnoreCase("location") && property.hasChildNodes() ) {
-                        if( !regionId.equals(property.getFirstChild().getNodeValue().trim()) ) {
+                    if( property.getNodeName().equalsIgnoreCase("AffinityGroup") && property.hasChildNodes() ) {
+                        //get the region for this affinity group
+                        String affinityGroup = property.getFirstChild().getNodeValue().trim();
+                        if (affinityGroup != null && !affinityGroup.equals("")) {
+                            dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                            if (dc.getRegionId().equals(regionId)) {
+                                mediaLocationFound = true;
+                            }
+                            else {
+                                // not correct region/datacenter
+                                return;
+                            }
+                        }
+                    }
+                    else if( property.getNodeName().equalsIgnoreCase("location") && property.hasChildNodes() ) {
+                        if( !mediaLocationFound && !regionId.equals(property.getFirstChild().getNodeValue().trim()) ) {
                             return;
                         }
+
                     }
                     else if( property.getNodeName().equalsIgnoreCase("datecreated") && property.hasChildNodes() ) {
                         created = provider.parseTimestamp(property.getFirstChild().getNodeValue().trim());
@@ -1189,6 +1218,13 @@ public class AzureVM extends AbstractVMSupport {
                                 if (vm.getCreationTimestamp() < 1L) {
                                     vm.setCreationTimestamp(created);
                                 }
+                                if (dc != null) {
+                                    vm.setProviderDataCenterId(dc.getProviderDataCenterId());
+                                }
+                                else {
+                                    Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(regionId);
+                                    vm.setProviderDataCenterId(dcs.iterator().next().getProviderDataCenterId());
+                                }
                             }
                         }
                     }
@@ -1226,14 +1262,29 @@ public class AzureVM extends AbstractVMSupport {
             else if( attribute.getNodeName().equalsIgnoreCase("hostedserviceproperties") && attribute.hasChildNodes() ) {
                 NodeList properties = attribute.getChildNodes();
 
+                boolean mediaLocationFound = false;
                 for( int j=0; j<properties.getLength(); j++ ) {
                     Node property = properties.item(j);
 
                     if(property.getNodeType() == Node.TEXT_NODE) {
                         continue;
                     }
-                    if( property.getNodeName().equalsIgnoreCase("location") && property.hasChildNodes() ) {
-                        if( !regionId.equals(property.getFirstChild().getNodeValue().trim()) ) {
+                    if( property.getNodeName().equalsIgnoreCase("AffinityGroup") && property.hasChildNodes() ) {
+                        //get the region for this affinity group
+                        String affinityGroup = property.getFirstChild().getNodeValue().trim();
+                        if (affinityGroup != null && !affinityGroup.equals("")) {
+                            DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                            if (dc.getRegionId().equals(regionId)) {
+                                mediaLocationFound = true;
+                            }
+                            else {
+                                // not correct region/datacenter
+                                return;
+                            }
+                        }
+                    }
+                    else if( property.getNodeName().equalsIgnoreCase("location") && property.hasChildNodes() ) {
+                        if( !mediaLocationFound && !regionId.equals(property.getFirstChild().getNodeValue().trim()) ) {
                             return;
                         }
                     }
