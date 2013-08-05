@@ -980,6 +980,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                 String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
                 if (affinityGroup != null && !affinityGroup.equals("")) {
                     DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    vlan.setProviderDataCenterId(dc.getProviderDataCenterId());
                     if (!dc.getRegionId().equals(ctx.getRegionId())) {
                         return null;
                     }
@@ -1108,7 +1109,8 @@ public class AzureVlanSupport extends AbstractVLANSupport {
         }
 
         Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, name, SubnetState.AVAILABLE, name, name, cidr);
-        subnet.constrainedToDataCenter(ctx.getRegionId());
+        DataCenter dc = provider.getDataCenterServices().listDataCenters(ctx.getRegionId()).iterator().next();
+        subnet.constrainedToDataCenter(dc.getProviderDataCenterId());
         return subnet;
     }
 }
