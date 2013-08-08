@@ -3,7 +3,7 @@
 
     <groupId>org.dasein</groupId>
     <artifactId>dasein-cloud-azure</artifactId>
-    <version>2013.11-SNAPSHOT</version>
+    <version>2013.07</version>
     <packaging>jar</packaging>
 
     <name>dasein-cloud-azure</name>
@@ -98,7 +98,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-test</artifactId>
-            <version>2013.07.0</version>
+            <version>2013.07.1</version>
             <scope>test</scope>
             <optional>false</optional>
         </dependency>
@@ -262,9 +262,9 @@
                             <value>${test.shareAccount}</value>
                         </property>
                     </systemProperties>
-                    <excludes>
-                       <exclude>**/TestSuite.java</exclude>
-                    </excludes>
+                    <includes>
+                       <include>**/TestSuite.java</include>
+                    </includes>
                    <!-- <argLine>-Ddasein.inclusions=StatefulImageTests</argLine>-->
                 </configuration>
             </plugin>
