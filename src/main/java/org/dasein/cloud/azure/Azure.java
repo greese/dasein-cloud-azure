@@ -1,3 +1,21 @@
+/**
+ * Copyright (C) 2012 enStratus Networks Inc
+ *
+ * ====================================================================
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ====================================================================
+ */
+
 package org.dasein.cloud.azure;
 
 import org.apache.commons.codec.binary.Base64;
@@ -60,8 +78,6 @@ public class Azure extends AbstractCloud {
 
     public Azure() { }
 
-    public String affinityGroup = null;
-    public String affinityRegion = null;
 
     static private final Random random = new Random();
     
@@ -196,82 +212,7 @@ public class Azure extends AbstractCloud {
         return "Microsoft";
     }
 
-    public String getAffinityGroup() throws InternalException,CloudException{
-        if(affinityGroup == null){
-            ProviderContext ctx = getContext();
 
-            if( ctx == null ) {
-                throw new AzureConfigException("No context was specified for this request");
-            }
-            logger.info("Get affinity group for "+ctx.getRegionId()+" for account "+ctx.getAccountNumber());
-            AzureMethod method = new AzureMethod(this);
-
-            Document doc = method.getAsXML(ctx.getAccountNumber(), "/affinitygroups");
-
-            NodeList entries = doc.getElementsByTagName("AffinityGroup");
-
-            for (int i = 0; i<entries.getLength(); i++) {
-                Node entry = entries.item(i);
-
-                NodeList attributes = entry.getChildNodes();
-
-                for( int j=0; j<attributes.getLength(); j++ ) {
-                    Node attribute = attributes.item(j);
-                    if(attribute.getNodeType() == Node.TEXT_NODE) continue;
-                    String nodeName = attribute.getNodeName();
-
-                    if (nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
-                        affinityGroup = attribute.getFirstChild().getNodeValue().trim();
-                    }
-                    else if (nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes()) {
-                        affinityRegion = attribute.getFirstChild().getNodeValue().trim();
-                        if (!ctx.getRegionId().equalsIgnoreCase(affinityRegion)) {
-                            affinityGroup = null;
-                            affinityRegion = null;
-                            break;
-                        }
-                        else {
-                            if (affinityGroup != null) {
-                                return affinityGroup;
-                            }
-                            continue;
-                        }
-                    }
-                }
-            }
-            if (affinityGroup == null) {
-                logger.info("Create new affinity group for "+ctx.getRegionId());
-                //create new affinityGroup
-                String name = "EnstratiusAffinity"+(ctx.getRegionId().replaceAll(" ", ""));
-                logger.info(name);
-                String label;
-                try {
-                    StringBuilder xml = new StringBuilder();
-
-                    try {
-                        label = new String(Base64.encodeBase64(name.getBytes("utf-8")));
-                    }
-                    catch( UnsupportedEncodingException e ) {
-                        throw new InternalException(e);
-                    }
-
-                    xml.append("<CreateAffinityGroup xmlns=\"http://schemas.microsoft.com/windowsazure\">") ;
-                    xml.append("<Name>").append(name).append("</Name>");
-                    xml.append("<Label>").append(label).append("</Label>");
-                    xml.append("<Location>").append(ctx.getRegionId()).append("</Location>");
-                    xml.append("</CreateAffinityGroup>");
-                    method.post(ctx.getAccountNumber(),"/affinitygroups", xml.toString());
-                }
-                catch (CloudException e) {
-                    logger.error("Unable to create affinity group",e);
-                    throw new CloudException(e);
-                }
-                affinityGroup = name;
-            }
-        }
-
-        return affinityGroup;
-    }
 
     public long parseTimestamp(@Nullable String time) throws CloudException {
         if( time == null ) {

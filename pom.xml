@@ -3,7 +3,7 @@
 
     <groupId>org.dasein</groupId>
     <artifactId>dasein-cloud-azure</artifactId>
-    <version>2013.04.2-SNAPSHOT</version>
+    <version>2013.07</version>
     <packaging>jar</packaging>
 
     <name>dasein-cloud-azure</name>
@@ -45,7 +45,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-core</artifactId>
-            <version>2013.04.1</version>
+            <version>2013.07.0</version>
             <scope>compile</scope>
             <optional>false</optional>
         </dependency>
@@ -62,9 +62,9 @@
             <version>4.2.1</version>
         </dependency>
         <dependency>
-            <groupId>bouncycastle</groupId>
-            <artifactId>bcprov-jdk14</artifactId>
-            <version>138</version>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk16</artifactId>
+            <version>1.46</version>
         </dependency>
         <dependency>
             <groupId>log4j</groupId>
@@ -98,7 +98,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-test</artifactId>
-            <version>2013.04.6</version>
+            <version>2013.07.1</version>
             <scope>test</scope>
             <optional>false</optional>
         </dependency>
@@ -244,9 +244,9 @@
 
                     </systemProperties>
                     <includes>
-                      <!--   <include>**/AzureTestSuite.java</include>   -->
+                       <include>**/TestSuite.java</include>
                     </includes>
-                  <!--  <argLine>-Ddasein.inclusions=VirtualMachineTestCase</argLine> -->
+                   <!-- <argLine>-Ddasein.inclusions=StatefulImageTests</argLine>-->
                 </configuration>
             </plugin>
             <plugin>

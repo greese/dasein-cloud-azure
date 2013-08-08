@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2011 enStratusNetworks LLC
+ * Copyright (C) 2012 enStratus Networks Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +27,7 @@ public class AzureStorageServices extends AbstractStorageServices {
     
     public AzureStorageServices(Azure azure) { this.azure = azure; }
     
-    public BlobStore getBlobStoreSupport() {
+    public BlobStore getOnlineStorageSupport() {
         return new BlobStore(azure);
     }
 }

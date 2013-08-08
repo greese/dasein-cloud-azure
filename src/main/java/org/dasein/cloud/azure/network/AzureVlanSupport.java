@@ -1,3 +1,21 @@
+/**
+ * Copyright (C) 2012 enStratus Networks Inc
+ *
+ * ====================================================================
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ====================================================================
+ */
+
 package org.dasein.cloud.azure.network;
 
 
@@ -18,6 +36,7 @@ import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
+import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.AbstractVLANSupport;
 import org.dasein.cloud.network.IPVersion;
@@ -271,6 +290,10 @@ public class AzureVlanSupport implements VLANSupport {
                 throw new AzureConfigException("No context was specified for this request");
             }
 
+            String regionId = ctx.getRegionId();
+            Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(regionId);
+            String dataCenterId = dcs.iterator().next().getProviderDataCenterId();
+
             AzureMethod method = new AzureMethod(provider);
             StringBuilder xml = new StringBuilder();
 
@@ -280,7 +303,7 @@ public class AzureVlanSupport implements VLANSupport {
                 xml.append("<VirtualNetworkConfiguration>");
                 xml.append("<Dns />");
                 xml.append("<VirtualNetworkSites>");
-                xml.append("<VirtualNetworkSite name=\"" + name+ "\" AffinityGroup=\"" +  this.getAffinityGroup(name) +"\">");
+                xml.append("<VirtualNetworkSite name=\"" + name+ "\" AffinityGroup=\"" +  dataCenterId +"\">");
                 xml.append("<AddressSpace>");
                 xml.append("<AddressPrefix>").append(cidr).append("</AddressPrefix>");
                 xml.append("</AddressSpace>");
@@ -303,7 +326,7 @@ public class AzureVlanSupport implements VLANSupport {
 
                 Element vns = doc.createElement("VirtualNetworkSite");
                 vns.setAttribute("name", name);
-                vns.setAttribute("AffinityGroup", this.getAffinityGroup(name));
+                vns.setAttribute("AffinityGroup", dataCenterId);
 
                 Element addressSpace = doc.createElement("AddressSpace");
                 Element addressPrefix = doc.createElement("AddressPrefix");
@@ -361,10 +384,6 @@ public class AzureVlanSupport implements VLANSupport {
                 logger.trace("EXIT: " + AzureVlanSupport.class.getName() + ".createVlan()");
             }
         }
-	}
-	
-	private String getAffinityGroup(String vlanName) throws InternalException,CloudException{
-		return provider.getAffinityGroup();
 	}
 
 	@Override
@@ -933,6 +952,13 @@ public class AzureVlanSupport implements VLANSupport {
                 vlan.setProviderVlanId(id);
             }
             else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
+                String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                if (affinityGroup != null && !affinityGroup.equals("")) {
+                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    if (!dc.getRegionId().equals(ctx.getRegionId())) {
+                        return null;
+                    }
+                }
                 tags.put("AffinityGroup", attribute.getFirstChild().getNodeValue().trim());
             }
             else if (nodeName.equalsIgnoreCase("state") && attribute.hasChildNodes() ) {
@@ -1018,8 +1044,12 @@ public class AzureVlanSupport implements VLANSupport {
                 }
             }
             else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
-                if (!provider.getAffinityGroup().equalsIgnoreCase(attribute.getFirstChild().getNodeValue().trim())) {
-                    return null;
+                String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                if (affinityGroup != null && !affinityGroup.equals("")) {
+                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    if (!dc.getRegionId().equals(ctx.getRegionId())) {
+                        return null;
+                    }
                 }
             }
 

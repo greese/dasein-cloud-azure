@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2012 enStratus Networks Inc
+ * Copyright (C) 2012 enStratus Networks Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,8 +22,5 @@ import junit.framework.Test;
 import org.dasein.cloud.test.ComprehensiveTestSuite;
 import org.dasein.cloud.test.TestConfigurationException;
 
-public class AzureTestSuite {
-    static public Test suite() throws TestConfigurationException {
-        return new ComprehensiveTestSuite(Azure.class);
-    }
+public class TestSuite extends GlobalTestSuite{
 }
