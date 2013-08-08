@@ -88,7 +88,8 @@ public class AzureDisk extends AbstractVolumeSupport {
                     device = device.substring(5);
                 }
             }
-                      
+            VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(toServer);
+
             Volume disk ;
             StringBuilder xml = new StringBuilder();
             if(volumeId != null){
@@ -108,19 +109,16 @@ public class AzureDisk extends AbstractVolumeSupport {
             }else{
                 //throw new InternalException("volumeId is null !");
                 //dmayne: assume we are attaching a new empty disk?
-
                 xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                 xml.append("<HostCaching>ReadWrite</HostCaching>");
                 if(device != null && isWithinDeviceList(device)){
                     xml.append("<Lun>" + device + "</Lun>");
                 }
-               //todo actually get the disk size required
-                xml.append("<LogicalDiskSizeInGB>" + "1" + "</LogicalDiskSizeInGB>");
+                //todo get actual disk size
+                xml.append("<LogicalDiskSizeInGB>").append("1").append("</LogicalDiskSizeInGB>");
+                xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(server.getTag("roleName")).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
                 xml.append("</DataVirtualHardDisk>");
             }
-            
-           	//dsn2260-dsn2260Role-0-20120619044615
-            VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(toServer);
 
          	String resourceDir = HOSTED_SERVICES + "/" +server.getTag("serviceName") + "/deployments" + "/" +  server.getTag("deploymentName") + "/roles"+"/" + server.getTag("roleName") + "/DataDisks";
          	                                
