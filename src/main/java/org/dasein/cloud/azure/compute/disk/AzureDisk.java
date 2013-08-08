@@ -584,8 +584,10 @@ public class AzureDisk extends AbstractVolumeSupport {
             		disk.setProviderVirtualMachineId(hostedServiceName+":"+deploymentName+":"+vmRoleName);
             	}
             }
-            else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {            	
-            	disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));            	
+            else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {
+                // not a volume so should not be returned here
+                return null;
+            	//disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));
             }
 
             // disk may have either affinity group or location depending on how storage account is set up
