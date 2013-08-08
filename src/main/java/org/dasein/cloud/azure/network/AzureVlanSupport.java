@@ -261,6 +261,10 @@ public class AzureVlanSupport extends AbstractVLANSupport {
             if (requestId != null) {
                 int httpCode = method.getOperationStatus(requestId);
                 while (httpCode == -1) {
+                    try {
+                        Thread.sleep(15000L);
+                    }
+                    catch (InterruptedException ignored){}
                     httpCode = method.getOperationStatus(requestId);
                 }
                 if (httpCode == HttpServletResponse.SC_OK) {
@@ -383,6 +387,10 @@ public class AzureVlanSupport extends AbstractVLANSupport {
             if (requestId != null) {
                 int httpCode = method.getOperationStatus(requestId);
                 while (httpCode == -1) {
+                    try {
+                        Thread.sleep(15000L);
+                    }
+                    catch (InterruptedException ignored){}
                     httpCode = method.getOperationStatus(requestId);
                 }
                 if (httpCode == HttpServletResponse.SC_OK) {
