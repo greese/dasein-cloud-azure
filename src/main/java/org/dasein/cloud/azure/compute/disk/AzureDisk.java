@@ -38,6 +38,7 @@ import org.dasein.cloud.compute.VolumeSupport;
 import org.dasein.cloud.compute.VolumeType;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
+import org.dasein.util.CalendarWrapper;
 import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Storage;
 import org.w3c.dom.Document;
@@ -90,7 +91,8 @@ public class AzureDisk extends AbstractVolumeSupport {
                     device = device.substring(5);
                 }
             }
-                      
+            VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(toServer);
+
             Volume disk ;
             StringBuilder xml = new StringBuilder();
             if(volumeId != null){
@@ -110,19 +112,16 @@ public class AzureDisk extends AbstractVolumeSupport {
             }else{
                 //throw new InternalException("volumeId is null !");
                 //dmayne: assume we are attaching a new empty disk?
-
                 xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                 xml.append("<HostCaching>ReadWrite</HostCaching>");
                 if(device != null && isWithinDeviceList(device)){
                     xml.append("<Lun>" + device + "</Lun>");
                 }
-               //todo actually get the disk size required
-                xml.append("<LogicalDiskSizeInGB>" + "1" + "</LogicalDiskSizeInGB>");
+                //todo get actual disk size
+                xml.append("<LogicalDiskSizeInGB>").append("1").append("</LogicalDiskSizeInGB>");
+                xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(server.getTag("roleName")).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
                 xml.append("</DataVirtualHardDisk>");
             }
-            
-           	//dsn2260-dsn2260Role-0-20120619044615
-            VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(toServer);
 
          	String resourceDir = HOSTED_SERVICES + "/" +server.getTag("serviceName") + "/deployments" + "/" +  server.getTag("deploymentName") + "/roles"+"/" + server.getTag("roleName") + "/DataDisks";
          	                                
@@ -507,8 +506,24 @@ public class AzureDisk extends AbstractVolumeSupport {
             }                      
             
             AzureMethod method = new AzureMethod(provider);
- 
-            method.invoke("DELETE",ctx.getAccountNumber(), DISK_SERVICES+"/" + volumeId+"?comp=media", null);
+
+            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+            while( timeout > System.currentTimeMillis() ) {
+                try {
+                    method.invoke("DELETE",ctx.getAccountNumber(), DISK_SERVICES+"/" + volumeId+"?comp=media", null);
+                    break;
+                }
+                catch (CloudException e) {
+                    if( e.getProviderCode() != null && e.getProviderCode().equals("BadRequest") ) {
+                        logger.warn("Conflict error, maybe retrying in 30 seconds");
+                        try { Thread.sleep(30000L); }
+                        catch( InterruptedException ignore ) { }
+                        continue;
+                    }
+                    logger.warn("Unable to delete volume " + volumeId + ": " + e.getMessage());
+                    throw e;
+                }
+            }
         }
         finally {
             if( logger.isTraceEnabled() ) {
@@ -588,8 +603,10 @@ public class AzureDisk extends AbstractVolumeSupport {
             		disk.setProviderVirtualMachineId(hostedServiceName+":"+deploymentName+":"+vmRoleName);
             	}
             }
-            else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {            	
-            	disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));            	
+            else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {
+                // not a volume so should not be returned here
+                return null;
+            	//disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));
             }
 
             // disk may have either affinity group or location depending on how storage account is set up
@@ -685,6 +702,10 @@ public class AzureDisk extends AbstractVolumeSupport {
                 if( !mediaLocationFound && !regionId.equals(attribute.getFirstChild().getNodeValue().trim()) ) {
                     return null;
                 }
+            }
+            else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {
+                // not a volume so should not be returned here
+                return null;
             }
         }
 
