@@ -701,6 +701,10 @@ public class AzureDisk extends AbstractVolumeSupport {
                     return null;
                 }
             }
+            else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {
+                // not a volume so should not be returned here
+                return null;
+            }
         }
 
         ResourceStatus status = new ResourceStatus(id, VolumeState.AVAILABLE);
