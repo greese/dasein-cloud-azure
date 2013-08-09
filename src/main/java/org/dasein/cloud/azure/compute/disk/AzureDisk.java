@@ -36,6 +36,7 @@ import org.dasein.cloud.compute.VolumeSupport;
 import org.dasein.cloud.compute.VolumeType;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
+import org.dasein.util.CalendarWrapper;
 import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Storage;
 import org.w3c.dom.Document;
@@ -503,8 +504,24 @@ public class AzureDisk extends AbstractVolumeSupport {
             }                      
             
             AzureMethod method = new AzureMethod(provider);
- 
-            method.invoke("DELETE",ctx.getAccountNumber(), DISK_SERVICES+"/" + volumeId+"?comp=media", null);
+
+            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+            while( timeout > System.currentTimeMillis() ) {
+                try {
+                    method.invoke("DELETE",ctx.getAccountNumber(), DISK_SERVICES+"/" + volumeId+"?comp=media", null);
+                    break;
+                }
+                catch (CloudException e) {
+                    if( e.getProviderCode() != null && e.getProviderCode().equals("BadRequest") ) {
+                        logger.warn("Conflict error, maybe retrying in 30 seconds");
+                        try { Thread.sleep(30000L); }
+                        catch( InterruptedException ignore ) { }
+                        continue;
+                    }
+                    logger.warn("Unable to delete volume " + volumeId + ": " + e.getMessage());
+                    throw e;
+                }
+            }
         }
         finally {
             if( logger.isTraceEnabled() ) {

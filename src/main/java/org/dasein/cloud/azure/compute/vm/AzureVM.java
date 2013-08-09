@@ -326,6 +326,9 @@ public class AzureVM extends AbstractVMSupport {
         AzureMethod method = new AzureMethod(provider);
 
         Document doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+sName);
+        if (doc == null) {
+            return null;
+        }
         NodeList entries = doc.getElementsByTagName("HostedService");
         ArrayList<VirtualMachine> vms = new ArrayList<VirtualMachine>();
         for (int h = 0; h < entries.getLength(); h++) {
@@ -1112,7 +1115,7 @@ public class AzureVM extends AbstractVMSupport {
                 if (subnetName != null) {
                     vm.setProviderSubnetId(subnetName);
                 }
-                String[] parts = serviceName.split(":");
+                String[] parts = vm.getProviderVirtualMachineId().split(":");
                 String sName, deploymentName, roleName;
 
                 if (parts.length == 3)    {
@@ -1123,7 +1126,7 @@ public class AzureVM extends AbstractVMSupport {
                 else if( parts.length == 2 ) {
                     sName = parts[0];
                     deploymentName = parts[1];
-                    roleName = sName;
+                    roleName = deploymentName;
                 }
                 else {
                     sName = serviceName;
@@ -1596,6 +1599,8 @@ public class AzureVM extends AbstractVMSupport {
             if( vm == null ) {
                 throw new CloudException("No such virtual machine: " + vmId);
             }
+
+            ArrayList<String> disks = getAttachedDisks(vm);
             long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
 
             while( timeout > System.currentTimeMillis() ) {
@@ -1662,7 +1667,7 @@ public class AzureVM extends AbstractVMSupport {
                         logger.info("Deleting hosted service " + serviceName);
                     }
                     method.invoke("DELETE", ctx.getAccountNumber(), resourceDir, "");
-                    return;
+                    break;
                 }
                 catch( CloudException e ) {
                     if( e.getProviderCode() != null && e.getProviderCode().equals("ConflictError") ) {
@@ -1672,12 +1677,17 @@ public class AzureVM extends AbstractVMSupport {
                         continue;
                     }
                     logger.warn("Unable to delete hosted service for " + serviceName + ": " + e.getMessage());
-                    return;
+                    throw e;
                 }
                 catch( Throwable t ) {
                     logger.warn("Unable to delete hosted service for " + serviceName + ": " + t.getMessage());
                     return;
                 }
+            }
+
+            //now delete the orphaned disks
+            for (String disk : disks) {
+                provider.getComputeServices().getVolumeSupport().remove(disk);
             }
         }
         finally {
@@ -1685,6 +1695,73 @@ public class AzureVM extends AbstractVMSupport {
                 logger.trace("EXIT: " + AzureVM.class.getName() + ".terminate()");
             }
         }
+    }
+
+    private ArrayList<String> getAttachedDisks(VirtualMachine vm) throws InternalException, CloudException {
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was set for this request");
+        }
+
+        ArrayList<String> list = new ArrayList<String>();
+        boolean diskFound = false;
+        String serviceName, deploymentName;
+
+        serviceName = vm.getTag("serviceName").toString();
+        deploymentName = vm.getTag("deploymentName").toString();
+
+        String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName;
+        AzureMethod method = new AzureMethod(provider);
+
+        Document doc = method.getAsXML(ctx.getAccountNumber(),resourceDir);
+
+        NodeList entries = doc.getElementsByTagName("Deployment");
+        for (int i = 0; i < entries.getLength(); i++) {
+            Node entry = entries.item(i);
+            NodeList attributes = entry.getChildNodes();
+
+            for (int j = 0; j < attributes.getLength(); j++){
+                Node attribute = attributes.item(j);
+
+                if (attribute.getNodeName().equalsIgnoreCase("RoleList") && attribute.hasChildNodes()) {
+                    NodeList instances = attribute.getChildNodes();
+
+                    for (int k = 0; k <instances.getLength(); k++){
+                        Node instance = instances.item(k);
+
+                        if (instance.getNodeName().equalsIgnoreCase("Role") && instance.hasChildNodes()){
+                            NodeList roles = instance.getChildNodes();
+
+                            for (int l = 0; l<roles.getLength(); l++) {
+                                Node role = roles.item(l);
+
+                                if (role.getNodeName().equalsIgnoreCase("OSVirtualHardDisk") && role.hasChildNodes()) {
+                                    NodeList disks = role.getChildNodes();
+
+                                    for (int m = 0; m<disks.getLength(); m++) {
+                                        Node disk = disks.item(m);
+
+                                        if (disk.getNodeName().equalsIgnoreCase("DiskName") && disk.hasChildNodes()) {
+                                            String name = disk.getFirstChild().getNodeValue();
+                                            list.add(name);
+                                            diskFound = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (diskFound) {
+                                    diskFound = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return list;
     }
 
     @Override
