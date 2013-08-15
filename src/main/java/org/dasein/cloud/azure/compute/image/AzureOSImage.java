@@ -154,7 +154,7 @@ public class AzureOSImage implements MachineImageSupport {
 
                 method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
 
-                MachineImage img = getMachineImage(name);
+                MachineImage img = getImage(name);
 
                 if (img == null) {
                     throw new CloudException("Drive cloning completed, but no ID was provided for clone");

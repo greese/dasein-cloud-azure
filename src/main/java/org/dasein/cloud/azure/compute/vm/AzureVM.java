@@ -141,13 +141,26 @@ public class AzureVM implements VirtualMachineSupport {
 
     @Override
     public VirtualMachine alterVirtualMachine(@Nonnull String vmId, @Nonnull VMScalingOptions options) throws InternalException, CloudException {
+        if( logger.isTraceEnabled() ) {
+            logger.trace("ENTER: " + AzureVM.class.getName() + ".alterVM()");
+        }
+
         if (vmId == null || options.getProviderProductId() == null) {
             throw new AzureConfigException("No vmid and/or product id set for this operation");
         }
 
-        if( logger.isTraceEnabled() ) {
-            logger.trace("ENTER: " + AzureVM.class.getName() + ".alterVM()");
+        String[] parts = options.getProviderProductId().split(":");
+        String productId = null;
+        String disks = null;
+        if (parts.length == 2) {
+            productId = parts[0];
+            disks = parts[1].replace("[","").replace("]","");
         }
+        else {
+            throw new InternalException("Invalid product id string. Product id format is product name:[disk_0_size,disk_1_size,disk_n_size]");
+        }
+        String[] diskSizes = disks.split(",");
+
         VirtualMachine vm = getVirtualMachine(vmId);
 
         if( vm == null ) {
@@ -170,7 +183,7 @@ public class AzureVM implements VirtualMachineSupport {
             AzureMethod method = new AzureMethod(provider);
 
             Document doc = method.getAsXML(ctx.getAccountNumber(), resourceDir);
-            String xml = null;
+            StringBuilder xml = new StringBuilder();
 
             NodeList roles = doc.getElementsByTagName("PersistentVMRole");
             Node role = roles.item(0);
@@ -182,7 +195,7 @@ public class AzureVM implements VirtualMachineSupport {
                 String vnName = vn.getNodeName();
 
                 if( vnName.equalsIgnoreCase("RoleSize") && vn.hasChildNodes() ) {
-                    vn.setNodeValue(options.getProviderProductId());
+                    vn.setNodeValue(productId);
                 }
             }
 
@@ -198,13 +211,48 @@ public class AzureVM implements VirtualMachineSupport {
             catch (Exception e){
                 System.err.println(e);
             }
-            xml = output;
+            xml.append(output);
 
             logger.debug(xml);
             logger.debug("___________________________________________________");
 
-            resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName;
-            method.invoke("PUT", ctx.getAccountNumber(), resourceDir, xml.toString());
+            resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roles/" + roleName;
+            String requestId = method.invoke("PUT", ctx.getAccountNumber(), resourceDir, xml.toString());
+
+            if (requestId != null) {
+                int httpCode = method.getOperationStatus(requestId);
+                while (httpCode == -1) {
+                    try {
+                        Thread.sleep(15000L);
+                    }
+                    catch (InterruptedException ignored){}
+                    httpCode = method.getOperationStatus(requestId);
+                }
+                if (httpCode == HttpServletResponse.SC_OK) {
+                    //attach any disks as appropriate
+                    for (int i = 0; i < diskSizes.length; i++) {
+                        xml = new StringBuilder();
+                        xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+                        xml.append("<HostCaching>ReadWrite</HostCaching>");
+                        xml.append("<LogicalDiskSizeInGB>").append(diskSizes[i]).append("</LogicalDiskSizeInGB>");
+                        xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(roleName).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
+                        xml.append("</DataVirtualHardDisk>");
+                        logger.debug(xml);
+                        resourceDir = HOSTED_SERVICES + "/" +serviceName+ "/deployments" + "/" +  deploymentName + "/roles"+"/" + roleName+ "/DataDisks";
+                        requestId = method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
+                        if (requestId != null) {
+                            httpCode = method.getOperationStatus(requestId);
+                            while (httpCode == -1) {
+                                try {
+                                    Thread.sleep(15000L);
+                                }
+                                catch (InterruptedException ignored){}
+                                httpCode = method.getOperationStatus(requestId);
+                            }
+                        }
+                    }
+                }
+            }
 
             return getVirtualMachine(vmId);
 
@@ -222,7 +270,7 @@ public class AzureVM implements VirtualMachineSupport {
 
     @Override
     public VMScalingCapabilities describeVerticalScalingCapabilities() throws CloudException, InternalException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return VMScalingCapabilities.getInstance(false,true,Requirement.REQUIRED,Requirement.NONE);
     }
 
     @Override
@@ -285,6 +333,7 @@ public class AzureVM implements VirtualMachineSupport {
             deploymentName = vmId;
             roleName = vmId;
         }
+        DataCenter dc = null;
 
         ProviderContext ctx = provider.getContext();
 
@@ -293,19 +342,79 @@ public class AzureVM implements VirtualMachineSupport {
         }
         AzureMethod method = new AzureMethod(provider);
 
-        Document doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+sName+"/deployments/"+deploymentName);
+        Document doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+sName);
+        if (doc == null) {
+            return null;
+        }
+        NodeList entries = doc.getElementsByTagName("HostedService");
+        ArrayList<VirtualMachine> vms = new ArrayList<VirtualMachine>();
+        for (int h = 0; h < entries.getLength(); h++) {
+            Node entry = entries.item(h);
+            NodeList attributes = entry.getChildNodes();
+
+            boolean mediaLocationFound = false;
+
+            for( int i=0; i<attributes.getLength(); i++ ) {
+                Node attribute = attributes.item(i);
+
+                if(attribute.getNodeType() == Node.TEXT_NODE) {
+                    continue;
+                }
+                if( attribute.getNodeName().equalsIgnoreCase("hostedserviceproperties") && attribute.hasChildNodes() ) {
+                    NodeList properties = attribute.getChildNodes();
+
+                    for( int j=0; j<properties.getLength(); j++ ) {
+                        Node property = properties.item(j);
+
+                        if(property.getNodeType() == Node.TEXT_NODE) {
+                            continue;
+                        }
+                        if( property.getNodeName().equalsIgnoreCase("AffinityGroup") && property.hasChildNodes() ) {
+                            //get the region for this affinity group
+                            String affinityGroup = property.getFirstChild().getNodeValue().trim();
+                            if (affinityGroup != null && !affinityGroup.equals("")) {
+                                dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                                if (dc != null && dc.getRegionId().equals(ctx.getRegionId())) {
+                                    mediaLocationFound = true;
+                                }
+                                else {
+                                    // not correct region/datacenter
+                                    return null;
+                                }
+                            }
+                        }
+                        else if( property.getNodeName().equalsIgnoreCase("location") && property.hasChildNodes() ) {
+                            if( !mediaLocationFound && !ctx.getRegionId().equals(property.getFirstChild().getNodeValue().trim()) ) {
+                                return null;
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+
+        doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+sName+"/deployments/"+deploymentName);
 
         if( doc == null ) {
             return null;
         }
-        NodeList entries = doc.getElementsByTagName("Deployment");
+        entries = doc.getElementsByTagName("Deployment");
 
         ArrayList<VirtualMachine> list = new ArrayList<VirtualMachine>();
         for (int i = 0; i < entries.getLength(); i++) {
             parseDeployment(ctx, ctx.getRegionId(), sName+":"+deploymentName, entries.item(i), list);
         }
         if (list != null && list.size() > 0) {
-            return list.get(0);
+            VirtualMachine vm = list.get(0);
+            if (dc != null) {
+                vm.setProviderDataCenterId(dc.getProviderDataCenterId());
+            }
+            else {
+                Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(ctx.getRegionId());
+                vm.setProviderDataCenterId(dcs.iterator().next().getProviderDataCenterId());
+            }
+            return vm;
         }
         return null;
     }
@@ -356,7 +465,6 @@ public class AzureVM implements VirtualMachineSupport {
     @Nonnull
     @Override
     public Requirement identifyStaticIPRequirement() throws CloudException, InternalException {
-        //todo is this correct - changed from null?
         return Requirement.NONE;
     }
 
@@ -533,6 +641,10 @@ public class AzureVM implements VirtualMachineSupport {
                 if (requestId != null) {
                     int httpCode = method.getOperationStatus(requestId);
                     while (httpCode == -1) {
+                        try {
+                            Thread.sleep(15000L);
+                        }
+                        catch (InterruptedException ignored){}
                         httpCode = method.getOperationStatus(requestId);
                     }
                     if (httpCode == HttpServletResponse.SC_OK) {
@@ -1020,7 +1132,7 @@ public class AzureVM implements VirtualMachineSupport {
                 if (subnetName != null) {
                     vm.setProviderSubnetId(subnetName);
                 }
-                String[] parts = serviceName.split(":");
+                String[] parts = vm.getProviderVirtualMachineId().split(":");
                 String sName, deploymentName, roleName;
 
                 if (parts.length == 3)    {
@@ -1031,7 +1143,7 @@ public class AzureVM implements VirtualMachineSupport {
                 else if( parts.length == 2 ) {
                     sName = parts[0];
                     deploymentName = parts[1];
-                    roleName = sName;
+                    roleName = deploymentName;
                 }
                 else {
                     sName = serviceName;
@@ -1165,7 +1277,7 @@ public class AzureVM implements VirtualMachineSupport {
                         String affinityGroup = property.getFirstChild().getNodeValue().trim();
                         if (affinityGroup != null && !affinityGroup.equals("")) {
                             dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
-                            if (dc.getRegionId().equals(regionId)) {
+                            if (dc != null && dc.getRegionId().equals(regionId)) {
                                 mediaLocationFound = true;
                             }
                             else {
@@ -1504,6 +1616,8 @@ public class AzureVM implements VirtualMachineSupport {
             if( vm == null ) {
                 throw new CloudException("No such virtual machine: " + vmId);
             }
+
+            ArrayList<String> disks = getAttachedDisks(vm);
             long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
 
             while( timeout > System.currentTimeMillis() ) {
@@ -1570,7 +1684,7 @@ public class AzureVM implements VirtualMachineSupport {
                         logger.info("Deleting hosted service " + serviceName);
                     }
                     method.invoke("DELETE", ctx.getAccountNumber(), resourceDir, "");
-                    return;
+                    break;
                 }
                 catch( CloudException e ) {
                     if( e.getProviderCode() != null && e.getProviderCode().equals("ConflictError") ) {
@@ -1580,12 +1694,17 @@ public class AzureVM implements VirtualMachineSupport {
                         continue;
                     }
                     logger.warn("Unable to delete hosted service for " + serviceName + ": " + e.getMessage());
-                    return;
+                    throw e;
                 }
                 catch( Throwable t ) {
                     logger.warn("Unable to delete hosted service for " + serviceName + ": " + t.getMessage());
                     return;
                 }
+            }
+
+            //now delete the orphaned disks
+            for (String disk : disks) {
+                provider.getComputeServices().getVolumeSupport().remove(disk);
             }
         }
         finally {
@@ -1593,6 +1712,73 @@ public class AzureVM implements VirtualMachineSupport {
                 logger.trace("EXIT: " + AzureVM.class.getName() + ".terminate()");
             }
         }
+    }
+
+    private ArrayList<String> getAttachedDisks(VirtualMachine vm) throws InternalException, CloudException {
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was set for this request");
+        }
+
+        ArrayList<String> list = new ArrayList<String>();
+        boolean diskFound = false;
+        String serviceName, deploymentName;
+
+        serviceName = vm.getTag("serviceName").toString();
+        deploymentName = vm.getTag("deploymentName").toString();
+
+        String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName;
+        AzureMethod method = new AzureMethod(provider);
+
+        Document doc = method.getAsXML(ctx.getAccountNumber(),resourceDir);
+
+        NodeList entries = doc.getElementsByTagName("Deployment");
+        for (int i = 0; i < entries.getLength(); i++) {
+            Node entry = entries.item(i);
+            NodeList attributes = entry.getChildNodes();
+
+            for (int j = 0; j < attributes.getLength(); j++){
+                Node attribute = attributes.item(j);
+
+                if (attribute.getNodeName().equalsIgnoreCase("RoleList") && attribute.hasChildNodes()) {
+                    NodeList instances = attribute.getChildNodes();
+
+                    for (int k = 0; k <instances.getLength(); k++){
+                        Node instance = instances.item(k);
+
+                        if (instance.getNodeName().equalsIgnoreCase("Role") && instance.hasChildNodes()){
+                            NodeList roles = instance.getChildNodes();
+
+                            for (int l = 0; l<roles.getLength(); l++) {
+                                Node role = roles.item(l);
+
+                                if (role.getNodeName().equalsIgnoreCase("OSVirtualHardDisk") && role.hasChildNodes()) {
+                                    NodeList disks = role.getChildNodes();
+
+                                    for (int m = 0; m<disks.getLength(); m++) {
+                                        Node disk = disks.item(m);
+
+                                        if (disk.getNodeName().equalsIgnoreCase("DiskName") && disk.hasChildNodes()) {
+                                            String name = disk.getFirstChild().getNodeValue();
+                                            list.add(name);
+                                            diskFound = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (diskFound) {
+                                    diskFound = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return list;
     }
 
     @Override

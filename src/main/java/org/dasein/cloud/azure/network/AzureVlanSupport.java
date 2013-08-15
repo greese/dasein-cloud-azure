@@ -246,6 +246,10 @@ public class AzureVlanSupport implements VLANSupport {
             if (requestId != null) {
                 int httpCode = method.getOperationStatus(requestId);
                 while (httpCode == -1) {
+                    try {
+                        Thread.sleep(15000L);
+                    }
+                    catch (InterruptedException ignored){}
                     httpCode = method.getOperationStatus(requestId);
                 }
                 if (httpCode == HttpServletResponse.SC_OK) {
@@ -368,6 +372,10 @@ public class AzureVlanSupport implements VLANSupport {
             if (requestId != null) {
                 int httpCode = method.getOperationStatus(requestId);
                 while (httpCode == -1) {
+                    try {
+                        Thread.sleep(15000L);
+                    }
+                    catch (InterruptedException ignored){}
                     httpCode = method.getOperationStatus(requestId);
                 }
                 if (httpCode == HttpServletResponse.SC_OK) {
@@ -955,6 +963,7 @@ public class AzureVlanSupport implements VLANSupport {
                 String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
                 if (affinityGroup != null && !affinityGroup.equals("")) {
                     DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    vlan.setProviderDataCenterId(dc.getProviderDataCenterId());
                     if (!dc.getRegionId().equals(ctx.getRegionId())) {
                         return null;
                     }
@@ -1083,7 +1092,8 @@ public class AzureVlanSupport implements VLANSupport {
         }
 
         Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, name, SubnetState.AVAILABLE, name, name, cidr);
-        subnet.constrainedToDataCenter(ctx.getRegionId());
+        DataCenter dc = provider.getDataCenterServices().listDataCenters(ctx.getRegionId()).iterator().next();
+        subnet.constrainedToDataCenter(dc.getProviderDataCenterId());
         return subnet;
     }
 }
