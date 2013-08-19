@@ -619,6 +619,7 @@ public class AzureVM extends AbstractVMSupport {
                 xml.append("</ConfigurationSet>");
                 xml.append("</ConfigurationSets>");
                 xml.append("<DataVirtualHardDisks/>");
+
                 xml.append("<OSVirtualHardDisk>");
                 xml.append("<HostCaching>ReadWrite</HostCaching>");
                 xml.append("<DiskLabel>OS</DiskLabel>");
