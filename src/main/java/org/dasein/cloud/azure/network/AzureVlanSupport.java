@@ -934,8 +934,7 @@ public class AzureVlanSupport implements VLANSupport {
         VLAN vlan = new VLAN();
         vlan.setProviderOwnerId(ctx.getAccountNumber());
         vlan.setProviderRegionId(ctx.getRegionId());
-        vlan.setProviderDataCenterId(ctx.getRegionId());
-        //vlan.setSupportedTraffic(IPVersion.IPV4);
+        vlan.setSupportedTraffic(IPVersion.IPV4);
 
         HashMap<String,String> tags = new HashMap<String, String>();
         NodeList attributes = entry.getChildNodes();
@@ -963,8 +962,10 @@ public class AzureVlanSupport implements VLANSupport {
                 String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
                 if (affinityGroup != null && !affinityGroup.equals("")) {
                     DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
-                    vlan.setProviderDataCenterId(dc.getProviderDataCenterId());
-                    if (!dc.getRegionId().equals(ctx.getRegionId())) {
+                    if ( dc != null && dc.getRegionId().equals(ctx.getRegionId())) {
+                        vlan.setProviderDataCenterId(dc.getProviderDataCenterId());
+                    }
+                    else {
                         return null;
                     }
                 }
@@ -1056,7 +1057,7 @@ public class AzureVlanSupport implements VLANSupport {
                 String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
                 if (affinityGroup != null && !affinityGroup.equals("")) {
                     DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
-                    if (!dc.getRegionId().equals(ctx.getRegionId())) {
+                    if ( dc == null || !dc.getRegionId().equals(ctx.getRegionId())) {
                         return null;
                     }
                 }

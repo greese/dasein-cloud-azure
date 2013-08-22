@@ -254,6 +254,10 @@ public class AzureOSImage implements MachineImageSupport {
                 );
     }
 
+    private boolean isImageSharedWithPublic(@Nonnull MachineImage img) {
+        return (img != null && !"user".equals(img.getProviderOwnerId()));
+    }
+
     @Override
     public boolean isSubscribed() throws CloudException, InternalException {
         return provider.getDataCenterServices().isSubscribed(AzureService.COMPUTE);
@@ -641,9 +645,9 @@ public class AzureOSImage implements MachineImageSupport {
                 }
             }
             if( keyword != null ) {
-                if( !img.getName().contains(keyword) ) {
-                    if( !img.getDescription().contains(keyword) ) {
-                        if( !img.getProviderMachineImageId().contains(keyword) ) {
+                if( !img.getName().matches(keyword) ) {
+                    if( !img.getDescription().matches(keyword) ) {
+                        if( !img.getProviderMachineImageId().matches(keyword) ) {
                             continue;
                         }
                     }
@@ -664,11 +668,24 @@ public class AzureOSImage implements MachineImageSupport {
     @Override
     public Iterable<MachineImage> searchPublicImages(@Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture, @Nullable ImageClass... imageClasses) throws CloudException, InternalException {
         ArrayList<MachineImage> list = new ArrayList<MachineImage>();
-        for (ImageClass a: imageClasses) {
+        if (imageClasses.length < 1) {
+            // return all images
             Iterable<MachineImage> images = searchMachineImages(keyword, platform, architecture);
             for (MachineImage img : images) {
-                if (isImageSharedWithPublic(img.getProviderMachineImageId())) {
+                if (isImageSharedWithPublic(img)) {
                     list.add(img);
+                }
+            }
+        }
+        else {
+            for (ImageClass cls : imageClasses) {
+                if (cls.equals(ImageClass.MACHINE)) {
+                    Iterable<MachineImage> images = searchMachineImages(keyword, platform, architecture);
+                    for (MachineImage img : images) {
+                        if (isImageSharedWithPublic(img)) {
+                            list.add(img);
+                        }
+                    }
                 }
             }
         }
