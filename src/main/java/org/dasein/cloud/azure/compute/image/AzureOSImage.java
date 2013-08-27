@@ -643,7 +643,7 @@ public class AzureOSImage extends AbstractImageSupport {
                     continue;
                 }
             }
-            if( keyword != null ) {
+            if( keyword != null && !keyword.isEmpty()) {
                 if( !img.getName().matches(keyword) ) {
                     if( !img.getDescription().matches(keyword) ) {
                         if( !img.getProviderMachineImageId().matches(keyword) ) {
