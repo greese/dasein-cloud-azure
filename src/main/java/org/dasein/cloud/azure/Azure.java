@@ -33,6 +33,10 @@ import org.w3c.dom.NodeList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 import java.io.UnsupportedEncodingException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -148,25 +152,18 @@ public class Azure extends AbstractCloud {
             if( xml == null ) {
                 throw new CloudException("Unable to identify the blob endpoint");
             }
-            NodeList endpoints = xml.getElementsByTagName("Endpoint");
+            XPathFactory xPathfactory = XPathFactory.newInstance();
+            XPath xpath = xPathfactory.newXPath();
 
-            for( int i=0; i<endpoints.getLength(); i++ ) {
-                Node node = endpoints.item(i);
-
-                if( node.hasChildNodes() ) {
-                    String endpoint = node.getFirstChild().getNodeValue().trim();
-
-                    if( endpoint.contains("blob") ) {
-                        if( !endpoint.endsWith("/") ) {
-                            endpoint = endpoint + "/";
-                        }
-                        storageEndpoint = endpoint;
-                        break;
-                    }
-                }
+            try {
+                XPathExpression expr = xpath.compile("(/StorageServices/StorageService/StorageServiceProperties[GeoPrimaryRegion='"+ctx.getRegionId()+"']/Endpoints/Endpoint[contains(.,'.blob.')])[1]");
+                storageEndpoint = expr.evaluate(xml).trim();
+            } catch (XPathExpressionException e) {
+                throw new CloudException("Invalid blob endpoint search expression");
             }
+
             if( storageEndpoint == null ) {
-                throw new CloudException("There is no blob endpoint");
+                throw new CloudException("Cannot find blob storage endpoint in the current region");
             }
         }
         return storageEndpoint;
