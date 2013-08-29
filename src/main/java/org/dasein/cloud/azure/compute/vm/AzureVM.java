@@ -633,7 +633,35 @@ public class AzureVM implements VirtualMachineSupport {
                 }
                 xml.append("</Deployment>");
 
-                String requestId = method.post(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + hostName + "/deployments", xml.toString());
+                String requestId = null;
+                try {
+                    requestId = method.post(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + hostName + "/deployments", xml.toString());
+                }
+                catch (CloudException e) {
+                    logger.error("Launch server failed - now cleaning up service");
+                    String resourceDir = HOSTED_SERVICES + "/" + hostName;
+                    long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+                    while( timeout > System.currentTimeMillis() ) {
+                        try{
+                            if( logger.isInfoEnabled() ) {
+                                logger.info("Deleting hosted service " + hostName);
+                            }
+                            method.invoke("DELETE", ctx.getAccountNumber(), resourceDir, "");
+                            break;
+                        }
+                        catch( CloudException err ) {
+                            if( err.getProviderCode() != null && err.getProviderCode().equals("ConflictError") ) {
+                                logger.warn("Conflict error, maybe retrying in 30 seconds");
+                                try { Thread.sleep(30000L); }
+                                catch( InterruptedException ignore ) { }
+                                continue;
+                            }
+                            logger.warn("Unable to delete hosted service for " + hostName + ": " + e.getMessage());
+                            throw e;
+                        }
+                    }
+                    throw e;
+                }
 
                 long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
                 VirtualMachine vm = null ;
