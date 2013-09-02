@@ -505,6 +505,8 @@ public class AzureVM extends AbstractVMSupport {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".launch(" + options + ")");
         }
         try {
+            String storageEndpoint = provider.getStorageEndpoint();
+
             logger.debug("----------------------------------------------------------");
             logger.debug("launching vm "+options.getHostName()+" with machine image id: "+options.getMachineImageId());
             AzureMachineImage image = (AzureMachineImage)provider.getComputeServices().getImageSupport().getMachineImage(options.getMachineImageId());
@@ -556,86 +558,87 @@ public class AzureVM extends AbstractVMSupport {
                 xml.append("</CreateHostedService>");
                 method.post(ctx.getAccountNumber(), HOSTED_SERVICES, xml.toString());
 
-                xml = new StringBuilder();
-                xml.append("<Deployment xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-                xml.append("<Name>").append(hostName).append("</Name>");
-                xml.append("<DeploymentSlot>").append(deploymentSlot).append("</DeploymentSlot>");
-                xml.append("<Label>").append(label).append("</Label>");
-                xml.append("<RoleList>");
-                xml.append("<Role>");
-                xml.append("<RoleName>").append(hostName).append("</RoleName>");
-                xml.append("<RoleType>PersistentVMRole</RoleType>");
-                xml.append("<ConfigurationSets>");
-
-                String password = (options.getBootstrapPassword() == null ? provider.generateToken(8, 15) : options.getBootstrapPassword());
-
-                if( image.getPlatform().isWindows() ) {
-                    xml.append("<ConfigurationSet>");
-                    xml.append("<ConfigurationSetType>WindowsProvisioningConfiguration</ConfigurationSetType>");
-                    xml.append("<ComputerName>").append(hostName).append("</ComputerName>");
-                    xml.append("<AdminPassword>").append(password).append("</AdminPassword>");
-                    xml.append("<EnableAutomaticUpdate>true</EnableAutomaticUpdate>");
-                    xml.append("<TimeZone>UTC</TimeZone>");
-                    xml.append("</ConfigurationSet>");
-                }
-                else {
-                    xml.append("<ConfigurationSet>");
-                    xml.append("<ConfigurationSetType>LinuxProvisioningConfiguration</ConfigurationSetType>");
-                    xml.append("<HostName>").append(hostName).append("</HostName>");
-
-                    //dmayne using root causes vm to fail provisioning
-                    xml.append("<UserName>dasein</UserName>");
-                    xml.append("<UserPassword>").append(password).append("</UserPassword>");
-                    xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
-                    xml.append("</ConfigurationSet>");
-                }
-                xml.append("<ConfigurationSet>");
-                xml.append("<ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>") ;
-                xml.append("<InputEndpoints><InputEndpoint>");
-                if( image.getPlatform().isWindows() ) {
-                    xml.append("<LocalPort>3389</LocalPort>");
-                    xml.append("<Name>RemoteDesktop</Name>");
-                    xml.append("<Port>58622</Port>");
-                }
-                else {
-                    xml.append("<LocalPort>22</LocalPort>");
-                    xml.append("<Name>SSH</Name>");
-                    xml.append("<Port>22</Port>");
-                }
-                xml.append("<Protocol>TCP</Protocol>");
-                xml.append("</InputEndpoint></InputEndpoints>");
-                //dmayne assuming this is a subnet
-                Subnet subnet = null;
-                String vlanName = null;
-                if (options.getVlanId() != null) {
-                    subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getVlanId());
-                    xml.append("<SubnetNames>");
-                    xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
-                    xml.append("</SubnetNames>");
-
-                    //dmayne needed for virtual network name later
-                    vlanName = provider.getNetworkServices().getVlanSupport().getVlan(subnet.getProviderVlanId()).getName();
-                }
-                xml.append("</ConfigurationSet>");
-                xml.append("</ConfigurationSets>");
-                xml.append("<DataVirtualHardDisks/>");
-                xml.append("<OSVirtualHardDisk>");
-                xml.append("<HostCaching>ReadWrite</HostCaching>");
-                xml.append("<DiskLabel>OS</DiskLabel>");
-                xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(hostName).append(".vhd</MediaLink>");
-                xml.append("<SourceImageName>").append(options.getMachineImageId()).append("</SourceImageName>");
-                xml.append("</OSVirtualHardDisk>");
-                xml.append("<RoleSize>").append(options.getStandardProductId()).append("</RoleSize>");
-                xml.append("</Role>");
-                xml.append("</RoleList>");
-
-                if (options.getVlanId() != null) {
-                    xml.append("<VirtualNetworkName>").append(vlanName).append("</VirtualNetworkName>");
-                }
-                xml.append("</Deployment>");
-
                 String requestId = null;
+                String password = null;
                 try {
+                    xml = new StringBuilder();
+                    xml.append("<Deployment xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+                    xml.append("<Name>").append(hostName).append("</Name>");
+                    xml.append("<DeploymentSlot>").append(deploymentSlot).append("</DeploymentSlot>");
+                    xml.append("<Label>").append(label).append("</Label>");
+                    xml.append("<RoleList>");
+                    xml.append("<Role>");
+                    xml.append("<RoleName>").append(hostName).append("</RoleName>");
+                    xml.append("<RoleType>PersistentVMRole</RoleType>");
+                    xml.append("<ConfigurationSets>");
+
+                    password = (options.getBootstrapPassword() == null ? provider.generateToken(8, 15) : options.getBootstrapPassword());
+
+                    if( image.getPlatform().isWindows() ) {
+                        xml.append("<ConfigurationSet>");
+                        xml.append("<ConfigurationSetType>WindowsProvisioningConfiguration</ConfigurationSetType>");
+                        xml.append("<ComputerName>").append(hostName).append("</ComputerName>");
+                        xml.append("<AdminPassword>").append(password).append("</AdminPassword>");
+                        xml.append("<EnableAutomaticUpdate>true</EnableAutomaticUpdate>");
+                        xml.append("<TimeZone>UTC</TimeZone>");
+                        xml.append("</ConfigurationSet>");
+                    }
+                    else {
+                        xml.append("<ConfigurationSet>");
+                        xml.append("<ConfigurationSetType>LinuxProvisioningConfiguration</ConfigurationSetType>");
+                        xml.append("<HostName>").append(hostName).append("</HostName>");
+
+                        //dmayne using root causes vm to fail provisioning
+                        xml.append("<UserName>dasein</UserName>");
+                        xml.append("<UserPassword>").append(password).append("</UserPassword>");
+                        xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
+                        xml.append("</ConfigurationSet>");
+                    }
+                    xml.append("<ConfigurationSet>");
+                    xml.append("<ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>") ;
+                    xml.append("<InputEndpoints><InputEndpoint>");
+                    if( image.getPlatform().isWindows() ) {
+                        xml.append("<LocalPort>3389</LocalPort>");
+                        xml.append("<Name>RemoteDesktop</Name>");
+                        xml.append("<Port>58622</Port>");
+                    }
+                    else {
+                        xml.append("<LocalPort>22</LocalPort>");
+                        xml.append("<Name>SSH</Name>");
+                        xml.append("<Port>22</Port>");
+                    }
+                    xml.append("<Protocol>TCP</Protocol>");
+                    xml.append("</InputEndpoint></InputEndpoints>");
+                    //dmayne assuming this is a subnet
+                    Subnet subnet = null;
+                    String vlanName = null;
+                    if (options.getVlanId() != null) {
+                        subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getVlanId());
+                        xml.append("<SubnetNames>");
+                        xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
+                        xml.append("</SubnetNames>");
+
+                        //dmayne needed for virtual network name later
+                        vlanName = provider.getNetworkServices().getVlanSupport().getVlan(subnet.getProviderVlanId()).getName();
+                    }
+                    xml.append("</ConfigurationSet>");
+                    xml.append("</ConfigurationSets>");
+                    xml.append("<DataVirtualHardDisks/>");
+                    xml.append("<OSVirtualHardDisk>");
+                    xml.append("<HostCaching>ReadWrite</HostCaching>");
+                    xml.append("<DiskLabel>OS</DiskLabel>");
+                    xml.append("<MediaLink>").append(storageEndpoint).append("vhds/").append(hostName).append(".vhd</MediaLink>");
+                    xml.append("<SourceImageName>").append(options.getMachineImageId()).append("</SourceImageName>");
+                    xml.append("</OSVirtualHardDisk>");
+                    xml.append("<RoleSize>").append(options.getStandardProductId()).append("</RoleSize>");
+                    xml.append("</Role>");
+                    xml.append("</RoleList>");
+
+                    if (options.getVlanId() != null) {
+                        xml.append("<VirtualNetworkName>").append(vlanName).append("</VirtualNetworkName>");
+                    }
+                    xml.append("</Deployment>");
+
                     requestId = method.post(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + hostName + "/deployments", xml.toString());
                 }
                 catch (CloudException e) {
