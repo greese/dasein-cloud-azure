@@ -127,6 +127,9 @@ public class AzureOSImage extends AbstractImageSupport {
                 }
                 catch (Throwable ignore) {
                 }
+                if (!vm.getCurrentState().equals(VmState.STOPPED)) {
+                   throw new CloudException("Server still not stopped after 10 minutes.  Please try again later");
+                }
             }
             try {
                 ProviderContext ctx = provider.getContext();
@@ -155,7 +158,21 @@ public class AzureOSImage extends AbstractImageSupport {
 
                 method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
 
-                MachineImage img = getImage(name);
+                MachineImage img = null;
+                try {
+                    long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+                    while (timeout > System.currentTimeMillis()) {
+                        img = getImage(name);
+                        if (img != null) {
+                            logger.debug("Found image "+name);
+                            break;
+                        }
+                        try { Thread.sleep(15000L); }
+                        catch( InterruptedException ignore ) { }
+                    }
+                }
+                catch (Throwable ignore) {
+                }
 
                 if (img == null) {
                     throw new CloudException("Drive cloning completed, but no ID was provided for clone");
