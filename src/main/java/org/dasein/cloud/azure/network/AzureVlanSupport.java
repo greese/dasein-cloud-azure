@@ -479,6 +479,7 @@ public class AzureVlanSupport implements VLANSupport {
             NodeList attributes = entry.getChildNodes();
 
             String vlanId = "";
+            String vlanName = "";
 
             for( int j=0; j<attributes.getLength(); j++ ) {
                 Node attribute = attributes.item(j);
@@ -488,6 +489,9 @@ public class AzureVlanSupport implements VLANSupport {
                 if (nodeName.equalsIgnoreCase("id") && attribute.hasChildNodes() ) {
                     vlanId = attribute.getFirstChild().getNodeValue().trim();
                 }
+                else if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
+                    vlanName = attribute.getFirstChild().getNodeValue().trim();
+                }
 
                 else if (nodeName.equalsIgnoreCase("subnets") && attribute.hasChildNodes()) {
                     NodeList sNets = attribute.getChildNodes();
@@ -496,6 +500,7 @@ public class AzureVlanSupport implements VLANSupport {
 
                         Subnet subnet = toSubnet(ctx, sAttrib, vlanId);
                         if( subnet != null && subnet.getProviderSubnetId().equalsIgnoreCase(subnetId)) {
+                            subnet.setTag("vlanName", vlanName);
                             return subnet;
                         }
                     }
