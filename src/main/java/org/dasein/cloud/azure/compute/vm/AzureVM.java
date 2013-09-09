@@ -651,14 +651,11 @@ public class AzureVM extends AbstractVMSupport {
                         break;
                     }
                     catch( CloudException err ) {
-                        if( err.getProviderCode() != null && err.getProviderCode().equals("ConflictError") ) {
-                            logger.warn("Conflict error, maybe retrying in 30 seconds");
-                            try { Thread.sleep(30000L); }
-                            catch( InterruptedException ignore ) { }
-                            continue;
-                        }
-                        logger.warn("Unable to delete hosted service for " + hostName + ": " + e.getMessage());
-                        throw e;
+                        logger.error("Unable to delete hosted service for " + hostName + ": " + err.getMessage());
+                        logger.error("Retrying...");
+                        try { Thread.sleep(30000L); }
+                        catch( InterruptedException ignore ) { }
+                        continue;
                     }
                 }
                 throw e;
@@ -1712,14 +1709,11 @@ public class AzureVM extends AbstractVMSupport {
                     break;
                 }
                 catch( CloudException e ) {
-                    if( e.getProviderCode() != null && e.getProviderCode().equals("ConflictError") ) {
-                        logger.warn("Conflict error, maybe retrying in 30 seconds");
-                        try { Thread.sleep(30000L); }
-                        catch( InterruptedException ignore ) { }
-                        continue;
-                    }
-                    logger.warn("Unable to delete hosted service for " + serviceName + ": " + e.getMessage());
-                    throw e;
+                    logger.error("Unable to delete hosted service for " + serviceName + ": " + e.getMessage());
+                    logger.error("Retrying...");
+                    try { Thread.sleep(30000L); }
+                    catch( InterruptedException ignore ) { }
+                    continue;
                 }
                 catch( Throwable t ) {
                     logger.warn("Unable to delete hosted service for " + serviceName + ": " + t.getMessage());
