@@ -48,6 +48,7 @@ import org.dasein.cloud.compute.VmStatistics;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.Subnet;
+import org.dasein.cloud.network.VLAN;
 import org.dasein.util.CalendarWrapper;
 import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Storage;
@@ -611,12 +612,20 @@ public class AzureVM extends AbstractVMSupport {
                 String vlanName = null;
                 if (options.getVlanId() != null) {
                     subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getVlanId());
-                    xml.append("<SubnetNames>");
-                    xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
-                    xml.append("</SubnetNames>");
+                    if (subnet != null) {
+                        xml.append("<SubnetNames>");
+                        xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
+                        xml.append("</SubnetNames>");
 
-                    //dmayne needed for virtual network name later
-                    vlanName = subnet.getTags().get("vlanName");
+                        //dmayne needed for virtual network name later
+                        vlanName = subnet.getTags().get("vlanName");
+                    }
+                    else {
+                        VLAN vlan = provider.getNetworkServices().getVlanSupport().getVlan(options.getVlanId());
+                        if (vlan != null) {
+                            vlanName = vlan.getName();
+                        }
+                    }
                 }
                 xml.append("</ConfigurationSet>");
                 xml.append("</ConfigurationSets>");
