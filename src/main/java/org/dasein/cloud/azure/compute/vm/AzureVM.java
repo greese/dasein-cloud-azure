@@ -48,6 +48,7 @@ import org.dasein.cloud.compute.VmStatistics;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.Subnet;
+import org.dasein.cloud.network.VLAN;
 import org.dasein.util.CalendarWrapper;
 import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Storage;
@@ -610,12 +611,20 @@ public class AzureVM implements VirtualMachineSupport {
                 String vlanName = null;
                 if (options.getVlanId() != null) {
                     subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getVlanId());
-                    xml.append("<SubnetNames>");
-                    xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
-                    xml.append("</SubnetNames>");
+                    if (subnet!= null) {
+                        xml.append("<SubnetNames>");
+                        xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
+                        xml.append("</SubnetNames>");
 
-                    //dmayne needed for virtual network name later
-                    vlanName = subnet.getTags().get("vlanName");
+                        //dmayne needed for virtual network name later
+                        vlanName = subnet.getTags().get("vlanName");
+                    }
+                    else {
+                        VLAN vlan = provider.getNetworkServices().getVlanSupport().getVlan(options.getVlanId());
+                        if (vlan != null) {
+                            vlanName = vlan.getName();
+                        }
+                    }
                 }
                 xml.append("</ConfigurationSet>");
                 xml.append("</ConfigurationSets>");
@@ -650,15 +659,12 @@ public class AzureVM implements VirtualMachineSupport {
                         break;
                     }
                     catch( CloudException err ) {
-                        if( err.getProviderCode() != null && err.getProviderCode().equals("ConflictError") ) {
-                            logger.warn("Conflict error, maybe retrying in 30 seconds");
-                            try { Thread.sleep(30000L); }
-                            catch( InterruptedException ignore ) { }
-                            continue;
+                        logger.error("Unable to delete hosted service for " + hostName + ": " + err.getMessage());
+                        logger.error("Retrying...");
+                        try { Thread.sleep(30000L); }
+                        catch( InterruptedException ignore ) { }
+                        continue;
                         }
-                        logger.warn("Unable to delete hosted service for " + hostName + ": " + e.getMessage());
-                        throw e;
-                    }
                 }
                 throw e;
             }
@@ -1711,14 +1717,11 @@ public class AzureVM implements VirtualMachineSupport {
                     break;
                 }
                 catch( CloudException e ) {
-                    if( e.getProviderCode() != null && e.getProviderCode().equals("ConflictError") ) {
-                        logger.warn("Conflict error, maybe retrying in 30 seconds");
-                        try { Thread.sleep(30000L); }
-                        catch( InterruptedException ignore ) { }
-                        continue;
-                    }
-                    logger.warn("Unable to delete hosted service for " + serviceName + ": " + e.getMessage());
-                    throw e;
+                    logger.error("Unable to delete hosted service for " + serviceName + ": " + e.getMessage());
+                    logger.error("Retrying...");
+                    try { Thread.sleep(30000L); }
+                    catch( InterruptedException ignore ) { }
+                    continue;
                 }
                 catch( Throwable t ) {
                     logger.warn("Unable to delete hosted service for " + serviceName + ": " + t.getMessage());
@@ -1826,7 +1829,7 @@ public class AzureVM implements VirtualMachineSupport {
         String id = name;
         int i = 0;
 
-        while (method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+name) != null)  {
+        while (method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+id) != null)  {
             i++;
             id = name + "-" + i;
         }
