@@ -1845,7 +1845,7 @@ public class AzureVM extends AbstractVMSupport {
         String id = name;
         int i = 0;
 
-        while( method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+name) != null ) {
+        while( method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+id) != null ) {
             i++;
             id = name + "-" + i;
         }
