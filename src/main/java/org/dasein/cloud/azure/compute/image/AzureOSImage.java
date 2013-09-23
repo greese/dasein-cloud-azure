@@ -271,7 +271,7 @@ public class AzureOSImage extends AbstractImageSupport {
     }
 
     private boolean isImageSharedWithPublic(@Nonnull MachineImage img) {
-        return (img != null && !"user".equals(img.getProviderOwnerId()));
+        return (img != null && !getProvider().getContext().getAccountNumber().equals(img.getProviderOwnerId()));
     }
 
     @Override
