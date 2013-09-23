@@ -447,7 +447,8 @@ public class AzureDisk extends AbstractVolumeSupport {
             if( disk != null ) {
             	disks.add(disk);
             }
-        }        return disks;
+        }
+        return disks;
     }
 
     @Nonnull
