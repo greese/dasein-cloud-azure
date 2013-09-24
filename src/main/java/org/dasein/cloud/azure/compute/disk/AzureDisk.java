@@ -604,9 +604,8 @@ public class AzureDisk extends AbstractVolumeSupport {
             	}
             }
             else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {
-                // not a volume so should not be returned here
-                return null;
-            	//disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));
+                // return root volumes
+                disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));
             }
 
             // disk may have either affinity group or location depending on how storage account is set up
