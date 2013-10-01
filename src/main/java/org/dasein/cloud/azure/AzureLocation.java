@@ -27,6 +27,10 @@ import org.dasein.cloud.azure.compute.image.AzureMachineImage;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.dc.DataCenterServices;
 import org.dasein.cloud.dc.Region;
+import org.dasein.cloud.util.Cache;
+import org.dasein.cloud.util.CacheLevel;
+import org.dasein.util.uom.time.Minute;
+import org.dasein.util.uom.time.TimePeriod;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -154,93 +158,101 @@ public class AzureLocation implements DataCenterServices {
         if( region == null ) {
             return Collections.emptyList();
         }
-        ArrayList<DataCenter> dcs = new ArrayList<DataCenter>();
 
         ProviderContext ctx = provider.getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was specified for this request");
         }
-        logger.info("Get affinity group for "+providerRegionId+" for account "+ctx.getAccountNumber());
-        AzureMethod method = new AzureMethod(provider);
 
-        Document doc = method.getAsXML(ctx.getAccountNumber(), "/affinitygroups");
+        Cache<DataCenter> cache = Cache.getInstance(provider, "dataCenters", DataCenter.class, CacheLevel.REGION_ACCOUNT, new TimePeriod<Minute>(15, TimePeriod.MINUTE));
+        Collection<DataCenter> dcs = (Collection<DataCenter>)cache.get(ctx);
 
-        NodeList entries = doc.getElementsByTagName("AffinityGroup");
+        if( dcs == null ) {
+            dcs = new ArrayList<DataCenter>();
+            logger.info("Get affinity group for "+providerRegionId+" for account "+ctx.getAccountNumber());
+            AzureMethod method = new AzureMethod(provider);
 
-        String affinityGroup = "";
-        String affinityRegion = "";
+            Document doc = method.getAsXML(ctx.getAccountNumber(), "/affinitygroups");
 
-        for (int i = 0; i<entries.getLength(); i++) {
-            Node entry = entries.item(i);
+            NodeList entries = doc.getElementsByTagName("AffinityGroup");
 
-            NodeList attributes = entry.getChildNodes();
+            String affinityGroup = "";
+            String affinityRegion = "";
 
-            for( int j=0; j<attributes.getLength(); j++ ) {
-                Node attribute = attributes.item(j);
-                if(attribute.getNodeType() == Node.TEXT_NODE) continue;
-                String nodeName = attribute.getNodeName();
+            for (int i = 0; i<entries.getLength(); i++) {
+                Node entry = entries.item(i);
 
-                if (nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
-                    affinityGroup = attribute.getFirstChild().getNodeValue().trim();
-                }
-                else if (nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes()) {
-                    affinityRegion = attribute.getFirstChild().getNodeValue().trim();
-                    if (providerRegionId.equalsIgnoreCase(affinityRegion)) {
-                        if (affinityGroup != null && !affinityGroup.equals("")) {
-                            DataCenter dc = new DataCenter();
+                NodeList attributes = entry.getChildNodes();
 
-                            dc.setActive(true);
-                            dc.setAvailable(true);
-                            dc.setName(affinityGroup);
-                            dc.setProviderDataCenterId(affinityGroup);
-                            dc.setRegionId(providerRegionId);
-                            dcs.add(dc);
+                for( int j=0; j<attributes.getLength(); j++ ) {
+                    Node attribute = attributes.item(j);
+                    if(attribute.getNodeType() == Node.TEXT_NODE) continue;
+                    String nodeName = attribute.getNodeName();
+
+                    if (nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
+                        affinityGroup = attribute.getFirstChild().getNodeValue().trim();
+                    }
+                    else if (nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes()) {
+                        affinityRegion = attribute.getFirstChild().getNodeValue().trim();
+                        if (providerRegionId.equalsIgnoreCase(affinityRegion)) {
+                            if (affinityGroup != null && !affinityGroup.equals("")) {
+                                DataCenter dc = new DataCenter();
+
+                                dc.setActive(true);
+                                dc.setAvailable(true);
+                                dc.setName(affinityGroup);
+                                dc.setProviderDataCenterId(affinityGroup);
+                                dc.setRegionId(providerRegionId);
+                                dcs.add(dc);
+                            }
+                        }
+                        else {
+                            affinityGroup = null;
+                            affinityRegion = null;
                         }
                     }
-                    else {
-                        affinityGroup = null;
-                        affinityRegion = null;
-                    }
                 }
             }
-        }
-        if (dcs.isEmpty()) {
-            logger.info("Create new affinity group for "+providerRegionId);
-            //create new affinityGroup
-            String name = "EnstratiusAffinity"+(providerRegionId.replaceAll(" ", ""));
-            logger.info(name);
-            String label;
-            try {
-                StringBuilder xml = new StringBuilder();
-
+            cache.put(ctx, dcs);
+            if (dcs.isEmpty()) {
+                logger.info("Create new affinity group for "+providerRegionId);
+                //create new affinityGroup
+                String name = "EnstratiusAffinity"+(providerRegionId.replaceAll(" ", ""));
+                logger.info(name);
+                String label;
                 try {
-                    label = new String(Base64.encodeBase64(name.getBytes("utf-8")));
-                }
-                catch( UnsupportedEncodingException e ) {
-                    throw new InternalException(e);
-                }
+                    StringBuilder xml = new StringBuilder();
 
-                xml.append("<CreateAffinityGroup xmlns=\"http://schemas.microsoft.com/windowsazure\">") ;
-                xml.append("<Name>").append(name).append("</Name>");
-                xml.append("<Label>").append(label).append("</Label>");
-                xml.append("<Location>").append(providerRegionId).append("</Location>");
-                xml.append("</CreateAffinityGroup>");
-                method.post(ctx.getAccountNumber(),"/affinitygroups", xml.toString());
-            }
-            catch (CloudException e) {
-                logger.error("Unable to create affinity group",e);
-                throw new CloudException(e);
-            }
-            affinityGroup = name;
-            DataCenter dc = new DataCenter();
+                    try {
+                        label = new String(Base64.encodeBase64(name.getBytes("utf-8")));
+                    }
+                    catch( UnsupportedEncodingException e ) {
+                        throw new InternalException(e);
+                    }
 
-            dc.setActive(true);
-            dc.setAvailable(true);
-            dc.setName(affinityGroup);
-            dc.setProviderDataCenterId(affinityGroup);
-            dc.setRegionId(providerRegionId);
-            dcs.add(dc);
+                    xml.append("<CreateAffinityGroup xmlns=\"http://schemas.microsoft.com/windowsazure\">") ;
+                    xml.append("<Name>").append(name).append("</Name>");
+                    xml.append("<Label>").append(label).append("</Label>");
+                    xml.append("<Location>").append(providerRegionId).append("</Location>");
+                    xml.append("</CreateAffinityGroup>");
+                    method.post(ctx.getAccountNumber(),"/affinitygroups", xml.toString());
+                }
+                catch (CloudException e) {
+                    logger.error("Unable to create affinity group",e);
+                    throw new CloudException(e);
+                }
+                affinityGroup = name;
+                DataCenter dc = new DataCenter();
+
+                dc.setActive(true);
+                dc.setAvailable(true);
+                dc.setName(affinityGroup);
+                dc.setProviderDataCenterId(affinityGroup);
+                dc.setRegionId(providerRegionId);
+                dcs.add(dc);
+                cache.put(ctx, dcs);
+            }
         }
         return dcs;
     }
@@ -252,24 +264,31 @@ public class AzureLocation implements DataCenterServices {
         if( ctx == null ) {
             throw new AzureConfigException("No context was specified for this request");
         }
-        AzureMethod method = new AzureMethod(provider);
 
-        Document doc = method.getAsXML(ctx.getAccountNumber(), LOCATIONS);
+        Cache<Region> cache = Cache.getInstance(provider, "regions", Region.class, CacheLevel.CLOUD_ACCOUNT, new TimePeriod<Minute>(15, TimePeriod.MINUTE));
+        Collection<Region> regions = (Collection<Region>)cache.get(ctx);
 
-        if( doc == null ) {
-            return Collections.emptyList();
-        }
-        NodeList entries = doc.getElementsByTagName("Location");
-        ArrayList<Region> regions = new ArrayList<Region>();
-        
-        for( int i=0; i<entries.getLength(); i++ ) {
-            Node entry = entries.item(i);
-            Region region = toRegion(entry);
-            
-            if( region != null ) {
-                regions.add(region);
+        if( regions == null ) {
+            regions = new ArrayList<Region>();
+            AzureMethod method = new AzureMethod(provider);
+
+            Document doc = method.getAsXML(ctx.getAccountNumber(), LOCATIONS);
+
+            if( doc == null ) {
+                return Collections.emptyList();
             }
-            
+            NodeList entries = doc.getElementsByTagName("Location");
+
+            for( int i=0; i<entries.getLength(); i++ ) {
+                Node entry = entries.item(i);
+                Region region = toRegion(entry);
+
+                if( region != null ) {
+                    regions.add(region);
+                }
+
+            }
+            cache.put(ctx, regions);
         }
         return regions;
     }
