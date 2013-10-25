@@ -43,7 +43,6 @@ public class AzureProviderTest {
     }
 
     @Test
-    @Ignore("We currently don't include special characters required, and also sometimes exceed maxLength")
     public void generatedTokenShouldBeBetweenMinAndMax() {
         int maxLength = 15;
         int minLength = 8;
@@ -188,11 +187,10 @@ public class AzureProviderTest {
 
         String result = sut.getStorageService();
 
-        assertEquals("Invalid storage endpoint returned", "portalvhdsm4qd6c2dvcftf", result);
+        assertEquals("Invalid storage service returned", "portalvhdsm4qd6c2dvcftf", result);
     }
 
     @Test
-    @Ignore("Currently this fails because we incorrectly get the first one from the top returning the endpoint regardless of location")
     public void getStorageServiceShouldReturnStorageServiceNameInCurrentRegion1() throws CloudException, InternalException {
 
         new NonStrictExpectations() {
@@ -204,11 +202,10 @@ public class AzureProviderTest {
 
         String result = sut.getStorageService();
 
-        assertEquals("Invalid storage endpoint returned", "testdell", result);
+        assertEquals("Invalid storage service returned", "testdell", result);
     }
 
     @Test(expected = CloudException.class)
-    @Ignore("Currently this fails because we incorrectly get the first one from the top returning the endpoint regardless of location")
     public void getStorageServicShouldThrowExceptionIfNoServiceInCurrentRegion() throws CloudException, InternalException {
 
         new NonStrictExpectations() {

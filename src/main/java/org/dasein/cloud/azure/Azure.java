@@ -95,18 +95,10 @@ public class Azure extends AbstractCloud {
             }
             maxLength = minLength;
         }
-        int length = ((maxLength == minLength) ? minLength : random.nextInt(maxLength-minLength) + minLength);
-        StringBuilder token = new StringBuilder();
 
-        token.append('A' + random.nextInt(20));
-        while( token.length() < length ) {
-            char c = (char)random.nextInt(256);
-            
-            if( (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >='A' && c <= 'Z') || c == '!' || c == '@' || c == '^' || c == '=' || c == '+' || c == ',' ) {
-                token.append(c);
-            }
-        }
-        return (token.toString() + (System.currentTimeMillis()%1000));
+        //generate token that meets most password complexity requirements - Uppercase and lowercase letters, digits and special chars
+        String token = new String(RandomPasswordGenerator.generatePassword(minLength, maxLength, 2, 2, 2));
+        return token;
     }
   
     @Override
@@ -168,6 +160,7 @@ public class Azure extends AbstractCloud {
         }
         return storageEndpoint;
     }
+
     private transient String storageService;
 
     public @Nullable String getStorageService() throws CloudException, InternalException {
@@ -182,17 +175,20 @@ public class Azure extends AbstractCloud {
             Document xml = method.getAsXML(ctx.getAccountNumber(), "/services/storageservices");
 
             if( xml == null ) {
-                throw new CloudException("Unable to identify the blob endpoint");
+                throw new CloudException("Unable to identify the storage service");
             }
-            NodeList names = xml.getElementsByTagName("ServiceName");
+            XPathFactory xPathfactory = XPathFactory.newInstance();
+            XPath xpath = xPathfactory.newXPath();
 
-            for( int i=0; i<names.getLength(); i++ ) {
-                Node node = names.item(i);
+            try {
+                XPathExpression expr = xpath.compile("(/StorageServices/StorageService/StorageServiceProperties[GeoPrimaryRegion='"+ctx.getRegionId()+"']/../ServiceName)[1]");
+                storageService = expr.evaluate(xml).trim();
+            } catch (XPathExpressionException e) {
+                throw new CloudException("Failed to find storage service in the current region: " + ctx.getRegionId());
+            }
 
-                if( node.hasChildNodes() ) {
-                    storageService = node.getFirstChild().getNodeValue().trim();
-                    break;
-                }
+            if( storageService == null || storageService.isEmpty()) {
+                throw new CloudException("Unable to find storage service in the current region: " + ctx.getRegionId());
             }
         }
         return storageService;
@@ -275,5 +271,49 @@ public class Azure extends AbstractCloud {
                 logger.trace("EXIT: " + Azure.class.getName() + ".testContext()");
             }
         }
+    }
+}
+
+class RandomPasswordGenerator {
+    private static final String ALPHA_CAPS  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String ALPHA   = "abcdefghijklmnopqrstuvwxyz";
+    private static final String NUM     = "0123456789";
+    private static final String SPECIAL = "!@#$%^&*_=+-/";
+
+    public static char[] generatePassword(int minLen, int maxLen, int noOfCAPSAlpha,
+                                          int noOfDigits, int noOfSpecialChars) {
+        if(minLen > maxLen)
+            throw new IllegalArgumentException("Min. Length > Max. Length!");
+        if( (noOfCAPSAlpha + noOfDigits + noOfSpecialChars) > minLen )
+            throw new IllegalArgumentException
+                    ("Min. Length should be atleast sum of (CAPS, DIGITS, SPL CHARS) Length!");
+        Random rnd = new Random();
+        int len = rnd.nextInt(maxLen - minLen + 1) + minLen;
+        char[] pswd = new char[len];
+        int index = 0;
+        for (int i = 0; i < noOfCAPSAlpha; i++) {
+            index = getNextIndex(rnd, len, pswd);
+            pswd[index] = ALPHA_CAPS.charAt(rnd.nextInt(ALPHA_CAPS.length()));
+        }
+        for (int i = 0; i < noOfDigits; i++) {
+            index = getNextIndex(rnd, len, pswd);
+            pswd[index] = NUM.charAt(rnd.nextInt(NUM.length()));
+        }
+        for (int i = 0; i < noOfSpecialChars; i++) {
+            index = getNextIndex(rnd, len, pswd);
+            pswd[index] = SPECIAL.charAt(rnd.nextInt(SPECIAL.length()));
+        }
+        for(int i = 0; i < len; i++) {
+            if(pswd[i] == 0) {
+                pswd[i] = ALPHA.charAt(rnd.nextInt(ALPHA.length()));
+            }
+        }
+        return pswd;
+    }
+
+    private static int getNextIndex(Random rnd, int len, char[] pswd) {
+        int index = rnd.nextInt(len);
+        while(pswd[index = rnd.nextInt(len)] != 0);
+        return index;
     }
 }
