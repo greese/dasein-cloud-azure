@@ -1,0 +1,13 @@
+<HostedService xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+    <Url>https://management.core.windows.net/b9d9ea22-2a54-4b66-8d59-9156b3331ae9/services/hostedservices/svctest1425</Url>
+    <ServiceName>svctest1425</ServiceName>
+    <HostedServiceProperties>
+        <Description>svctest1425</Description>
+        <AffinityGroup>EnstratiusAffinity</AffinityGroup>
+        <Label>ZG10ZXN0MTQyNQ==</Label>
+        <Status>Created</Status>
+        <DateCreated>2013-09-06T13:25:52Z</DateCreated>
+        <DateLastModified>2013-09-06T13:25:59Z</DateLastModified>
+        <ExtendedProperties/>
+    </HostedServiceProperties>
+</HostedService>

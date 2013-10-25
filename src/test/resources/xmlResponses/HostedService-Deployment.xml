@@ -1,0 +1,85 @@
+<Deployment xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+<Name>depltest1425</Name>
+<DeploymentSlot>Production</DeploymentSlot>
+<PrivateID>021028ee0b6a4175852d38141dac9955</PrivateID>
+<Status>Running</Status>
+<Label>WkcxMFpYTjBNVFF5TlE9PQ==</Label>
+<Url>http://depltest1425.cloudapp.net/</Url>
+<Configuration>PFNlcnZpY2VDb25maWd1cmF0aW9uIHhtbG5zOnhzZD0iaHR0cDovL3d3dy53My5vcmcvMjAwMS9YTUxTY2hlbWEiIHhtbG5zOnhzaT0iaHR0cDovL3d3dy53My5vcmcvMjAwMS9YTUxTY2hlbWEtaW5zdGFuY2UiIHhtbG5zPSJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL1NlcnZpY2VIb3N0aW5nLzIwMDgvMTAvU2VydmljZUNvbmZpZ3VyYXRpb24iPg0KICA8Um9sZSBuYW1lPSJkbXRlc3QxNDI1Ij4NCiAgICA8SW5zdGFuY2VzIGNvdW50PSIxIiAvPg0KICA8L1JvbGU+DQo8L1NlcnZpY2VDb25maWd1cmF0aW9uPg==</Configuration>
+<RoleInstanceList>
+    <RoleInstance>
+        <RoleName>roletest1425</RoleName>
+        <InstanceName>dmtest1425</InstanceName>
+        <InstanceStatus>ReadyRole</InstanceStatus>
+        <InstanceUpgradeDomain>0</InstanceUpgradeDomain>
+        <InstanceFaultDomain>0</InstanceFaultDomain>
+        <InstanceSize>ExtraSmall</InstanceSize>
+        <InstanceStateDetails/>
+        <IpAddress>10.140.250.71</IpAddress>
+        <InstanceEndpoints>
+            <InstanceEndpoint>
+                <Name>RemoteDesktop</Name>
+                <Vip>168.61.83.237</Vip>
+                <PublicPort>58622</PublicPort>
+                <LocalPort>3389</LocalPort>
+                <Protocol>tcp</Protocol>
+            </InstanceEndpoint>
+        </InstanceEndpoints>
+        <PowerState>Started</PowerState>
+        <HostName>dmtest1425</HostName>
+        <RemoteAccessCertificateThumbprint>DDE1F8C8F96DB21D83874952F98F9CA593032A19</RemoteAccessCertificateThumbprint>
+    </RoleInstance>
+</RoleInstanceList>
+<UpgradeDomainCount>1</UpgradeDomainCount>
+<RoleList>
+    <Role i:type="PersistentVMRole">
+        <RoleName>roletest1425</RoleName>
+        <OsVersion/>
+        <RoleType>PersistentVMRole</RoleType>
+        <ConfigurationSets>
+            <ConfigurationSet i:type="NetworkConfigurationSet">
+                <ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>
+                <InputEndpoints>
+                    <InputEndpoint>
+                        <LocalPort>3389</LocalPort>
+                        <Name>RemoteDesktop</Name>
+                        <Port>58622</Port>
+                        <Protocol>tcp</Protocol>
+                        <Vip>168.61.83.237</Vip>
+                        <EnableDirectServerReturn>false</EnableDirectServerReturn>
+                    </InputEndpoint>
+                </InputEndpoints>
+                <SubnetNames/>
+            </ConfigurationSet>
+        </ConfigurationSets>
+        <DataVirtualHardDisks/>
+        <OSVirtualHardDisk>
+            <HostCaching>ReadWrite</HostCaching>
+            <DiskLabel>OS</DiskLabel>
+            <DiskName>dmtest1425-dmtest1425-0-201309061327130516</DiskName>
+            <MediaLink>http://enstratiusstorage.blob.core.windows.net/vhds/dmtest1425.vhd</MediaLink>
+            <SourceImageName>a699494373c04fc0bc8f2bb1389d6106__Windows-Server-2012-R2-Preview-201306.01-en.us-127GB.vhd</SourceImageName>
+            <OS>Windows</OS>
+        </OSVirtualHardDisk>
+        <RoleSize>ExtraSmall</RoleSize>
+    </Role>
+</RoleList>
+<SdkVersion/>
+<Locked>false</Locked>
+<RollbackAllowed>false</RollbackAllowed>
+<CreatedTime>2013-09-06T13:26:00Z</CreatedTime>
+<LastModifiedTime>2013-09-06T13:42:48Z</LastModifiedTime>
+<ExtendedProperties/>
+<PersistentVMDowntime>
+    <StartTime>2013-08-27T08:00:00Z</StartTime>
+    <EndTime>2013-09-27T20:00:00Z</EndTime>
+    <Status>PersistentVMUpdateScheduled</Status>
+</PersistentVMDowntime>
+<VirtualIPs>
+    <VirtualIP>
+        <Address>168.61.83.237</Address>
+        <IsDnsProgrammed>true</IsDnsProgrammed>
+        <Name>dmtest1425ContractContract</Name>
+    </VirtualIP>
+</VirtualIPs>
+</Deployment>

@@ -1,0 +1,134 @@
+<StorageServices xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+    <StorageService>
+        <Url>https://management.core.windows.net/99aaaaa9-9999-9999-999a-9a99999aa9a9/services/storageservices/portalvhdsm4qd6c2dvcftf</Url>
+        <ServiceName>portalvhdsm4qd6c2dvcftf</ServiceName>
+        <StorageServiceProperties>
+            <Description>Implicitly created storage service</Description>
+            <Location>East US</Location>
+            <Label>cG9ydGFsdmhkc200cWQ2YzJkdmNmdGY=</Label>
+            <Status>Created</Status>
+            <Endpoints>
+                <Endpoint>http://portalvhdsm4qd6c2dvcftf.blob.core.windows.net/</Endpoint>
+                <Endpoint>http://portalvhdsm4qd6c2dvcftf.queue.core.windows.net/</Endpoint>
+                <Endpoint>http://portalvhdsm4qd6c2dvcftf.table.core.windows.net/</Endpoint>
+            </Endpoints>
+            <GeoReplicationEnabled>true</GeoReplicationEnabled>
+            <GeoPrimaryRegion>East US</GeoPrimaryRegion>
+            <StatusOfPrimary/>
+            <GeoSecondaryRegion>West US</GeoSecondaryRegion>
+            <StatusOfSecondary/>
+            <CreationTime>2012-11-04T12:11:16Z</CreationTime>
+        </StorageServiceProperties>
+        <ExtendedProperties/>
+    </StorageService>
+    <StorageService>
+        <Url>https://management.core.windows.net/99aaaaa9-9999-9999-999a-9a99999aa9a9/services/storageservices/portalvhdsrbqjfnydqw5tg</Url>
+        <ServiceName>portalvhdsrbqjfnydqw5tg</ServiceName>
+        <StorageServiceProperties>
+            <Description>Implicitly created storage service</Description>
+            <Location>East Asia</Location>
+            <Label>cG9ydGFsdmhkc3JicWpmbnlkcXc1dGc=</Label>
+            <Status>Created</Status>
+            <Endpoints>
+                <Endpoint>http://portalvhdsrbqjfnydqw5tg.blob.core.windows.net/</Endpoint>
+                <Endpoint>http://portalvhdsrbqjfnydqw5tg.queue.core.windows.net/</Endpoint>
+                <Endpoint>http://portalvhdsrbqjfnydqw5tg.table.core.windows.net/</Endpoint>
+            </Endpoints>
+            <GeoReplicationEnabled>true</GeoReplicationEnabled>
+            <GeoPrimaryRegion>East Asia</GeoPrimaryRegion>
+            <StatusOfPrimary/>
+            <GeoSecondaryRegion>Southeast Asia</GeoSecondaryRegion>
+            <StatusOfSecondary/>
+            <CreationTime>2012-07-10T12:18:04Z</CreationTime>
+        </StorageServiceProperties>
+        <ExtendedProperties/>
+    </StorageService>
+    <StorageService>
+        <Url>https://management.core.windows.net/99aaaaa9-9999-9999-999a-9a99999aa9a9/services/storageservices/testdell</Url>
+        <ServiceName>testdell</ServiceName>
+        <StorageServiceProperties>
+            <Description/>
+            <Location>South Central US</Location>
+            <Label>c2xhdmRlbGw=</Label>
+            <Status>Created</Status>
+            <Endpoints>
+                <Endpoint>http://testdell.blob.core.windows.net/</Endpoint>
+                <Endpoint>http://testdell.queue.core.windows.net/</Endpoint>
+                <Endpoint>http://testdell.table.core.windows.net/</Endpoint>
+            </Endpoints>
+            <GeoReplicationEnabled>true</GeoReplicationEnabled>
+            <GeoPrimaryRegion>South Central US</GeoPrimaryRegion>
+            <StatusOfPrimary/>
+            <GeoSecondaryRegion>North Central US</GeoSecondaryRegion>
+            <StatusOfSecondary/>
+            <CreationTime>2011-08-02T14:19:36Z</CreationTime>
+        </StorageServiceProperties>
+        <ExtendedProperties/>
+    </StorageService>
+    <StorageService>
+        <Url>https://management.core.windows.net/99aaaaa9-9999-9999-999a-9a99999aa9a9/services/storageservices/testeast</Url>
+        <ServiceName>testeast</ServiceName>
+        <StorageServiceProperties>
+            <Description i:nil="true"/>
+            <AffinityGroup>EnstratiusAffinityNorthEurope</AffinityGroup>
+            <Label>c2xhdmVhc3Q=</Label>
+            <Status>Created</Status>
+            <Endpoints>
+                <Endpoint>http://testeast.blob.core.windows.net/</Endpoint>
+                <Endpoint>http://testeast.queue.core.windows.net/</Endpoint>
+                <Endpoint>http://testeast.table.core.windows.net/</Endpoint>
+            </Endpoints>
+            <GeoReplicationEnabled>false</GeoReplicationEnabled>
+            <GeoPrimaryRegion>North Europe</GeoPrimaryRegion>
+            <StatusOfPrimary/>
+            <GeoSecondaryRegion/>
+            <StatusOfSecondary/>
+            <CreationTime>2013-08-16T09:14:26Z</CreationTime>
+        </StorageServiceProperties>
+        <ExtendedProperties/>
+    </StorageService>
+    <StorageService>
+        <Url>https://management.core.windows.net/99aaaaa9-9999-9999-999a-9a99999aa9a9/services/storageservices/testestestasia</Url>
+        <ServiceName>testestestasia</ServiceName>
+        <StorageServiceProperties>
+            <Description i:nil="true"/>
+            <AffinityGroup>EnstratiusAffinityEastUS</AffinityGroup>
+            <Label>c2xhdmVzdGVzdGFzaWE=</Label>
+            <Status>Created</Status>
+            <Endpoints>
+                <Endpoint>http://testestestasia.blob.core.windows.net/</Endpoint>
+                <Endpoint>http://testestestasia.queue.core.windows.net/</Endpoint>
+                <Endpoint>http://testestestasia.table.core.windows.net/</Endpoint>
+            </Endpoints>
+            <GeoReplicationEnabled>true</GeoReplicationEnabled>
+            <GeoPrimaryRegion>East US</GeoPrimaryRegion>
+            <StatusOfPrimary/>
+            <GeoSecondaryRegion>West US</GeoSecondaryRegion>
+            <StatusOfSecondary/>
+            <CreationTime>2013-08-20T10:42:00Z</CreationTime>
+        </StorageServiceProperties>
+        <ExtendedProperties/>
+    </StorageService>
+    <StorageService>
+        <Url>https://management.core.windows.net/99aaaaa9-9999-9999-999a-9a99999aa9a9/services/storageservices/test</Url>
+        <ServiceName>test</ServiceName>
+        <StorageServiceProperties>
+            <Description i:nil="true"/>
+            <Location>West Europe</Location>
+            <Label>c2xhdnRlc3Q=</Label>
+            <Status>Created</Status>
+            <Endpoints>
+                <Endpoint>http://test.blob.core.windows.net/</Endpoint>
+                <Endpoint>http://test.queue.core.windows.net/</Endpoint>
+                <Endpoint>http://test.table.core.windows.net/</Endpoint>
+            </Endpoints>
+            <GeoReplicationEnabled>false</GeoReplicationEnabled>
+            <GeoPrimaryRegion>West Europe</GeoPrimaryRegion>
+            <StatusOfPrimary/>
+            <GeoSecondaryRegion/>
+            <StatusOfSecondary/>
+            <CreationTime>2012-08-16T19:32:07Z</CreationTime>
+        </StorageServiceProperties>
+        <ExtendedProperties/>
+    </StorageService>
+</StorageServices>

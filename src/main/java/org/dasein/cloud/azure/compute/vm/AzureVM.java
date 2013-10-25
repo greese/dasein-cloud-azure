@@ -1456,7 +1456,7 @@ public class AzureVM extends AbstractVMSupport {
                             deploymentName = mynode.getFirstChild().getNodeValue().trim();
 
                             String resourceDir = HOSTED_SERVICES + "/" + service + "/deployments/" + deploymentName;
-                            Document doc = method.getAsXML(ctx.getAccountNumber(), resourceDir);
+                            Document doc = method.getAsXML(ctx.getAccountNumber(), resourceDir);  //TODO: remove this call as it's completely redundant - all info is already there returned by details call
 
                             if (doc == null) {
                                 return;
