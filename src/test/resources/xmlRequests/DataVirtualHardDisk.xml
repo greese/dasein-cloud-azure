@@ -1,0 +1,5 @@
+<DataVirtualHardDisk  xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+<HostCaching>ReadWrite</HostCaching>
+<LogicalDiskSizeInGB>20</LogicalDiskSizeInGB>
+<MediaLink>http://portalvhdsc8vf26rnz7rnm.blob.core.windows.net/vhds/roletest14254215.vhd</MediaLink>
+</DataVirtualHardDisk>

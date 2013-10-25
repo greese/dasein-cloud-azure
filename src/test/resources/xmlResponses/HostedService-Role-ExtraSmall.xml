@@ -1,0 +1,28 @@
+<PersistentVMRole xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+    <RoleName>roletest1425</RoleName>
+    <OsVersion/>
+    <RoleType>PersistentVMRole</RoleType>
+    <ConfigurationSets>
+        <ConfigurationSet i:type="NetworkConfigurationSet">
+            <ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>
+            <InputEndpoints>
+                <InputEndpoint>
+                    <LocalPort>22</LocalPort>
+                    <Name>SSH</Name>
+                    <Port>22</Port>
+                    <Protocol>tcp</Protocol>
+                    <EnableDirectServerReturn>false</EnableDirectServerReturn>
+                </InputEndpoint>
+            </InputEndpoints>
+        </ConfigurationSet>
+    </ConfigurationSets>
+    <DataVirtualHardDisks/>
+    <OSVirtualHardDisk>
+        <HostCaching>ReadWrite</HostCaching>
+        <DiskName>s-test1-s-test1-0-201309091236360388</DiskName>
+        <MediaLink>http://portalvhdsc8vf26rnz7rnm.blob.core.windows.net/vhds/s-test1-s-test1-2013-09-09.vhd</MediaLink>
+        <SourceImageName>b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_04-amd64-server-20130824-en-us-30GB</SourceImageName>
+        <OS>Linux</OS>
+    </OSVirtualHardDisk>
+    <RoleSize>ExtraSmall</RoleSize>
+</PersistentVMRole>
