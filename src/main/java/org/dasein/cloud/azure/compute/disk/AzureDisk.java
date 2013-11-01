@@ -636,7 +636,13 @@ public class AzureDisk extends AbstractVolumeSupport {
             	disk.setProviderSnapshotId(attribute.getFirstChild().getNodeValue().trim());            	
             } 
         }
-   
+
+        if (disk.getProviderVirtualMachineId() != null && disk.getGuestOperatingSystem() == null) {
+            // attached to vm but not a root volume - now populate device id
+            String lun = getDiskLun(disk.getProviderVolumeId(), disk.getProviderVirtualMachineId());
+            disk.setDeviceId(lun);
+        }
+
         if(disk.getGuestOperatingSystem() == null){
         	disk.setGuestOperatingSystem(Platform.UNKNOWN);        	
         }
