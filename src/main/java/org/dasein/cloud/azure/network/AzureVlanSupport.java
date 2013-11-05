@@ -325,8 +325,13 @@ public class AzureVlanSupport implements VLANSupport {
 
                 NodeList virtualNetworkSites = element.getElementsByTagName("VirtualNetworkSites");
                 Node item = virtualNetworkSites.item(0);
-
-                Element elItem = (Element) item;
+                Element elItem;
+                if (item == null) {
+                    elItem = doc.createElement("VirtualNetworkSites");
+                    element.appendChild(elItem);
+                } else {
+                    elItem = (Element) item;
+                }
 
                 Element vns = doc.createElement("VirtualNetworkSite");
                 vns.setAttribute("name", name);

@@ -102,9 +102,6 @@ public class AzureDisk implements VolumeSupport {
                 xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                 xml.append("<HostCaching>ReadWrite</HostCaching>");
                 xml.append("<DiskName>" + disk.getName() + "</DiskName>");
-                if(device != null && isWithinDeviceList(device)){
-                    xml.append("<Lun>" + device + "</Lun>");
-                }
                 xml.append("<LogicalDiskSizeInGB>" + disk.getSizeInGigabytes() + "</LogicalDiskSizeInGB>");
                 xml.append("<MediaLink>" + disk.getMediaLink()+"</MediaLink>");
                 xml.append("</DataVirtualHardDisk>");
@@ -113,9 +110,6 @@ public class AzureDisk implements VolumeSupport {
                 //dmayne: assume we are attaching a new empty disk?
                 xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                 xml.append("<HostCaching>ReadWrite</HostCaching>");
-                if(device != null && isWithinDeviceList(device)){
-                    xml.append("<Lun>" + device + "</Lun>");
-                }
                 //todo get actual disk size
                 xml.append("<LogicalDiskSizeInGB>").append("1").append("</LogicalDiskSizeInGB>");
                 xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(server.getTag("roleName")).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
@@ -595,7 +589,13 @@ public class AzureDisk implements VolumeSupport {
             	disk.setProviderSnapshotId(attribute.getFirstChild().getNodeValue().trim());            	
             } 
         }
-   
+
+        if (disk.getProviderVirtualMachineId() != null && disk.getGuestOperatingSystem() == null) {
+            // attached to vm but not a root volume - now populate device id
+            String lun = getDiskLun(disk.getProviderVolumeId(), disk.getProviderVirtualMachineId());
+            disk.setDeviceId(lun);
+        }
+
         if(disk.getGuestOperatingSystem() == null){
         	disk.setGuestOperatingSystem(Platform.UNKNOWN);        	
         }
