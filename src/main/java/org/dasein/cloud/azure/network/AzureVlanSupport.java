@@ -292,6 +292,9 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                     catch( Throwable ignore ) { }
                 }
             }
+            else {
+                logger.error("Job id not returned from cloud so can't get new object");
+            }
             return null;
         }
         finally {
@@ -423,6 +426,9 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                     catch( Throwable ignore ) { }
                 }
             }
+            else {
+                logger.error("Job id not returned from cloud so can't get new object");
+            }
             return null;
         }
         finally {
@@ -545,6 +551,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                 }
             }
         }
+        logger.warn("Unable to find subnet "+subnetId);
 		return null;
 	}
 
@@ -563,6 +570,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
 				}			
 			}
 		}
+        logger.warn("Unable to find vlan "+vlanId);
 		return null;		
 	}
 
