@@ -291,6 +291,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                     }
                     catch( Throwable ignore ) { }
                 }
+                logger.debug("Http code from job "+httpCode);
             }
             else {
                 logger.error("Job id not returned from cloud so can't get new object");
@@ -425,6 +426,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                     }
                     catch( Throwable ignore ) { }
                 }
+                logger.debug("Http code from job "+httpCode);
             }
             else {
                 logger.error("Job id not returned from cloud so can't get new object");
