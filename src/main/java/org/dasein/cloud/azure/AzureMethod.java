@@ -549,19 +549,26 @@ public class AzureMethod {
 
             if( wire.isDebugEnabled() ) {
                 wire.debug(status.toString());
-                for( Header h : headers ) {
-                    if( h.getValue() != null ) {
+            }
+            for( Header h : headers ) {
+                if( h.getValue() != null ) {
+                    if( wire.isDebugEnabled() ) {
                         wire.debug(h.getName() + ": " + h.getValue().trim());
-                        if (h.getName().equalsIgnoreCase("x-ms-request-id")) {
-                            requestId = h.getValue().trim();
-                        }
                     }
-                    else {
+                    if (h.getName().equalsIgnoreCase("x-ms-request-id")) {
+                        requestId = h.getValue().trim();
+                    }
+                }
+                else {
+                    if( wire.isDebugEnabled() ) {
                         wire.debug(h.getName() + ":");
                     }
                 }
+            }
+            if( wire.isDebugEnabled() ) {
                 wire.debug("");
             }
+
             if( status.getStatusCode() != HttpServletResponse.SC_OK && status.getStatusCode() != HttpServletResponse.SC_CREATED && status.getStatusCode() != HttpServletResponse.SC_ACCEPTED ) {
                 logger.error("post(): Expected OK for GET request, got " + status.getStatusCode());
 
@@ -704,17 +711,23 @@ public class AzureMethod {
 
             if( wire.isDebugEnabled() ) {
                 wire.debug(status.toString());
-                for( Header h : headers ) {
-                    if( h.getValue() != null ) {
+            }
+            for( Header h : headers ) {
+                if( h.getValue() != null ) {
+                    if( wire.isDebugEnabled() ) {
                         wire.debug(h.getName() + ": " + h.getValue().trim());
-                        if (h.getName().equalsIgnoreCase("x-ms-request-id")) {
-                            requestId = h.getValue().trim();
-                        }
                     }
-                    else {
+                    if (h.getName().equalsIgnoreCase("x-ms-request-id")) {
+                        requestId = h.getValue().trim();
+                    }
+                }
+                else {
+                    if( wire.isDebugEnabled() ) {
                         wire.debug(h.getName() + ":");
                     }
                 }
+            }
+            if( wire.isDebugEnabled() ) {
                 wire.debug("");
             }
             if (status.getStatusCode() == HttpServletResponse.SC_TEMPORARY_REDIRECT) {
