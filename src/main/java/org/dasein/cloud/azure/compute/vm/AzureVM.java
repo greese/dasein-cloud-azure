@@ -49,6 +49,7 @@ import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.Subnet;
 import org.dasein.cloud.network.VLAN;
+import org.dasein.cloud.util.APITrace;
 import org.dasein.util.CalendarWrapper;
 import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Storage;
@@ -1707,12 +1708,35 @@ public class AzureVM extends AbstractVMSupport {
                 catch( Throwable ignore ) { }
             }
 
-            resourceDir = HOSTED_SERVICES + "/" + serviceName;
-            timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+            terminateService(serviceName, explanation);
+
+            //now delete the orphaned disks
+            for (String disk : disks) {
+                provider.getComputeServices().getVolumeSupport().remove(disk);
+            }
+        }
+        finally {
+            if( logger.isTraceEnabled() ) {
+                logger.trace("EXIT: " + AzureVM.class.getName() + ".terminate()");
+            }
+        }
+    }
+
+    public void terminateService(String serviceName, String explanation) throws InternalException, CloudException {
+        APITrace.begin(getProvider(), "VM.terminateService");
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new AzureConfigException("No context was set for this request");
+            }
+            AzureMethod method = new AzureMethod(provider);
+            String resourceDir = HOSTED_SERVICES + "/" + serviceName;
+            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
             while( timeout > System.currentTimeMillis() ) {
                 try{
                     if( logger.isInfoEnabled() ) {
-                        logger.info("Deleting hosted service " + serviceName);
+                        logger.info("Deleting hosted service " + serviceName+": "+explanation);
                     }
                     method.invoke("DELETE", ctx.getAccountNumber(), resourceDir, "");
                     break;
@@ -1729,18 +1753,12 @@ public class AzureVM extends AbstractVMSupport {
                     return;
                 }
             }
-
-            //now delete the orphaned disks
-            for (String disk : disks) {
-                provider.getComputeServices().getVolumeSupport().remove(disk);
-            }
         }
         finally {
-            if( logger.isTraceEnabled() ) {
-                logger.trace("EXIT: " + AzureVM.class.getName() + ".terminate()");
-            }
+            APITrace.end();
         }
     }
+
 
     private ArrayList<String> getAttachedDisks(VirtualMachine vm) throws InternalException, CloudException {
         ProviderContext ctx = provider.getContext();
