@@ -33,6 +33,7 @@ import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.AzureService;
+import org.dasein.cloud.azure.compute.AzureComputeServices;
 import org.dasein.cloud.azure.compute.vm.AzureVM;
 import org.dasein.cloud.compute.AbstractImageSupport;
 import org.dasein.cloud.compute.Architecture;
@@ -179,6 +180,10 @@ public class AzureOSImage extends AbstractImageSupport {
                 }if( task != null ) {
                     task.completeWithResult(img);
                 }
+
+                //tidy up orphaned service
+                provider.getComputeServices().getVirtualMachineSupport().terminateService(serviceName, "Post makeImage cleanup");
+
                 return img;
             }
             finally {
