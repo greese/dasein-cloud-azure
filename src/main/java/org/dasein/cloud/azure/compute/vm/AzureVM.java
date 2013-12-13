@@ -154,14 +154,31 @@ public class AzureVM extends AbstractVMSupport {
 
         String[] parts = options.getProviderProductId().split(":");
         String productId = null;
-        String disks = null;
-        if (parts.length == 2) {
+        String disks = "";
+        if (parts.length == 1)  {
+            productId=parts[0];
+        }
+        else if (parts.length == 2) {
             productId = parts[0];
             disks = parts[1].replace("[","").replace("]","");
         }
         else {
-            throw new InternalException("Invalid product id string. Product id format is product name:[disk_0_size,disk_1_size,disk_n_size]");
+            throw new InternalException("Invalid product id string. Product id format is PRODUCT_NAME or PRODUCT_NAME:[disk_0_size,disk_1_size,disk_n_size]");
         }
+        //check the product id is legitimate
+        boolean found = false;
+        Iterable<VirtualMachineProduct> products = listProducts(Architecture.I64);
+        for (VirtualMachineProduct p : products) {
+            if (p.getProviderProductId().equals(productId)) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            throw new InternalException("Product id invalid: should be one of ExtraSmall, Small, Medium, Large, ExtraLarge");
+        }
+
         String[] diskSizes = disks.split(",");
 
         VirtualMachine vm = getVirtualMachine(vmId);
@@ -192,65 +209,84 @@ public class AzureVM extends AbstractVMSupport {
             Node role = roles.item(0);
 
             NodeList entries = role.getChildNodes();
+            boolean changeProduct = false;
 
             for (int i = 0; i<entries.getLength(); i++) {
                 Node vn = entries.item(i);
                 String vnName = vn.getNodeName();
 
                 if( vnName.equalsIgnoreCase("RoleSize") && vn.hasChildNodes() ) {
-                    vn.setNodeValue(productId);
-                }
-            }
-
-            String output="";
-            try{
-                TransformerFactory tf = TransformerFactory.newInstance();
-                Transformer transformer = tf.newTransformer();
-                transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-                StringWriter writer = new StringWriter();
-                transformer.transform(new DOMSource(doc), new StreamResult(writer));
-                output = writer.getBuffer().toString().replaceAll("\n|\r", "");
-            }
-            catch (Exception e){
-                System.err.println(e);
-            }
-            xml.append(output);
-
-            logger.debug(xml);
-            logger.debug("___________________________________________________");
-
-            resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roles/" + roleName;
-            String requestId = method.invoke("PUT", ctx.getAccountNumber(), resourceDir, xml.toString());
-
-            if (requestId != null) {
-                int httpCode = method.getOperationStatus(requestId);
-                while (httpCode == -1) {
-                    try {
-                        Thread.sleep(15000L);
+                    if (!productId.equals(vn.getFirstChild().getNodeValue())) {
+                        vn.getFirstChild().setNodeValue(productId);
+                        changeProduct=true;
                     }
-                    catch (InterruptedException ignored){}
-                    httpCode = method.getOperationStatus(requestId);
+                    else {
+                        logger.info("No product change required");
+                    }
+                    break;
                 }
-                if (httpCode == HttpServletResponse.SC_OK) {
+            }
+
+            String requestId=null;
+
+            if (changeProduct) {
+                String output="";
+                try{
+                    TransformerFactory tf = TransformerFactory.newInstance();
+                    Transformer transformer = tf.newTransformer();
+                    transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+                    StringWriter writer = new StringWriter();
+                    transformer.transform(new DOMSource(doc), new StreamResult(writer));
+                    output = writer.getBuffer().toString().replaceAll("\n|\r", "");
+                }
+                catch (Exception e){
+                    System.err.println(e);
+                }
+                xml.append(output);
+
+                logger.debug(xml);
+                logger.debug("___________________________________________________");
+
+                resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roles/" + roleName;
+                requestId = method.invoke("PUT", ctx.getAccountNumber(), resourceDir, xml.toString());
+            }
+            else {
+                requestId="noChange";
+            }
+            if (requestId != null) {
+                int httpCode = -1;
+                if (!requestId.equals("noChange")) {
+                    httpCode = method.getOperationStatus(requestId);
+                    while (httpCode == -1) {
+                        try {
+                            Thread.sleep(15000L);
+                        }
+                        catch (InterruptedException ignored){}
+                        httpCode = method.getOperationStatus(requestId);
+                    }
+                }
+                if (httpCode == HttpServletResponse.SC_OK || requestId.equals("noChange")) {
                     //attach any disks as appropriate
                     for (int i = 0; i < diskSizes.length; i++) {
-                        xml = new StringBuilder();
-                        xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-                        xml.append("<HostCaching>ReadWrite</HostCaching>");
-                        xml.append("<LogicalDiskSizeInGB>").append(diskSizes[i]).append("</LogicalDiskSizeInGB>");
-                        xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(roleName).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
-                        xml.append("</DataVirtualHardDisk>");
-                        logger.debug(xml);
-                        resourceDir = HOSTED_SERVICES + "/" +serviceName+ "/deployments" + "/" +  deploymentName + "/roles"+"/" + roleName+ "/DataDisks";
-                        requestId = method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-                        if (requestId != null) {
-                            httpCode = method.getOperationStatus(requestId);
-                            while (httpCode == -1) {
-                                try {
-                                    Thread.sleep(15000L);
-                                }
-                                catch (InterruptedException ignored){}
+                        if (!diskSizes[i].equals("")) {
+                            xml = new StringBuilder();
+                            xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
+                            xml.append("<HostCaching>ReadWrite</HostCaching>");
+                            xml.append("<LogicalDiskSizeInGB>").append(diskSizes[i]).append("</LogicalDiskSizeInGB>");
+                            xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(roleName).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
+                            xml.append("</DataVirtualHardDisk>");
+                            logger.debug(xml);
+                            resourceDir = HOSTED_SERVICES + "/" +serviceName+ "/deployments" + "/" +  deploymentName + "/roles"+"/" + roleName+ "/DataDisks";
+                            requestId = method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
+                            if (requestId != null) {
                                 httpCode = method.getOperationStatus(requestId);
+                                while (httpCode == -1) {
+                                    try {
+                                        Thread.sleep(15000L);
+                                    }
+                                    catch (InterruptedException ignored){}
+                                    httpCode = method.getOperationStatus(requestId);
+                                }
                             }
                         }
                     }
