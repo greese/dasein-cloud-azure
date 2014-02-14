@@ -218,7 +218,7 @@ public class AzureLocation implements DataCenterServices {
             if (dcs.isEmpty()) {
                 logger.info("Create new affinity group for "+providerRegionId);
                 //create new affinityGroup
-                String name = "EnstratiusAffinity"+(providerRegionId.replaceAll(" ", ""));
+                String name = "Affinity"+(providerRegionId.replaceAll(" ", ""));
                 logger.info(name);
                 String label;
                 try {
