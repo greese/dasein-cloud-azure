@@ -301,6 +301,12 @@ public class BlobStore extends AbstractBlobStoreSupport {
         return null;
     }
 
+    @Nullable
+    @Override
+    public String getSignedObjectUrl(@Nonnull String bucket, @Nonnull String object, @Nonnull String expiresEpochInSeconds) throws InternalException, CloudException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
     @Override
     public @Nullable Storage<org.dasein.util.uom.storage.Byte> getObjectSize(@Nullable String bucket, @Nullable String object) throws InternalException, CloudException {
         String resource = bucket + "/" + object;
