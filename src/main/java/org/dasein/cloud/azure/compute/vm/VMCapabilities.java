@@ -86,7 +86,7 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
 
     @Override
     public int getCostFactor(@Nonnull VmState state) throws CloudException, InternalException {
-        return 0;
+        return !state.equals(VmState.TERMINATED) ? 100 : 0;
     }
 
     @Nonnull
