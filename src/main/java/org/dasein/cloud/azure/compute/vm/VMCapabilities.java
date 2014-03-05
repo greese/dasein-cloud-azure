@@ -11,6 +11,7 @@ import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VirtualMachineCapabilities;
 import org.dasein.cloud.compute.VMScalingCapabilities;
 import org.dasein.cloud.compute.VmState;
+import org.dasein.cloud.util.NamingConstraints;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -99,6 +100,12 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
     @Override
     public VMScalingCapabilities getVerticalScalingCapabilities() throws CloudException, InternalException {
         return VMScalingCapabilities.getInstance(false,true,Requirement.REQUIRED,Requirement.NONE);
+    }
+
+    @Nonnull
+    @Override
+    public NamingConstraints getVirtualMachineNamingConstraints() throws CloudException, InternalException {
+        return NamingConstraints.getStrictInstance(2, 15).constrainedBy(new char[]{'-'});
     }
 
     @Nonnull
