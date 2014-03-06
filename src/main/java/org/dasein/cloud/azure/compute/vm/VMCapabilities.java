@@ -105,7 +105,7 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
     @Nonnull
     @Override
     public NamingConstraints getVirtualMachineNamingConstraints() throws CloudException, InternalException {
-        return NamingConstraints.getStrictInstance(2, 15).constrainedBy(new char[]{'-'});
+        return NamingConstraints.getStrictInstance(3, 15).constrainedBy(new char[]{'-'});
     }
 
     @Nonnull
