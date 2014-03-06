@@ -13,7 +13,7 @@ import java.util.Collections;
 import java.util.Locale;
 
 /**
- * Describes the capabilities of Azure with respect to Dasein virtual machine operations.
+ * Describes the capabilities of Azure with respect to Dasein vlan operations.
  * <p>Created by Danielle Mayne: 4/03/14 14:30 PM</p>
  * @author Danielle Mayne
  * @version 2014.03 initial version

@@ -45,6 +45,7 @@ import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.storage.AbstractBlobStoreSupport;
 import org.dasein.cloud.storage.Blob;
 import org.dasein.cloud.storage.FileTransfer;
+import org.dasein.cloud.util.NamingConstraints;
 import org.dasein.util.CalendarWrapper;
 import org.dasein.util.Jiterator;
 import org.dasein.util.JiteratorPopulator;
@@ -757,13 +758,14 @@ public class BlobStore extends AbstractBlobStoreSupport {
     }
 
     @Override
-    public @Nonnull NameRules getBucketNameRules() throws CloudException, InternalException {
-        return NameRules.getInstance(1, 255, false, true, true, new char[] { '-', '.' });
+    public @Nonnull
+    NamingConstraints getBucketNameRules() throws CloudException, InternalException {
+        return NamingConstraints.getAlphaNumeric(1, 255).constrainedBy(new char[] { '-', '.' }).limitedToLatin1().lowerCaseOnly();
     }
 
     @Override
-    public @Nonnull NameRules getObjectNameRules() throws CloudException, InternalException {
-        return NameRules.getInstance(1, 255, false, true, true, new char[] { '-', '.', ',', '#', '+' });
+    public @Nonnull NamingConstraints getObjectNameRules() throws CloudException, InternalException {
+        return NamingConstraints.getAlphaNumeric(1, 255).constrainedBy(new char[] { '-', '.', ',', '#', '+' }).limitedToLatin1().lowerCaseOnly();
     }
 
     private @Nullable Blob toBlob(@Nonnull String regionId, @Nullable Node node, @Nonnull String bucket, boolean isContainer) {
