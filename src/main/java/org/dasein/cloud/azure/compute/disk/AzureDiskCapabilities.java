@@ -19,7 +19,7 @@ import java.util.Collections;
 import java.util.Locale;
 
 /**
- * Describes the capabilities of Azure with respect to Dasein virtual machine operations.
+ * Describes the capabilities of Azure with respect to Dasein volume operations.
  * User: daniellemayne
  * Date: 05/03/2014
  * Time: 14:58
