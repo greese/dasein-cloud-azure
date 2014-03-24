@@ -155,6 +155,7 @@ public class Azure extends AbstractCloud {
             }
 
             if( storageEndpoint == null || storageEndpoint.isEmpty()) {
+                storageEndpoint = null;
                 throw new CloudException("Cannot find blob storage endpoint in the current region");
             }
         }
