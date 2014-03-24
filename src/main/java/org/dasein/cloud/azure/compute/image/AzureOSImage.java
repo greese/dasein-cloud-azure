@@ -378,9 +378,8 @@ public class AzureOSImage extends AbstractImageSupport {
         for( int i=0; i<entries.getLength(); i++ ) {
             Node entry = entries.item(i);
             AzureMachineImage image = toImage(ctx, entry);
-            image.setImageClass(ImageClass.MACHINE);
-
             if (image != null) {
+                image.setImageClass(ImageClass.MACHINE);
 
                 if (imageFilterOptions.matches(image)) {
                    if (imageFilterOptions.getAccountNumber() == null) {

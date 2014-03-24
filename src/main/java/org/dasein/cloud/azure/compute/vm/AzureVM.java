@@ -1391,7 +1391,7 @@ public class AzureVM extends AbstractVMSupport {
                         String affinityGroup = property.getFirstChild().getNodeValue().trim();
                         if (affinityGroup != null && !affinityGroup.equals("")) {
                             DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
-                            if (dc.getRegionId().equals(regionId)) {
+                            if (dc != null && dc.getRegionId().equals(regionId)) {
                                 mediaLocationFound = true;
                             }
                             else {

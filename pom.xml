@@ -45,7 +45,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-core</artifactId>
-            <version>2014.03-SNAPSHOT</version>
+            <version>2014.03.2-SNAPSHOT</version>
             <scope>compile</scope>
             <optional>false</optional>
         </dependency>
@@ -88,6 +88,12 @@
             <scope>provided</scope>
         </dependency>
 
+        <dependency>
+            <groupId>mockit</groupId>
+            <artifactId>jmockit</artifactId>
+            <version>0.999.4</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>junit</groupId>
@@ -98,7 +104,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-test</artifactId>
-            <version>2014.03-SNAPSHOT</version>
+            <version>2014.03.2-SNAPSHOT</version>
             <scope>test</scope>
             <optional>false</optional>
         </dependency>
@@ -218,11 +224,11 @@
                             <value>${apiSecretKey}</value>
                         </property>
                         <property>
-                            <name>x509CertFile</name>
+                            <name>apiKeyShared</name>
                             <value>${x509CertFile}</value>
                         </property>
                         <property>
-                            <name>x509KeyFile</name>
+                            <name>apiKeySecret</name>
                             <value>${x509KeyFile}</value>
                         </property>
                         <property>
@@ -262,10 +268,9 @@
                             <value>${test.shareAccount}</value>
                         </property>
                     </systemProperties>
-                    <includes>
-                       <include>**/TestSuite.java</include>
-                    </includes>
-                   <!-- <argLine>-Ddasein.inclusions=StatefulImageTests</argLine>-->
+                    <excludes>
+                       <exclude>**/TestSuite.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
             <plugin>
