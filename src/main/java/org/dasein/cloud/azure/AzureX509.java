@@ -20,11 +20,13 @@ package org.dasein.cloud.azure;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMReader;
+import org.dasein.cloud.ContextRequirements;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
 import java.security.KeyPair;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -35,6 +37,7 @@ import java.security.Security;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.List;
 
 /**
  * X509 certficate management for integration with Azure's outmoded form of authentication.
@@ -53,10 +56,27 @@ public class AzureX509 {
     
     private KeyStore        keystore;
 
-    public AzureX509(ProviderContext ctx) throws InternalException {
+    public AzureX509(Azure provider) throws InternalException {
+        ProviderContext ctx = provider.getContext();
         try {
-            X509Certificate certificate = certFromString(new String(ctx.getX509Cert(), "utf-8"));
-            PrivateKey privateKey = keyFromString(new String(ctx.getX509Key(), "utf-8"));
+            String apiShared = "";
+            String apiSecret = "";
+            try {
+                List<ContextRequirements.Field> fields = provider.getContextRequirements().getConfigurableValues();
+                for(ContextRequirements.Field f : fields ) {
+                    if(f.type.equals(ContextRequirements.FieldType.KEYPAIR)){
+                        byte[][] keyPair = (byte[][])ctx.getConfigurationValue(f);
+                        apiShared = new String(keyPair[0], "utf-8");
+                        apiSecret = new String(keyPair[1], "utf-8");
+                    }
+                }
+            }
+            catch (UnsupportedEncodingException ignore) {}
+          //  System.out.println(apiShared);
+          //  System.out.println(apiSecret);
+
+            X509Certificate certificate = certFromString(apiShared);
+            PrivateKey privateKey = keyFromString(apiSecret);
 
             keystore = createJavaKeystore(certificate, privateKey);
         }
