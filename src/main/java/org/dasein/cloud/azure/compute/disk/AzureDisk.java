@@ -18,24 +18,29 @@
 
 package org.dasein.cloud.azure.compute.disk;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.*;
+import org.dasein.cloud.CloudException;
+import org.dasein.cloud.InternalException;
+import org.dasein.cloud.OperationNotSupportedException;
+import org.dasein.cloud.ProviderContext;
+import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.Tag;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
-import org.dasein.cloud.azure.compute.vm.AzureVM;
 import org.dasein.cloud.compute.AbstractVolumeSupport;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.Volume;
+import org.dasein.cloud.compute.VolumeCapabilities;
 import org.dasein.cloud.compute.VolumeCreateOptions;
 import org.dasein.cloud.compute.VolumeFilterOptions;
 import org.dasein.cloud.compute.VolumeFormat;
 import org.dasein.cloud.compute.VolumeProduct;
 import org.dasein.cloud.compute.VolumeState;
-import org.dasein.cloud.compute.VolumeSupport;
 import org.dasein.cloud.compute.VolumeType;
+
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.util.CalendarWrapper;
@@ -45,11 +50,8 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.servlet.http.HttpServletResponse;
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Locale;
@@ -273,6 +275,15 @@ public class AzureDisk implements VolumeSupport {
                 logger.trace("EXIT: " + AzureDisk.class.getName() + ".detach()");
             }
         }
+    }
+
+    private transient volatile AzureDiskCapabilities capabilities;
+    @Override
+    public VolumeCapabilities getCapabilities() throws CloudException, InternalException {
+        if( capabilities == null ) {
+            capabilities = new AzureDiskCapabilities(provider);
+        }
+        return capabilities;
     }
 
     private String getDiskLun(String providerVolumeId, String providerVirtualMachineId) throws InternalException, CloudException {
@@ -552,7 +563,7 @@ public class AzureDisk implements VolumeSupport {
             }
             else if( attribute.getNodeName().equalsIgnoreCase("OS") && attribute.hasChildNodes() ) {
                 // return root volumes
-            	disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));
+                disk.setGuestOperatingSystem(Platform.guess(attribute.getFirstChild().getNodeValue().trim()));
             }
 
             // disk may have either affinity group or location depending on how storage account is set up
@@ -590,8 +601,8 @@ public class AzureDisk implements VolumeSupport {
             } 
         }
 
-        if (disk.getProviderVirtualMachineId() != null && disk.getGuestOperatingSystem() == null) {
-            // attached to vm but not a root volume - now populate device id
+        if (disk.getProviderVirtualMachineId() != null) {
+            // attached to vm - now populate device id
             String lun = getDiskLun(disk.getProviderVolumeId(), disk.getProviderVirtualMachineId());
             disk.setDeviceId(lun);
         }

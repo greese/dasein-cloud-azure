@@ -20,7 +20,11 @@ package org.dasein.cloud.azure.network;
 
 
 import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Locale;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,13 +36,19 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.*;
+import org.dasein.cloud.CloudException;
+import org.dasein.cloud.InternalException;
+import org.dasein.cloud.OperationNotSupportedException;
+import org.dasein.cloud.ProviderContext;
+import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.Tag;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.AbstractVLANSupport;
+import org.dasein.cloud.network.InternetGateway;
 import org.dasein.cloud.network.IPVersion;
 import org.dasein.cloud.network.NICCreateOptions;
 import org.dasein.cloud.network.NetworkInterface;
@@ -48,8 +58,8 @@ import org.dasein.cloud.network.Subnet;
 import org.dasein.cloud.network.SubnetCreateOptions;
 import org.dasein.cloud.network.SubnetState;
 import org.dasein.cloud.network.VLAN;
+import org.dasein.cloud.network.VLANCapabilities;
 import org.dasein.cloud.network.VLANState;
-import org.dasein.cloud.network.VLANSupport;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -74,51 +84,6 @@ public class AzureVlanSupport implements VLANSupport {
 	}
 
 	@Override
-	public void addRouteToAddress(String toRoutingTableId, IPVersion version,String destinationCidr, String address) throws CloudException,InternalException {
-        throw new OperationNotSupportedException("Routing tables not supported");
-
-	}
-
-	@Override
-	public void addRouteToGateway(String toRoutingTableId, IPVersion version,String destinationCidr, String gatewayId) throws CloudException,InternalException {
-        throw new OperationNotSupportedException("Routing tables not supported");
-
-	}
-
-	@Override
-	public void addRouteToNetworkInterface(String toRoutingTableId,
-			IPVersion version, String destinationCidr, String nicId)
-			throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Routing tables not supported");
-
-	}
-
-	@Override
-	public void addRouteToVirtualMachine(String toRoutingTableId,
-			IPVersion version, String destinationCidr, String vmId)
-			throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Routing tables not supported");
-
-	}
-
-	@Override
-	public boolean allowsNewNetworkInterfaceCreation() throws CloudException,
-			InternalException {
-		return false;
-	}
-
-	@Override
-	public boolean allowsNewVlanCreation() throws CloudException,
-			InternalException {
-		return true;
-	}
-
-	@Override
-	public boolean allowsNewSubnetCreation() throws CloudException,InternalException {
-		return true;
-	}
-
-    @Override
 	public void assignRoutingTableToSubnet(String subnetId,String routingTableId) throws CloudException, InternalException {
         throw new OperationNotSupportedException("Routing tables not supported");
 
@@ -329,6 +294,7 @@ public class AzureVlanSupport implements VLANSupport {
 
                 NodeList virtualNetworkSites = element.getElementsByTagName("VirtualNetworkSites");
                 Node item = virtualNetworkSites.item(0);
+
                 Element elItem;
                 if (item == null) {
                     elItem = doc.createElement("VirtualNetworkSites");
@@ -413,17 +379,16 @@ public class AzureVlanSupport implements VLANSupport {
 
 	}
 
-	@Override
-	public int getMaxNetworkInterfaceCount() throws CloudException,InternalException {
-		return 0;
-	}
+    private transient volatile VlanCapabilities capabilities;
+    @Override
+    public VLANCapabilities getCapabilities() throws CloudException, InternalException {
+        if( capabilities == null ) {
+            capabilities = new VlanCapabilities(provider);
+        }
+        return capabilities;
+    }
 
-	@Override
-	public int getMaxVlanCount() throws CloudException, InternalException {
-		return 5;
-	}
-
-	@Override
+    @Override
 	public String getProviderTermForNetworkInterface(Locale locale) {
 		return "network interface";
 	}
@@ -459,11 +424,6 @@ public class AzureVlanSupport implements VLANSupport {
 	@Override
 	public RoutingTable getRoutingTableForSubnet(String subnetId)throws CloudException, InternalException {
 		return null;
-	}
-
-	@Override
-	public Requirement getRoutingTableSupport() throws CloudException,InternalException {
-        return Requirement.NONE;
 	}
 
 	@Override
@@ -525,11 +485,6 @@ public class AzureVlanSupport implements VLANSupport {
 	}
 
 	@Override
-	public Requirement getSubnetSupport() throws CloudException,InternalException {
-		return Requirement.REQUIRED;
-	}
-
-	@Override
 	public VLAN getVlan(String vlanId) throws CloudException, InternalException {
 		ArrayList<VLAN> list = (ArrayList<VLAN>) listVlans();
 		if(list != null){ 
@@ -548,23 +503,20 @@ public class AzureVlanSupport implements VLANSupport {
         return false;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
+    @Nullable
     @Override
-	public boolean isNetworkInterfaceSupportEnabled() throws CloudException,InternalException {
-		return false;
-	}
+    public String getAttachedInternetGatewayId(@Nonnull String vlanId) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
 
-	@Override
+    @Nullable
+    @Override
+    public InternetGateway getInternetGatewayById(@Nonnull String gatewayId) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public boolean isSubscribed() throws CloudException, InternalException {
-		return true;
-	}
-
-	@Override
-	public boolean isSubnetDataCenterConstrained() throws CloudException,InternalException {
-		return true;
-	}
-
-	@Override
-	public boolean isVlanDataCenterConstrained() throws CloudException,InternalException {
 		return true;
 	}
 
@@ -573,6 +525,12 @@ public class AzureVlanSupport implements VLANSupport {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
+    @Nonnull
+    @Override
+    public Collection<InternetGateway> listInternetGateways(@Nullable String vlanId) throws CloudException, InternalException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
 
     @Nonnull
     @Override
@@ -667,13 +625,7 @@ public class AzureVlanSupport implements VLANSupport {
         return list;
 	}
 
-	@Override
-	public Iterable<IPVersion> listSupportedIPVersions() throws CloudException,
-			InternalException {
-        return Collections.singletonList(IPVersion.IPV4);
-	}
-
-    @Nonnull
+	@Nonnull
     @Override
     public Iterable<ResourceStatus> listVlanStatus() throws CloudException, InternalException {
         ProviderContext ctx = provider.getContext();
@@ -728,7 +680,12 @@ public class AzureVlanSupport implements VLANSupport {
         throw new OperationNotSupportedException("Internet gateways not supported");
 	}
 
-	@Override
+    @Override
+    public void removeInternetGatewayById(@Nonnull String id) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
 	public void removeNetworkInterface(String nicId) throws CloudException,
 			InternalException {
         throw new OperationNotSupportedException("Network interfaces not supported");
@@ -922,17 +879,14 @@ public class AzureVlanSupport implements VLANSupport {
 	}
 
     @Override
-	public boolean supportsInternetGatewayCreation() throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return false;
-	}
+    public void removeVLANTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
 
-	@Override
-	public boolean supportsRawAddressRouting() throws CloudException,
-			InternalException {
-		// TODO Auto-generated method stub
-		return false;
-	}
+    @Override
+    public void removeVLANTags(@Nonnull String[] strings, @Nonnull Tag... tags) throws CloudException, InternalException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
 
     @Override
     public void updateVLANTags(@Nonnull String s, @Nonnull Tag... tags) throws CloudException, InternalException {
@@ -1077,7 +1031,7 @@ public class AzureVlanSupport implements VLANSupport {
                 String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
                 if (affinityGroup != null && !affinityGroup.equals("")) {
                     DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
-                    if ( dc == null || !dc.getRegionId().equals(ctx.getRegionId())) {
+                    if (dc == null || !dc.getRegionId().equals(ctx.getRegionId())) {
                         return null;
                     }
                 }

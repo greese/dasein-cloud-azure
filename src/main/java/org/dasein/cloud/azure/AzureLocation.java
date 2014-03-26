@@ -214,10 +214,11 @@ public class AzureLocation implements DataCenterServices {
                 }
                 cache.put(ctx, dcs);
             }
+            cache.put(ctx, dcs);
             if (dcs.isEmpty()) {
                 logger.info("Create new affinity group for "+providerRegionId);
                 //create new affinityGroup
-                String name = "EnstratiusAffinity"+(providerRegionId.replaceAll(" ", ""));
+                String name = "Affinity"+(providerRegionId.replaceAll(" ", ""));
                 logger.info(name);
                 String label;
                 try {
@@ -269,7 +270,6 @@ public class AzureLocation implements DataCenterServices {
 
         if( regions == null ) {
             regions = new ArrayList<Region>();
-
             AzureMethod method = new AzureMethod(provider);
 
             Document doc = method.getAsXML(ctx.getAccountNumber(), LOCATIONS);

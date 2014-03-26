@@ -18,18 +18,16 @@
 
 package org.dasein.cloud.azure;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.AbstractCloud;
 import org.dasein.cloud.CloudException;
+import org.dasein.cloud.ContextRequirements;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.azure.compute.AzureComputeServices;
 import org.dasein.cloud.azure.network.AzureNetworkServices;
 import org.dasein.cloud.azure.storage.AzureStorageServices;
 import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,7 +35,6 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
-import java.io.UnsupportedEncodingException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Random;
@@ -106,6 +103,13 @@ public class Azure extends AbstractCloud {
         return "Azure";
     }
 
+    @Override
+    public @Nonnull ContextRequirements getContextRequirements() {
+        return new ContextRequirements(
+                new ContextRequirements.Field("apiKey", "The API Keypair", ContextRequirements.FieldType.KEYPAIR, ContextRequirements.Field.X509, true)
+        );
+    }
+
     public String getDataCenterId(String regionId){
     	return regionId;
     }
@@ -155,6 +159,7 @@ public class Azure extends AbstractCloud {
             }
 
             if( storageEndpoint == null || storageEndpoint.isEmpty()) {
+                storageEndpoint = null;
                 throw new CloudException("Cannot find blob storage endpoint in the current region");
             }
         }

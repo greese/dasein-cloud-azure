@@ -37,6 +37,7 @@ import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.compute.disk.AzureDisk;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.VPN;
+import org.dasein.cloud.network.VPNCapabilities;
 import org.dasein.cloud.network.VPNConnection;
 import org.dasein.cloud.network.VPNGateway;
 import org.dasein.cloud.network.VPNGatewayState;
@@ -276,7 +277,17 @@ public class AzureVPNSupport implements VPNSupport {
 
 	}
 
-	@Override
+    private transient volatile AzureVPNCapabilities capabilities;
+    @Nonnull
+    @Override
+    public VPNCapabilities getCapabilities() throws CloudException, InternalException {
+        if( capabilities == null ) {
+            capabilities = new AzureVPNCapabilities(provider);
+        }
+        return capabilities;
+    }
+
+    @Override
 	public VPNGateway getGateway(String gatewayId) throws CloudException,InternalException {
 		ArrayList<VPNGateway> list = (ArrayList<VPNGateway>) listGateways();
 		if(list != null){ 

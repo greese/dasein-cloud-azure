@@ -383,7 +383,7 @@ public class AzureMethod {
         SchemeRegistry registry = new SchemeRegistry();
 
         try {
-            registry.register(new Scheme(ssl ? "https" : "http", targetPort, new AzureSSLSocketFactory(new AzureX509(ctx))));
+            registry.register(new Scheme(ssl ? "https" : "http", targetPort, new AzureSSLSocketFactory(new AzureX509(provider))));
         }
         catch( KeyManagementException e ) {
             e.printStackTrace();

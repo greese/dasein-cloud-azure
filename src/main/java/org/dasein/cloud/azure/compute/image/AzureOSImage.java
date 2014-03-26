@@ -18,7 +18,6 @@
 
 package org.dasein.cloud.azure.compute.image;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.AsynchronousTask;
 import org.dasein.cloud.CloudErrorType;
@@ -37,13 +36,13 @@ import org.dasein.cloud.azure.compute.AzureComputeServices;
 import org.dasein.cloud.azure.compute.vm.AzureVM;
 import org.dasein.cloud.compute.AbstractImageSupport;
 import org.dasein.cloud.compute.Architecture;
+import org.dasein.cloud.compute.ImageCapabilities;
 import org.dasein.cloud.compute.ImageClass;
 import org.dasein.cloud.compute.ImageCreateOptions;
 import org.dasein.cloud.compute.ImageFilterOptions;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.MachineImageFormat;
 import org.dasein.cloud.compute.MachineImageState;
-import org.dasein.cloud.compute.MachineImageSupport;
 import org.dasein.cloud.compute.MachineImageType;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VirtualMachine;
@@ -60,9 +59,6 @@ import org.w3c.dom.NodeList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletResponse;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -89,6 +85,15 @@ public class AzureOSImage implements MachineImageSupport {
     @Override
     public void bundleVirtualMachineAsync(@Nonnull String virtualMachineId, @Nonnull MachineImageFormat format, @Nonnull String bucket, @Nonnull String name, @Nonnull AsynchronousTask<String> trackingTask) throws CloudException, InternalException {
         throw new OperationNotSupportedException("No ability to bundle vms");
+    }
+
+    private transient volatile OSImageCapabilities capabilities;
+    @Override
+    public ImageCapabilities getCapabilities() throws CloudException, InternalException {
+        if( capabilities == null ) {
+            capabilities = new OSImageCapabilities(provider);
+        }
+        return capabilities;
     }
 
     @Override
@@ -182,6 +187,7 @@ public class AzureOSImage implements MachineImageSupport {
 
                 //tidy up orphaned service
                 provider.getComputeServices().getVirtualMachineSupport().terminateService(serviceName, "Post makeImage cleanup");
+
                 return img;
             }
             finally {
@@ -374,9 +380,8 @@ public class AzureOSImage implements MachineImageSupport {
         for( int i=0; i<entries.getLength(); i++ ) {
             Node entry = entries.item(i);
             AzureMachineImage image = toImage(ctx, entry);
-            image.setImageClass(ImageClass.MACHINE);
-
             if (image != null) {
+                image.setImageClass(ImageClass.MACHINE);
 
                 if (imageFilterOptions.matches(image)) {
                    if (imageFilterOptions.getAccountNumber() == null) {
@@ -498,33 +503,8 @@ public class AzureOSImage implements MachineImageSupport {
     }
 
     @Override
-    public @Nonnull Iterable<MachineImageFormat> listSupportedFormats() throws CloudException, InternalException {
-         //dmayne 20130417: seems to be the right type
-       return Collections.singletonList(MachineImageFormat.VHD);
-       // return Collections.singletonList(MachineImageFormat.AWS); // nonsense, I know
-    }
-
-    @Nonnull
-    @Override
-    public Iterable<MachineImageFormat> listSupportedFormatsForBundling() throws CloudException, InternalException {
-        return Collections.emptyList();
-    }
-
-    @Override
     public @Nonnull Iterable<String> listShares(@Nonnull String forMachineImageId) throws CloudException, InternalException {
         return Collections.emptyList();
-    }
-
-    @Nonnull
-    @Override
-    public Iterable<ImageClass> listSupportedImageClasses() throws CloudException, InternalException {
-        return Collections.singletonList(ImageClass.MACHINE);
-    }
-
-    @Nonnull
-    @Override
-    public Iterable<MachineImageType> listSupportedImageTypes() throws CloudException, InternalException {
-        return Collections.singletonList(MachineImageType.VOLUME);
     }
 
     @Nonnull
@@ -716,34 +696,6 @@ public class AzureOSImage implements MachineImageSupport {
     @Override
     public boolean supportsCustomImages() {
         return true;
-    }
-
-    @Override
-    public boolean supportsDirectImageUpload() throws CloudException, InternalException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public boolean supportsImageCapture(@Nonnull MachineImageType type) throws CloudException, InternalException {
-        if (type.equals(MachineImageType.VOLUME)) {
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public boolean supportsImageSharing() {
-        return false; 
-    }
-
-    @Override
-    public boolean supportsImageSharingWithPublic() {
-        return false;  
-    }
-
-    @Override
-    public boolean supportsPublicLibrary(@Nonnull ImageClass cls) throws CloudException, InternalException {
-        return true;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override

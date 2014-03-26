@@ -24,7 +24,6 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.Tag;
 import org.dasein.cloud.azure.Azure;
@@ -34,12 +33,11 @@ import org.dasein.cloud.azure.AzureService;
 import org.dasein.cloud.azure.compute.image.AzureMachineImage;
 import org.dasein.cloud.compute.AbstractVMSupport;
 import org.dasein.cloud.compute.Architecture;
-import org.dasein.cloud.compute.ImageClass;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.Platform;
+import org.dasein.cloud.compute.VirtualMachineCapabilities;
 import org.dasein.cloud.compute.VMFilterOptions;
 import org.dasein.cloud.compute.VMLaunchOptions;
-import org.dasein.cloud.compute.VMScalingCapabilities;
 import org.dasein.cloud.compute.VMScalingOptions;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.VirtualMachineProduct;
@@ -252,6 +250,13 @@ public class AzureVM implements VirtualMachineSupport {
             else {
                 requestId="noChange";
             }
+
+                resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roles/" + roleName;
+                requestId = method.invoke("PUT", ctx.getAccountNumber(), resourceDir, xml.toString());
+            }
+            else {
+                requestId="noChange";
+            }
             if (requestId != null) {
                 int httpCode = -1;
                 if (!requestId.equals("noChange")) {
@@ -307,11 +312,6 @@ public class AzureVM implements VirtualMachineSupport {
     }
 
     @Override
-    public VMScalingCapabilities describeVerticalScalingCapabilities() throws CloudException, InternalException {
-        return VMScalingCapabilities.getInstance(false,true,Requirement.REQUIRED,Requirement.NONE);
-    }
-
-    @Override
     public void disableAnalytics(String vmId) throws InternalException, CloudException {
         // NO-OP
     }
@@ -321,19 +321,19 @@ public class AzureVM implements VirtualMachineSupport {
         // NO-OP
     }
 
+    private transient volatile VMCapabilities capabilities;
+    @Nonnull
+    @Override
+    public VirtualMachineCapabilities getCapabilities() throws InternalException, CloudException {
+        if( capabilities == null ) {
+            capabilities = new VMCapabilities(provider);
+        }
+        return capabilities;
+    }
+
     @Override
     public @Nonnull String getConsoleOutput(@Nonnull String vmId) throws InternalException, CloudException {
         return "";
-    }
-
-    @Override
-    public int getCostFactor(@Nonnull VmState state) throws InternalException, CloudException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public int getMaximumVirtualMachineCount() throws CloudException, InternalException {
-        return -2;
     }
 
     @Override
@@ -346,11 +346,6 @@ public class AzureVM implements VirtualMachineSupport {
         return null;
     }
 
-    @Override
-    public @Nonnull String getProviderTermForServer(@Nonnull Locale locale) {
-        return "virtual machine";
-    }
-    
     @Override
     public @Nullable VirtualMachine getVirtualMachine(@Nonnull String vmId) throws InternalException, CloudException {
         String[] parts = vmId.split(":");
@@ -467,73 +462,9 @@ public class AzureVM implements VirtualMachineSupport {
         return Collections.emptyList();
     }
 
-    @Nonnull
-    @Override
-    public Requirement identifyImageRequirement(@Nonnull ImageClass cls) throws CloudException, InternalException {
-        return (cls.equals(ImageClass.MACHINE) ? Requirement.REQUIRED : Requirement.NONE);
-    }
-
-    @Override
-    public @Nonnull Requirement identifyPasswordRequirement() throws CloudException, InternalException {
-        return Requirement.OPTIONAL;
-    }
-
-    @Nonnull
-    @Override
-    public Requirement identifyPasswordRequirement(Platform platform) throws CloudException, InternalException {
-        return Requirement.OPTIONAL;
-    }
-
-    @Override
-    public @Nonnull Requirement identifyRootVolumeRequirement() throws CloudException, InternalException {
-        return Requirement.NONE;
-    }
-
-    @Override
-    public @Nonnull Requirement identifyShellKeyRequirement() throws CloudException, InternalException {
-        return Requirement.OPTIONAL;
-    }
-
-    @Nonnull
-    @Override
-    public Requirement identifyShellKeyRequirement(Platform platform) throws CloudException, InternalException {
-        return Requirement.OPTIONAL;
-    }
-
-    @Nonnull
-    @Override
-    public Requirement identifyStaticIPRequirement() throws CloudException, InternalException {
-        return Requirement.NONE;
-    }
-
-    @Override
-    public @Nonnull Requirement identifyVlanRequirement() throws CloudException, InternalException {
-        return Requirement.OPTIONAL;
-    }
-
-    @Override
-    public boolean isAPITerminationPreventable() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean isBasicAnalyticsSupported() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean isExtendedAnalyticsSupported() throws CloudException, InternalException {
-        return false;
-    }
-
     @Override
     public boolean isSubscribed() throws CloudException, InternalException {
         return provider.getDataCenterServices().isSubscribed(AzureService.PERSISTENT_VM_ROLE);
-    }
-
-    @Override
-    public boolean isUserDataSupported() throws CloudException, InternalException {
-        return false;
     }
 
     @Override
@@ -648,7 +579,7 @@ public class AzureVM implements VirtualMachineSupport {
                 String vlanName = null;
                 if (options.getVlanId() != null) {
                     subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getVlanId());
-                    if (subnet!= null) {
+                    if (subnet != null) {
                         xml.append("<SubnetNames>");
                         xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
                         xml.append("</SubnetNames>");
@@ -701,7 +632,9 @@ public class AzureVM implements VirtualMachineSupport {
                         try { Thread.sleep(30000L); }
                         catch( InterruptedException ignore ) { }
                         continue;
-                        }
+                    }
+                    catch (InterruptedException ignored){}
+                    httpCode = method.getOperationStatus(requestId);
                 }
                 throw e;
             }
@@ -818,11 +751,6 @@ public class AzureVM implements VirtualMachineSupport {
         list.add(product);
         
         return Collections.unmodifiableList(list);
-    }
-
-    @Override
-    public Iterable<Architecture> listSupportedArchitectures() throws InternalException, CloudException {
-        return Collections.singletonList(Architecture.I64);
     }
 
     @Nonnull
@@ -1470,7 +1398,7 @@ public class AzureVM implements VirtualMachineSupport {
                         String affinityGroup = property.getFirstChild().getNodeValue().trim();
                         if (affinityGroup != null && !affinityGroup.equals("")) {
                             DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
-                            if (dc.getRegionId().equals(regionId)) {
+                            if (dc != null && dc.getRegionId().equals(regionId)) {
                                 mediaLocationFound = true;
                             }
                             else {
@@ -1522,7 +1450,7 @@ public class AzureVM implements VirtualMachineSupport {
                             deploymentName = mynode.getFirstChild().getNodeValue().trim();
 
                             String resourceDir = HOSTED_SERVICES + "/" + service + "/deployments/" + deploymentName;
-                            Document doc = method.getAsXML(ctx.getAccountNumber(), resourceDir);
+                            Document doc = method.getAsXML(ctx.getAccountNumber(), resourceDir);  //TODO: remove this call as it's completely redundant - all info is already there returned by details call
 
                             if (doc == null) {
                                 return;
@@ -1653,21 +1581,6 @@ public class AzureVM implements VirtualMachineSupport {
     }
 
     @Override
-    public boolean supportsPauseUnpause(@Nonnull VirtualMachine vm) {
-        return false;
-    }
-
-    @Override
-    public boolean supportsStartStop(@Nonnull VirtualMachine vm) {
-        return true;
-    }
-
-    @Override
-    public boolean supportsSuspendResume(@Nonnull VirtualMachine vm) {
-        return false;
-    }
-
-    @Override
     public void suspend(@Nonnull String vmId) throws CloudException, InternalException {
         throw new OperationNotSupportedException("Suspend/resume is not supported in Microsoft Azure");
     }
@@ -1794,6 +1707,7 @@ public class AzureVM implements VirtualMachineSupport {
         }
     }
 
+
     private ArrayList<String> getAttachedDisks(VirtualMachine vm) throws InternalException, CloudException {
         ProviderContext ctx = provider.getContext();
 
@@ -1882,7 +1796,7 @@ public class AzureVM implements VirtualMachineSupport {
         String id = name;
         int i = 0;
 
-        while (method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+id) != null)  {
+        while( method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+id) != null ) {
             i++;
             id = name + "-" + i;
         }
