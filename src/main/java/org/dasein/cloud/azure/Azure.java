@@ -37,6 +37,7 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Properties;
 import java.util.Random;
 
 /**
@@ -210,7 +211,31 @@ public class Azure extends AbstractCloud {
         return "Microsoft";
     }
 
+    public @Nonnull String getVMProductsResource() {
+        ProviderContext ctx = getContext();
+        String value;
 
+        if( ctx == null ) {
+            value = null;
+        }
+        else {
+            Properties p = ctx.getCustomProperties();
+
+            if( p == null ) {
+                value = null;
+            }
+            else {
+                value = p.getProperty("vmproducts");
+            }
+        }
+        if( value == null ) {
+            value = System.getProperty("azure.vmproducts");
+        }
+        if( value == null ) {
+            value = "/org/dasein/cloud/azure/vmproducts.json";
+        }
+        return value;
+    }
 
     public long parseTimestamp(@Nullable String time) throws CloudException {
         if( time == null ) {
