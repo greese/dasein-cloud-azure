@@ -45,6 +45,7 @@ import org.dasein.cloud.compute.VmState;
 import org.dasein.cloud.compute.VmStatistics;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
+import org.dasein.cloud.network.RawAddress;
 import org.dasein.cloud.network.Subnet;
 import org.dasein.cloud.network.VLAN;
 import org.dasein.cloud.util.APITrace;
@@ -385,12 +386,11 @@ public class AzureVM extends AbstractVMSupport {
         }
         AzureMethod method = new AzureMethod(provider);
 
-        Document doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+sName);
+        Document doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES + "/"+ sName+"?embed-detail=true");
         if (doc == null) {
             return null;
         }
         NodeList entries = doc.getElementsByTagName("HostedService");
-        ArrayList<VirtualMachine> vms = new ArrayList<VirtualMachine>();
         for (int h = 0; h < entries.getLength(); h++) {
             Node entry = entries.item(h);
             NodeList attributes = entry.getChildNodes();
@@ -437,27 +437,46 @@ public class AzureVM extends AbstractVMSupport {
 
         }
 
-        doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES+ "/"+sName+"/deployments/"+deploymentName);
-
-        if( doc == null ) {
-            return null;
-        }
-        entries = doc.getElementsByTagName("Deployment");
-
         ArrayList<VirtualMachine> list = new ArrayList<VirtualMachine>();
-        for (int i = 0; i < entries.getLength(); i++) {
-            parseDeployment(ctx, ctx.getRegionId(), sName+":"+deploymentName, entries.item(i), list);
-        }
-        if (list != null && list.size() > 0) {
-            VirtualMachine vm = list.get(0);
-            if (dc != null) {
-                vm.setProviderDataCenterId(dc.getProviderDataCenterId());
+        NodeList deployments = doc.getElementsByTagName("Deployments");
+        for (int i = 0; i < deployments.getLength(); i++) {
+            Node deployNode = deployments.item(i);
+            NodeList deployAttributes = deployNode.getChildNodes();
+
+            String depName = "";
+            for (int j = 0; j<deployAttributes.getLength(); j++) {
+                Node deployment = deployAttributes.item(j);
+
+
+                if(deployment.getNodeType() == Node.TEXT_NODE) {
+                    continue;
+                }
+
+                if( deployment.getNodeName().equalsIgnoreCase("Deployment") && deployment.hasChildNodes() ) {
+                    NodeList dAttribs = deployment.getChildNodes();
+                    for (int k = 0; k<dAttribs.getLength(); k++) {
+                        Node mynode = dAttribs.item(k);
+
+                        if ( mynode.getNodeName().equalsIgnoreCase("name") && mynode.hasChildNodes() ) {
+                            depName = mynode.getFirstChild().getNodeValue().trim();
+                            if (depName.equals(deploymentName)) {
+                                parseDeployment(ctx, ctx.getRegionId(), sName + ":" + deploymentName, deployment, list);
+                                if (list != null && list.size() > 0) {
+                                    VirtualMachine vm = list.get(0);
+                                    if (dc != null) {
+                                        vm.setProviderDataCenterId(dc.getProviderDataCenterId());
+                                    }
+                                    else {
+                                        Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(ctx.getRegionId());
+                                        vm.setProviderDataCenterId(dcs.iterator().next().getProviderDataCenterId());
+                                    }
+                                    return vm;
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            else {
-                Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(ctx.getRegionId());
-                vm.setProviderDataCenterId(dcs.iterator().next().getProviderDataCenterId());
-            }
-            return vm;
         }
         return null;
     }
@@ -968,7 +987,7 @@ public class AzureVM extends AbstractVMSupport {
                                 role.setPrivateDnsAddress(roleAttribute.getFirstChild().getNodeValue().trim());
                             }
                             else if( roleAttribute.getNodeName().equalsIgnoreCase("ipaddress") && roleAttribute.hasChildNodes() ) {
-                                role.setPrivateIpAddresses(new String[] { roleAttribute.getFirstChild().getNodeValue().trim() });
+                                role.setPrivateAddresses(new RawAddress[]{new RawAddress(roleAttribute.getFirstChild().getNodeValue().trim())});
                             }
                             else if( roleAttribute.getNodeName().equalsIgnoreCase("instanceendpoints") && roleAttribute.hasChildNodes() ) {
                                 NodeList endpoints = roleAttribute.getChildNodes();
@@ -984,26 +1003,26 @@ public class AzureVM extends AbstractVMSupport {
 
                                             if( a.getNodeName().equalsIgnoreCase("vip") && a.hasChildNodes() ) {
                                                 String addr = a.getFirstChild().getNodeValue().trim();
-                                                String[] ips = role.getPublicIpAddresses();
+                                                RawAddress[] ips = role.getPublicAddresses();
 
                                                 if( ips == null || ips.length < 1 ) {
-                                                    role.setPublicIpAddresses(new String[] { addr });
+                                                    role.setPublicAddresses(new RawAddress[] {new RawAddress(addr)});
                                                 }
                                                 else {
                                                     boolean found = false;
 
-                                                    for( String ip : ips ) {
-                                                        if( ip.equals(addr) ) {
+                                                    for( RawAddress ip : ips ) {
+                                                        if( ip.getIpAddress().equals(addr) ) {
                                                             found = true;
                                                             break;
                                                         }
                                                     }
                                                     if( !found ) {
-                                                        String[] tmp = new String[ips.length + 1];
+                                                        RawAddress[] tmp = new RawAddress[ips.length + 1];
 
                                                         System.arraycopy(ips, 0, tmp, 0, ips.length);
-                                                        tmp[tmp.length-1] = addr;
-                                                        role.setPublicIpAddresses(tmp);
+                                                        tmp[tmp.length-1] = new RawAddress(addr);
+                                                        role.setPublicAddresses(tmp);
                                                     }
                                                 }
                                             }
@@ -1396,17 +1415,7 @@ public class AzureVM extends AbstractVMSupport {
                         if ( mynode.getNodeName().equalsIgnoreCase("name") && mynode.hasChildNodes() ) {
                             deploymentName = mynode.getFirstChild().getNodeValue().trim();
 
-                            String resourceDir = HOSTED_SERVICES + "/" + service + "/deployments/" + deploymentName;
-                            Document doc = method.getAsXML(ctx.getAccountNumber(), resourceDir);
-
-                            if (doc == null) {
-                                return;
-                            }
-                            NodeList entries = doc.getElementsByTagName("Deployment");
-
-                            for (int l = 0; l < entries.getLength(); l++) {
-                                parseDeployment(ctx, regionId, service+":"+deploymentName, entries.item(l), virtualMachines);
-                            }
+                            parseDeployment(ctx, regionId, service+":"+deploymentName, deployment, virtualMachines);
                             for (VirtualMachine vm : virtualMachines) {
                                 if (vm.getCreationTimestamp() < 1L) {
                                     vm.setCreationTimestamp(created);
@@ -1518,17 +1527,7 @@ public class AzureVM extends AbstractVMSupport {
                         if ( mynode.getNodeName().equalsIgnoreCase("name") && mynode.hasChildNodes() ) {
                             deploymentName = mynode.getFirstChild().getNodeValue().trim();
 
-                            String resourceDir = HOSTED_SERVICES + "/" + service + "/deployments/" + deploymentName;
-                            Document doc = method.getAsXML(ctx.getAccountNumber(), resourceDir);  //TODO: remove this call as it's completely redundant - all info is already there returned by details call
-
-                            if (doc == null) {
-                                return;
-                            }
-                            NodeList entries = doc.getElementsByTagName("Deployment");
-
-                            for (int l = 0; l < entries.getLength(); l++) {
-                                parseStatus(ctx, regionId, service + ":" + deploymentName, entries.item(l), status);
-                            }
+                            parseStatus(ctx, regionId, service + ":" + deploymentName, deployment, status);
                         }
                     }
                 }
