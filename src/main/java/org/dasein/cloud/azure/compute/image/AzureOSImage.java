@@ -738,6 +738,7 @@ public class AzureOSImage extends AbstractImageSupport {
         AzureMachineImage image= new AzureMachineImage();
 
         HashMap<String,String> tags = new HashMap<String,String>();
+        String fullName = null;
         image.setCurrentState(MachineImageState.ACTIVE);
         image.setProviderRegionId(ctx.getRegionId());
         image.setArchitecture(Architecture.I64);
@@ -819,6 +820,16 @@ public class AzureOSImage extends AbstractImageSupport {
         }
         if( image.getName() == null ) {
             image.setName(image.getProviderMachineImageId());
+        }
+        else {
+            int versionIdx = image.getProviderMachineImageId().indexOf("__");
+            try {
+                fullName = image.getProviderMachineImageId().substring(versionIdx+2);
+            }
+            catch (Throwable ignore) {}
+            if (fullName != null) {
+                image.setName(fullName);
+            }
         }
         if( image.getDescription() == null ) {
             image.setDescription(image.getName());
