@@ -742,6 +742,8 @@ public class AzureOSImage extends AbstractImageSupport {
         image.setProviderRegionId(ctx.getRegionId());
         image.setArchitecture(Architecture.I64);
 
+        String fullName = null;
+
         NodeList attributes = entry.getChildNodes();
 
         for( int i=0; i<attributes.getLength(); i++ ) {
@@ -819,6 +821,16 @@ public class AzureOSImage extends AbstractImageSupport {
         }
         if( image.getName() == null ) {
             image.setName(image.getProviderMachineImageId());
+        }
+        else {
+            int versionIdx = image.getProviderMachineImageId().indexOf("__");
+            try {
+                fullName = image.getProviderMachineImageId().substring(versionIdx+2);
+            }
+            catch (Throwable ignore) {}
+            if (fullName != null) {
+                image.setName(fullName);
+            }
         }
         if( image.getDescription() == null ) {
             image.setDescription(image.getName());
