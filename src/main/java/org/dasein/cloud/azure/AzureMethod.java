@@ -120,8 +120,9 @@ public class AzureMethod {
             wire.debug("--------------------------------------------------------> " + endpoint + account + resource);
             wire.debug("");
         }
+        HttpClient client = null;
         try {
-            HttpClient client = getClient();
+            client = getClient();
             HttpUriRequest get = new HttpGet(endpoint + account + resource);
 
             //get.addHeader("Content-Type", "application/xml");
@@ -223,6 +224,9 @@ public class AzureMethod {
                 wire.debug("");
                 wire.debug("--------------------------------------------------------> " + endpoint + account + resource);
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         }
     }
 
@@ -243,8 +247,9 @@ public class AzureMethod {
             wire.debug("--------------------------------------------------------> " + uri.toASCIIString());
             wire.debug("");
         }
+        HttpClient client = null;
         try {
-            HttpClient client = getClient();
+            client = getClient();
             HttpUriRequest get = new HttpGet(uri);
 
             //get.addHeader("Content-Type", "application/xml");
@@ -350,6 +355,9 @@ public class AzureMethod {
             if( wire.isDebugEnabled() ) {
                 wire.debug("");
                 wire.debug("--------------------------------------------------------> " + uri.toASCIIString());
+            }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
             }
         }
     }
@@ -489,8 +497,9 @@ public class AzureMethod {
             wire.debug("");
         }
         String requestId = null;
+        HttpClient client = null;
         try {
-            HttpClient client = getClient();
+            client = getClient();
             String url = endpoint + account + resource;
 
             HttpPost post = new HttpPost(url);
@@ -604,6 +613,9 @@ public class AzureMethod {
                 wire.debug("");
                 wire.debug("POST --------------------------------------------------------> " + endpoint + account + resource);
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         }
         return requestId;
     }
@@ -639,8 +651,9 @@ public class AzureMethod {
             wire.debug("");
         }
         String requestId = null;
+        HttpClient client = null;
         try {
-            HttpClient client = getClient();
+            client = getClient();
             String url = endpoint + account + resource;
 
             HttpRequestBase httpMethod = getMethod(method, url);
@@ -788,6 +801,9 @@ public class AzureMethod {
                 wire.debug("");
                 wire.debug("POST --------------------------------------------------------> " + endpoint + account + resource);
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         }
         return requestId;
     }
@@ -800,8 +816,9 @@ public class AzureMethod {
             wire.debug("POST --------------------------------------------------------> " + endpoint + account + resource);
             wire.debug("");
         }
+        HttpClient client = null;
         try {
-            HttpClient client = getClient();
+            client = getClient();
             String url = tempEndpoint + account + resource;
 
             HttpRequestBase httpMethod = getMethod(method, url);
@@ -917,6 +934,9 @@ public class AzureMethod {
             if( wire.isDebugEnabled() ) {
                 wire.debug("");
                 wire.debug("POST --------------------------------------------------------> " + endpoint + account + resource);
+            }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
             }
         }
     }
