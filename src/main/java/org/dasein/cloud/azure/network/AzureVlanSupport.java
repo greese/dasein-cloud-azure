@@ -1066,7 +1066,7 @@ public class AzureVlanSupport implements VLANSupport {
             }
         }
 
-        Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, name, SubnetState.AVAILABLE, name, name, cidr);
+        Subnet subnet = Subnet.getInstance(ctx.getAccountNumber(), ctx.getRegionId(), vlanId, name+"_"+vlanId, SubnetState.AVAILABLE, name, name, cidr);
         DataCenter dc = provider.getDataCenterServices().listDataCenters(ctx.getRegionId()).iterator().next();
         subnet.constrainedToDataCenter(dc.getProviderDataCenterId());
         return subnet;
