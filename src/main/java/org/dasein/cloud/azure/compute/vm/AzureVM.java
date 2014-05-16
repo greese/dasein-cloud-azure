@@ -1198,9 +1198,13 @@ public class AzureVM extends AbstractVMSupport {
                         }
                     }
                 }
+
                 if (vlan != null) {
+                    String providerVlanId = null;
+
                     try {
-                        vm.setProviderVlanId(provider.getNetworkServices().getVlanSupport().getVlan(vlan).getProviderVlanId());
+                        providerVlanId = provider.getNetworkServices().getVlanSupport().getVlan(vlan).getProviderVlanId();
+                        vm.setProviderVlanId(providerVlanId);
                     }
                     catch (CloudException e) {
                         logger.error("Error getting vlan id for vlan "+vlan);
@@ -1210,10 +1214,12 @@ public class AzureVM extends AbstractVMSupport {
                         logger.error("Error getting vlan id for vlan "+vlan);
                         continue;
                     }
+
+                    if (subnetName != null) {
+                        vm.setProviderSubnetId(subnetName + "_" + providerVlanId);
+                    }
                 }
-                if (subnetName != null) {
-                    vm.setProviderSubnetId(subnetName);
-                }
+
                 String[] parts = vm.getProviderVirtualMachineId().split(":");
                 String sName, deploymentName, roleName;
 
