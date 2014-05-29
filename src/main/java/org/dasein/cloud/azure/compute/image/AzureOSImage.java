@@ -357,7 +357,7 @@ public class AzureOSImage implements MachineImageSupport {
     @Nonnull
     @Override
     public Iterable<MachineImage> listImages(@Nullable ImageFilterOptions imageFilterOptions) throws CloudException, InternalException {
-        if (!imageFilterOptions.getImageClass().equals(ImageClass.MACHINE)) {
+        if (imageFilterOptions.getImageClass() != null && !imageFilterOptions.getImageClass().equals(ImageClass.MACHINE)) {
             return Collections.emptyList();
         }
 
@@ -736,6 +736,8 @@ public class AzureOSImage implements MachineImageSupport {
         image.setProviderRegionId(ctx.getRegionId());
         image.setArchitecture(Architecture.I64);
 
+        String fullName = null;
+
         NodeList attributes = entry.getChildNodes();
 
         for( int i=0; i<attributes.getLength(); i++ ) {
@@ -813,6 +815,16 @@ public class AzureOSImage implements MachineImageSupport {
         }
         if( image.getName() == null ) {
             image.setName(image.getProviderMachineImageId());
+        }
+        else {
+            int versionIdx = image.getProviderMachineImageId().indexOf("__");
+            try {
+                fullName = image.getProviderMachineImageId().substring(versionIdx+2);
+            }
+            catch (Throwable ignore) {}
+            if (fullName != null) {
+                image.setName(fullName);
+            }
         }
         if( image.getDescription() == null ) {
             image.setDescription(image.getName());
