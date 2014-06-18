@@ -181,4 +181,9 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
     public Iterable<Architecture> listSupportedArchitectures() throws InternalException, CloudException {
         return Collections.singletonList(Architecture.I64);
     }
+
+    @Override
+    public boolean supportsSpotVirtualMachines() throws InternalException, CloudException {
+        return false;
+    }
 }
