@@ -607,7 +607,7 @@ public class AzureVM extends AbstractVMSupport {
                 Subnet subnet = null;
                 String vlanName = null;
                 if (options.getVlanId() != null) {
-                    subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getVlanId());
+                    subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getSubnetId());
                     if (subnet != null) {
                         xml.append("<SubnetNames>");
                         xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
