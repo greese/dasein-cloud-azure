@@ -219,7 +219,7 @@ public class AzureVlanSupport implements VLANSupport {
                 }
                 if (httpCode == HttpServletResponse.SC_OK) {
                     try {
-                        return getSubnet(subName);
+                        return getSubnet(subName+"_"+vlan.getProviderVlanId());
                     }
                     catch( Throwable ignore ) { }
                 }
