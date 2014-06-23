@@ -242,7 +242,7 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                 }
                 if (httpCode == HttpServletResponse.SC_OK) {
                     try {
-                        return getSubnet(subName);
+                        return getSubnet(subName+"_"+vlan.getProviderVlanId());
                     }
                     catch( Throwable ignore ) { }
                 }
