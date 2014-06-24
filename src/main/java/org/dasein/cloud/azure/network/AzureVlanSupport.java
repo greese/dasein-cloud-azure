@@ -46,6 +46,7 @@ import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.dc.DataCenter;
+import org.dasein.cloud.dc.Region;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.AbstractVLANSupport;
 import org.dasein.cloud.network.InternetGateway;
@@ -944,6 +945,16 @@ public class AzureVlanSupport implements VLANSupport {
                     }
                 }
                 tags.put("AffinityGroup", attribute.getFirstChild().getNodeValue().trim());
+            }
+            else if (nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes() ) {
+                String location = attribute.getFirstChild().getNodeValue().trim();
+                if (location != null && !location.equals("")) {
+                    Region region = provider.getDataCenterServices().getRegion(location);
+                    if ( region != null && !region.getProviderRegionId().equals(ctx.getRegionId())) {
+                        return null;
+                    }
+                    // else: setProviderRegionId was already called above
+                }
             }
             else if (nodeName.equalsIgnoreCase("state") && attribute.hasChildNodes() ) {
                 value = attribute.getFirstChild().getNodeValue().trim();
