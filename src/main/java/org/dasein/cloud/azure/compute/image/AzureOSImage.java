@@ -823,12 +823,15 @@ public class AzureOSImage extends AbstractImageSupport {
         }
         else {
             int versionIdx = image.getProviderMachineImageId().indexOf("__");
-            try {
-                fullName = image.getProviderMachineImageId().substring(versionIdx+2);
-            }
-            catch (Throwable ignore) {}
-            if (fullName != null) {
-                image.setName(fullName);
+            if(versionIdx > 0)
+            {
+                try {
+                    fullName = image.getProviderMachineImageId().substring(versionIdx + 2);
+                } catch (Throwable ignore) {
+                }
+                if (fullName != null) {
+                    image.setName(fullName);
+                }
             }
         }
         if( image.getDescription() == null ) {
