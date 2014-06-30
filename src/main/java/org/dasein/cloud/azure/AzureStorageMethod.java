@@ -333,8 +333,9 @@ public class AzureStorageMethod {
             wire.debug(httpVerb + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
         }
+        HttpClient client = null;
         try {
-            HttpClient client =  getClient();
+            client = getClient();
 
             if( headerMap == null ) {
                 headerMap = new HashMap<String,String>();
@@ -458,6 +459,9 @@ public class AzureStorageMethod {
                 wire.debug("");
                 wire.debug("--------------------------------------------------------> " );
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         } 
 	}
 	       
@@ -472,9 +476,9 @@ public class AzureStorageMethod {
             wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
         }
+        HttpClient client = null;
         try {
-
-            HttpClient client =  getClient();
+            client = getClient();
             
             String contentLength = null;
             if(body != null){        	
@@ -601,6 +605,9 @@ public class AzureStorageMethod {
             if( wire.isDebugEnabled() ) {
                 wire.debug("");
                 wire.debug("--------------------------------------------------------> " );
+            }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
             }
         } 
     }
@@ -771,9 +778,9 @@ public class AzureStorageMethod {
             wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
         }
+        HttpClient client = null;
         try {
-
-            HttpClient client =  getClient();
+            client = getClient();
 
             if( headerMap == null ) {
                 headerMap = new HashMap<String, String>();
@@ -888,6 +895,9 @@ public class AzureStorageMethod {
                 wire.debug("");
                 wire.debug("--------------------------------------------------------> " );
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         } 
     }
     
@@ -901,8 +911,9 @@ public class AzureStorageMethod {
             wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
         }
+        HttpClient client = null;
         try {
-            HttpClient client =  getClient();
+            client = getClient();
             
             if( headerMap == null ) {
                 headerMap = new HashMap<String, String>();
@@ -1007,6 +1018,9 @@ public class AzureStorageMethod {
                 wire.debug("");
                 wire.debug("--------------------------------------------------------> " );
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         } 
     }
     
@@ -1022,9 +1036,9 @@ public class AzureStorageMethod {
         }
         
         long begin = System.currentTimeMillis();
+        HttpClient client = null;
         try {
-
-            HttpClient client =  getClient();
+            client = getClient();
             
             String contentLength = null;
             
@@ -1128,6 +1142,9 @@ public class AzureStorageMethod {
                 wire.debug("");
                 wire.debug("--------------------------------------------------------> " );
             }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
+            }
         } 
     }
     
@@ -1142,9 +1159,9 @@ public class AzureStorageMethod {
             wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
         }
+        HttpClient client = null;
         try {
-
-            HttpClient client =  getClient();
+            client = getClient();
             
             String contentLength = null;
             if(body != null){        	
@@ -1244,6 +1261,9 @@ public class AzureStorageMethod {
             if( wire.isDebugEnabled() ) {
                 wire.debug("");
                 wire.debug("--------------------------------------------------------> " );
+            }
+            if (client != null) {
+                client.getConnectionManager().shutdown();
             }
         } 
     }
