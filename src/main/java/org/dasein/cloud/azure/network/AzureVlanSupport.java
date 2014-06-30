@@ -759,7 +759,7 @@ public class AzureVlanSupport implements VLANSupport {
                             if( subnetName.equalsIgnoreCase("Subnet") && vn.hasChildNodes() ) {
                                 Element sub = (Element) subnetNode;
                                 String subName = sub.getAttribute("name");
-                                if (subName.equalsIgnoreCase(providerSubnetId)) {
+                                if (subName.equalsIgnoreCase(subnet.getName())) {
                                     subnetsEl.removeChild(subnetNode);
                                 }
                             }
