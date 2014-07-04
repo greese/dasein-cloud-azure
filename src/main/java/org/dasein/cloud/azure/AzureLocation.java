@@ -27,6 +27,7 @@ import org.dasein.cloud.azure.compute.image.AzureMachineImage;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.dc.DataCenterServices;
 import org.dasein.cloud.dc.Region;
+import org.dasein.cloud.dc.ResourcePool;
 import org.dasein.cloud.util.Cache;
 import org.dasein.cloud.util.CacheLevel;
 import org.dasein.util.uom.time.Minute;
@@ -322,5 +323,20 @@ public class AzureLocation implements DataCenterServices {
         region.setAvailable(true);
         region.setJurisdiction("US");
         return region;
+    }
+
+    @Override
+    public boolean supportsResourcePools() {
+        return false;
+    }
+
+    @Override
+    public Collection<ResourcePool> listResourcePools(String providerDataCenterId) throws InternalException, CloudException {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public ResourcePool getResourcePool(String providerResourcePoolId) throws InternalException, CloudException {
+        return null;
     }
 }
