@@ -1,9 +1,6 @@
 package org.dasein.cloud.azure.compute.image;
 
-import org.dasein.cloud.AbstractCapabilities;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.Requirement;
+import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.compute.ImageCapabilities;
 import org.dasein.cloud.compute.ImageClass;
@@ -12,6 +9,7 @@ import org.dasein.cloud.compute.MachineImageType;
 import org.dasein.cloud.compute.VmState;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Locale;
 
@@ -53,6 +51,12 @@ public class OSImageCapabilities extends AbstractCapabilities<Azure> implements 
             return "OS Image";
         }
         return "image";
+    }
+
+    @Nullable
+    @Override
+    public VisibleScope getImageVisibleScope() {
+        return null;
     }
 
     @Nonnull
