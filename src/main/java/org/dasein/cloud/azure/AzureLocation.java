@@ -24,10 +24,7 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.azure.compute.image.AzureMachineImage;
-import org.dasein.cloud.dc.DataCenter;
-import org.dasein.cloud.dc.DataCenterServices;
-import org.dasein.cloud.dc.Region;
-import org.dasein.cloud.dc.ResourcePool;
+import org.dasein.cloud.dc.*;
 import org.dasein.cloud.util.Cache;
 import org.dasein.cloud.util.CacheLevel;
 import org.dasein.util.uom.time.Minute;
@@ -57,6 +54,16 @@ public class AzureLocation implements DataCenterServices {
     private Azure provider;
     
     AzureLocation(Azure provider) { this.provider = provider; }
+
+    private transient volatile AzureLocationCapabilities capabilities;
+    @Nonnull
+    @Override
+    public DataCenterCapabilities getCapabilities() throws InternalException, CloudException {
+        if( capabilities == null ) {
+            capabilities = new AzureLocationCapabilities(provider);
+        }
+        return capabilities;
+    }
 
     @Override
     public @Nullable DataCenter getDataCenter(@Nonnull String providerDataCenterId) throws InternalException, CloudException {
@@ -323,11 +330,6 @@ public class AzureLocation implements DataCenterServices {
         region.setAvailable(true);
         region.setJurisdiction("US");
         return region;
-    }
-
-    @Override
-    public boolean supportsResourcePools() {
-        return false;
     }
 
     @Override
