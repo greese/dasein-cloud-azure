@@ -56,7 +56,7 @@ public class AzureNetworkServices extends AbstractNetworkServices {
 	@Override
 	public LoadBalancerSupport getLoadBalancerSupport() {
 		// TODO Auto-generated method stub
-		return null;
+		return new AzureLoadBalancerSupport(provider);
 	}
 
     @Nullable
@@ -94,8 +94,7 @@ public class AzureNetworkServices extends AbstractNetworkServices {
 
 	@Override
 	public boolean hasLoadBalancerSupport() {
-		// TODO Auto-generated method stub
-		return false;
+		return true;
 	}
 
     @Override
