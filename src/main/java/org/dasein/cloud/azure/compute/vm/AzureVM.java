@@ -583,7 +583,9 @@ public class AzureVM extends AbstractVMSupport {
                     xml.append("<HostName>").append(hostName).append("</HostName>");
 
                     //dmayne using root causes vm to fail provisioning
-                    xml.append("<UserName>dasein</UserName>");
+                    String username = (options.getBootstrapUser() == null || options.getBootstrapUser().trim().length() == 0 || options.getBootstrapUser().equals("root") 
+                          ? "dasein" : options.getBootstrapUser());
+                    xml.append("<UserName>").append(username).append("</UserName>");
                     xml.append("<UserPassword>").append(password).append("</UserPassword>");
                     xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
                     xml.append("</ConfigurationSet>");
