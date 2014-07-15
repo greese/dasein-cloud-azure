@@ -8,7 +8,9 @@ import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
+import org.dasein.cloud.azure.compute.AzureComputeServices;
 import org.dasein.cloud.azure.network.model.*;
+import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.network.*;
 
 import javax.annotation.Nonnull;
@@ -291,6 +293,8 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
     @Override
     public @Nonnull Iterable<LoadBalancerEndpoint> listEndpoints(@Nonnull String forLoadBalancerId) throws CloudException, InternalException
     {
+        Iterable<VirtualMachine> virtualMachines = this.getProvider().getComputeServices().getVirtualMachineSupport().listVirtualMachines();
+
         DefinitionModel definitionModel = getDefinition(forLoadBalancerId);
 
         ArrayList<LoadBalancerEndpoint> endpoints = new ArrayList<LoadBalancerEndpoint>();
@@ -299,11 +303,26 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
         {
             logger.debug("add endpoint " + endPoint.getDomainName());
             LbEndpointState lbState = endPoint.getStatus().equalsIgnoreCase("enabled") ? LbEndpointState.ACTIVE : LbEndpointState.INACTIVE;
-            LoadBalancerEndpoint lbEndpoint = LoadBalancerEndpoint.getInstance(LbEndpointType.VM, endPoint.getDomainName(), lbState);
-            endpoints.add(lbEndpoint);
+
+            ArrayList<VirtualMachine> vmsWithEndpointDNS = findVMsForDNS(virtualMachines, endPoint.getDomainName());
+            for(VirtualMachine vm : vmsWithEndpointDNS) {
+                LoadBalancerEndpoint lbEndpoint = LoadBalancerEndpoint.getInstance(LbEndpointType.VM, vm.getProviderVirtualMachineId(), lbState);
+                endpoints.add(lbEndpoint);
+            }
         }
 
         return endpoints;
+    }
+
+    private ArrayList<VirtualMachine> findVMsForDNS(Iterable<VirtualMachine> virtualMachines, String dnsName)
+    {
+        ArrayList<VirtualMachine> virtualMachinesFound = new ArrayList<VirtualMachine>();
+        for (VirtualMachine virtualMachine : virtualMachines)
+        {
+            if(virtualMachine.getPublicDnsAddress().equalsIgnoreCase(dnsName))
+                virtualMachinesFound.add(virtualMachine);
+        }
+        return virtualMachinesFound;
     }
 
     @Override
