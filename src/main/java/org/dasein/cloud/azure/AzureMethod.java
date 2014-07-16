@@ -267,7 +267,11 @@ public class AzureMethod {
     }
 
     public @Nullable Document getAsXML(@Nonnull String account, @Nonnull URI uri) throws CloudException, InternalException {
-        return parseResponse(getAsStream(account, uri), true);
+        InputStream stream = getAsStream(account, uri);
+        if(stream == null)
+            return null;
+
+        return parseResponse(stream, true);
     }
     
     protected @Nonnull HttpClient getClient() throws CloudException, InternalException {
