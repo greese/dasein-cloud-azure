@@ -301,7 +301,6 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
 
         for (DefinitionModel.EndPointModel endPoint : definitionModel.getPolicy().getEndPoints())
         {
-            logger.debug("add endpoint " + endPoint.getDomainName());
             LbEndpointState lbState = endPoint.getStatus().equalsIgnoreCase("enabled") ? LbEndpointState.ACTIVE : LbEndpointState.INACTIVE;
 
             ArrayList<VirtualMachine> vmsWithEndpointDNS = findVMsForDNS(virtualMachines, endPoint.getDomainName());
@@ -332,7 +331,6 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
 
         Collection<DefinitionModel.EndPointModel> itemsToRemove = new ArrayList<DefinitionModel.EndPointModel>();
         for (String serverToRemoveId : serverIdsToRemove) {
-            logger.debug("server to remove " + serverToRemoveId);
             String[] parts = serverToRemoveId.split(":");
             for (DefinitionModel.EndPointModel endPoint : definitionModel.getPolicy().getEndPoints()) {
                 if(endPoint.getDomainName().startsWith(parts[0] + ".")){
@@ -341,7 +339,6 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
             }
         }
 
-        logger.debug("found " + String.valueOf(itemsToRemove.size()) + " to remove");
         definitionModel.getPolicy().getEndPoints().removeAll(itemsToRemove);
 
         try {
