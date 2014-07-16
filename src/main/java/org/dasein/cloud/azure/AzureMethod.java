@@ -18,6 +18,7 @@
 
 package org.dasein.cloud.azure;
 
+
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -61,15 +62,15 @@ import org.xml.sax.SAXException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletResponse;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.Unmarshaller;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
+import java.beans.XMLDecoder;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyManagementException;
@@ -113,26 +114,34 @@ public class AzureMethod {
     }
 
     public @Nullable InputStream getAsStream(@Nonnull String account, @Nonnull String resource) throws CloudException, InternalException {
-        if( logger.isTraceEnabled() ) {
-            logger.trace("enter - " + AzureMethod.class.getName() + ".get(" + account + "," + resource + ")");
+        try {
+            return getAsStream(account, new URI(endpoint + account + resource));
         }
-        if( wire.isDebugEnabled() ) {
-            wire.debug("--------------------------------------------------------> " + endpoint + account + resource);
-            wire.debug("");
+        catch( URISyntaxException e ) {
+            throw new InternalException("Endpoint misconfiguration (" + endpoint + account + resource + "): " + e.getMessage());
         }
+    }
+
+    public @Nullable InputStream getAsStream(@Nonnull String account, @Nonnull URI uri) throws CloudException, InternalException {
+        logger.trace("enter - " + AzureMethod.class.getName() + ".get(" + account + "," + uri + ")");
+        wire.debug("--------------------------------------------------------> " + uri.toASCIIString());
+
         try {
             HttpClient client = getClient();
-            HttpUriRequest get = new HttpGet(endpoint + account + resource);
+            HttpUriRequest get = new HttpGet(uri);
 
-            //get.addHeader("Content-Type", "application/xml");
-            get.addHeader("x-ms-version", "2012-03-01");
-            if( wire.isDebugEnabled() ) {
-                wire.debug(get.getRequestLine().toString());
-                for( Header header : get.getAllHeaders() ) {
-                    wire.debug(header.getName() + ": " + header.getValue());
-                }
-                wire.debug("");
+            if (uri.toString().indexOf("/services/images") > -1) {
+                get.addHeader("x-ms-version", "2012-08-01");
             }
+            else {
+                get.addHeader("x-ms-version", "2012-03-01");
+            }
+
+            wire.debug(get.getRequestLine().toString());
+            for( Header header : get.getAllHeaders() ) {
+                wire.debug(header.getName() + ": " + header.getValue());
+            }
+
             HttpResponse response;
             StatusLine status;
 
@@ -142,26 +151,23 @@ public class AzureMethod {
             }
             catch( IOException e ) {
                 logger.error("get(): Failed to execute HTTP request due to a cloud I/O error: " + e.getMessage());
-                e.printStackTrace();
                 throw new CloudException(e);
             }
-            if( logger.isDebugEnabled() ) {
-                logger.debug("get(): HTTP Status " + status);
-            }
+
+            logger.debug("get(): HTTP Status " + status);
+
             Header[] headers = response.getAllHeaders();
 
-            if( wire.isDebugEnabled() ) {
-                wire.debug(status.toString());
-                for( Header h : headers ) {
-                    if( h.getValue() != null ) {
-                        wire.debug(h.getName() + ": " + h.getValue().trim());
-                    }
-                    else {
-                        wire.debug(h.getName() + ":");
-                    }
+
+            wire.debug(status.toString());
+            for( Header h : headers ) {
+                if (h.getValue() != null) {
+                    wire.debug(h.getName() + ": " + h.getValue().trim());
+                } else {
+                    wire.debug(h.getName() + ":");
                 }
-                wire.debug("");
             }
+
             if( status.getStatusCode() == HttpServletResponse.SC_NOT_FOUND ) {
                 return null;
             }
@@ -180,10 +186,9 @@ public class AzureMethod {
                 catch( IOException e ) {
                     throw new AzureException(CloudErrorType.GENERAL, status.getStatusCode(), status.getReasonPhrase(), e.getMessage());
                 }
-                if( wire.isDebugEnabled() ) {
-                    wire.debug(body);
-                }
-                wire.debug("");
+
+                wire.debug(body);
+
                 AzureException.ExceptionItems items = AzureException.parseException(status.getStatusCode(), body);
 
                 if( items == null ) {
@@ -205,24 +210,17 @@ public class AzureMethod {
                 }
                 catch( IOException e ) {
                     logger.error("get(): Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    e.printStackTrace();
                     throw new CloudException(e);
                 }
-                if( wire.isDebugEnabled() ) {
-                    wire.debug("---> Binary Data <---");
-                }
-                wire.debug("");
+
+
+                wire.debug("---> Binary Data <---");
                 return input;
             }
         }
         finally {
-            if( logger.isTraceEnabled() ) {
-                logger.trace("exit - " + AzureMethod.class.getName() + ".getStream()");
-            }
-            if( wire.isDebugEnabled() ) {
-                wire.debug("");
-                wire.debug("--------------------------------------------------------> " + endpoint + account + resource);
-            }
+            logger.trace("exit - " + AzureMethod.class.getName() + ".getStream()");
+            wire.debug("--------------------------------------------------------> " + uri.toASCIIString());
         }
     }
 
@@ -235,123 +233,41 @@ public class AzureMethod {
         }
     }
 
-    public @Nullable Document getAsXML(@Nonnull String account, @Nonnull URI uri) throws CloudException, InternalException {
-        if( logger.isTraceEnabled() ) {
-            logger.trace("enter - " + AzureMethod.class.getName() + ".get(" + account + "," + uri + ")");
-        }
-        if( wire.isDebugEnabled() ) {
-            wire.debug("--------------------------------------------------------> " + uri.toASCIIString());
-            wire.debug("");
-        }
+    public @Nullable <T> T get(Class<T> classType, @Nonnull String resource) throws CloudException, InternalException {
         try {
-            HttpClient client = getClient();
-            HttpUriRequest get = new HttpGet(uri);
-
-            //get.addHeader("Content-Type", "application/xml");
-            if (uri.toString().indexOf("/services/images") > -1) {
-                get.addHeader("x-ms-version", "2012-08-01");
-            }
-            else {
-                get.addHeader("x-ms-version", "2012-03-01");
-            }
-            if( wire.isDebugEnabled() ) {
-                wire.debug(get.getRequestLine().toString());
-                for( Header header : get.getAllHeaders() ) {
-                    wire.debug(header.getName() + ": " + header.getValue());
-                }
-                wire.debug("");
-            }
-            HttpResponse response;
-            StatusLine status;
-
-            try {
-                response = client.execute(get);
-                status = response.getStatusLine();
-            }
-            catch( IOException e ) {
-                logger.error("get(): Failed to execute HTTP request due to a cloud I/O error: " + e.getMessage());
-                if( logger.isTraceEnabled() ) {
-                    e.printStackTrace();
-                }
-                throw new CloudException(e);
-            }
-            if( logger.isDebugEnabled() ) {
-                logger.debug("get(): HTTP Status " + status);
-            }
-            Header[] headers = response.getAllHeaders();
-
-            if( wire.isDebugEnabled() ) {
-                wire.debug(status.toString());
-                for( Header h : headers ) {
-                    if( h.getValue() != null ) {
-                        wire.debug(h.getName() + ": " + h.getValue().trim());
-                    }
-                    else {
-                        wire.debug(h.getName() + ":");
-                    }
-                }
-                wire.debug("");
-            }
-            if( status.getStatusCode() == HttpServletResponse.SC_NOT_FOUND ) {
-                return null;
-            }
-            if( status.getStatusCode() != HttpServletResponse.SC_OK && status.getStatusCode() != HttpServletResponse.SC_NON_AUTHORITATIVE_INFORMATION ) {
-                logger.error("get(): Expected OK for GET request, got " + status.getStatusCode());
-
-                HttpEntity entity = response.getEntity();
-                String body;
-
-                if( entity == null ) {
-                    throw new AzureException(CloudErrorType.GENERAL, status.getStatusCode(), status.getReasonPhrase(), "An error was returned without explanation");
-                }
-                try {
-                    body = EntityUtils.toString(entity);
-                }
-                catch( IOException e ) {
-                    throw new AzureException(CloudErrorType.GENERAL, status.getStatusCode(), status.getReasonPhrase(), e.getMessage());
-                }
-                if( wire.isDebugEnabled() ) {
-                    wire.debug(body);
-                }
-                wire.debug("");
-                AzureException.ExceptionItems items = AzureException.parseException(status.getStatusCode(), body);
-
-                if( items == null ) {
-                    return null;
-                }
-                logger.error("get(): [" + status.getStatusCode() + " : " + items.message + "] " + items.details);
-                throw new AzureException(items);
-            }
-            else {
-                HttpEntity entity = response.getEntity();
-
-                if( entity == null ) {
-                    return null;
-                }
-                InputStream input;
-
-                try {
-                    input = entity.getContent();                    
-                }
-                catch( IOException e ) {
-                    logger.error("get(): Failed to read response error due to a cloud I/O error: " + e.getMessage());
-                    if( logger.isTraceEnabled() ) {
-                        e.printStackTrace();
-                    }
-                    throw new CloudException(e);
-                }
-                return parseResponse(input, true);
-            }
+            return this.<T>get(classType, new URI(endpoint + provider.getContext().getAccountNumber() + resource));
         }
-        finally {
-            if( logger.isTraceEnabled() ) {
-                logger.trace("exit - " + AzureMethod.class.getName() + ".getStream()");
-            }
-            if( wire.isDebugEnabled() ) {
-                wire.debug("");
-                wire.debug("--------------------------------------------------------> " + uri.toASCIIString());
-            }
+        catch( URISyntaxException e ) {
+            throw new InternalException("Endpoint misconfiguration (" + endpoint + provider.getContext().getAccountNumber() + resource + "): " + e.getMessage());
         }
+    }
+
+    public @Nullable <T> T get(Class<T> classType, @Nonnull URI uri) throws CloudException, InternalException{
+        InputStream responseAsStream = getAsStream(provider.getContext().getAccountNumber(), uri);
+        try {
+            JAXBContext context = JAXBContext.newInstance(classType);
+            Unmarshaller u = context.createUnmarshaller();
+            return (T)u.unmarshal(responseAsStream);
+        }
+        catch(Exception ex)
+        {
+            logger.error(ex.getMessage());
+            throw new InternalException(ex);
+        }
+
+    }
+
+    public <T> String post(String resource, T object) throws JAXBException, CloudException, InternalException {
+        StringWriter stringWriter = new StringWriter();
+        JAXBContext jc = JAXBContext.newInstance( object.getClass());
+        Marshaller m = jc.createMarshaller();
+        m.marshal(object, stringWriter);
+
+        return post(provider.getContext().getAccountNumber(), resource, stringWriter.toString());
+    }
+
+    public @Nullable Document getAsXML(@Nonnull String account, @Nonnull URI uri) throws CloudException, InternalException {
+        return parseResponse(getAsStream(account, uri), true);
     }
     
     protected @Nonnull HttpClient getClient() throws CloudException, InternalException {
