@@ -127,7 +127,12 @@ public class BlobStore extends AbstractBlobStoreSupport {
             }
             HashMap<String,String> headers = new HashMap<String,String>();
 
-            headers.put("x-ms-copy-source", "/" + provider.getStorageService() + "/" + sourceBucket + "/" + sourceObject);
+            String storageService = provider.getStorageService();
+            if( storageService == null || storageService.isEmpty()) {
+                throw new CloudException("Unable to find storage service in the current region: " + ctx.getRegionId());
+            }
+
+            headers.put("x-ms-copy-source", "/" + storageService + "/" + sourceBucket + "/" + sourceObject);
             TreeMap <String, String> queryParams = new TreeMap <String, String>();
             AzureStorageMethod method = new AzureStorageMethod(provider);
 

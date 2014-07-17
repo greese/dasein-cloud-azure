@@ -135,7 +135,12 @@ public class AzureStorageMethod {
         if( ctx.getStoragePrivate() == null ) {
             AzureMethod method = new AzureMethod(provider);
 
-            Document doc = method.getAsXML(ctx.getAccountNumber(), "/services/storageservices/" + provider.getStorageService() + "/keys");
+            String storageService = provider.getStorageService();
+            if( storageService == null || storageService.isEmpty()) {
+                throw new CloudException("Unable to find storage service in the current region: " + ctx.getRegionId());
+            }
+
+            Document doc = method.getAsXML(ctx.getAccountNumber(), "/services/storageservices/" + storageService + "/keys");
 
             if( doc == null ) {
                 throw new CloudException("Unable to identify the storage keys for this account");
@@ -327,7 +332,7 @@ public class AzureStorageMethod {
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + httpVerb + "(" + getStorageAccount() + "," + resource + ")");
         }
-        String endpoint = provider.getStorageEndpoint();
+        String endpoint =getStorageEnpoint();
 
         if( wire.isDebugEnabled() ) {
             wire.debug(httpVerb + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
@@ -467,7 +472,7 @@ public class AzureStorageMethod {
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + getStorageAccount() + "," + resource + ")");
         }
-        String endpoint = provider.getStorageEndpoint();
+        String endpoint = getStorageEnpoint();
         if( wire.isDebugEnabled() ) {
             wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
             wire.debug("");
@@ -611,7 +616,7 @@ public class AzureStorageMethod {
         if( ctx == null ) {
             throw new AzureConfigException("No context was defined for this request");
         }
-        String endpoint = provider.getStorageEndpoint();
+        String endpoint = getStorageEnpoint();
         boolean ssl = endpoint.startsWith("https");
         int targetPort;
 
@@ -715,7 +720,7 @@ public class AzureStorageMethod {
     }
     
 	public String buildUrl(String resource, Map<String, String> queries) throws InternalException, CloudException {
-        String endpoint = provider.getStorageEndpoint();
+        String endpoint = getStorageEnpoint();
 
         StringBuilder str = new StringBuilder();       
         str.append(endpoint);
@@ -765,7 +770,7 @@ public class AzureStorageMethod {
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + getStorageAccount() + "," + resource + ")");
         }
-        String endpoint = provider.getStorageEndpoint();
+        String endpoint = getStorageEnpoint();
 
         if( wire.isDebugEnabled() ) {
             wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
@@ -895,7 +900,7 @@ public class AzureStorageMethod {
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + getStorageAccount() + "," + resource + ")");
         }
-        String endpoint = provider.getStorageEndpoint();
+        String endpoint = getStorageEnpoint();
 
         if( wire.isDebugEnabled() ) {
             wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
@@ -1014,7 +1019,7 @@ public class AzureStorageMethod {
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + getStorageAccount() + "," + resource + ")");
         }
-        String endpoint = provider.getStorageEndpoint();
+        String endpoint = getStorageEnpoint();
 
         if( wire.isDebugEnabled() ) {
             wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
@@ -1136,7 +1141,7 @@ public class AzureStorageMethod {
         if( logger.isTraceEnabled() ) {
             logger.trace("enter - " + AzureStorageMethod.class.getName() + "." + strMethod + "(" + getStorageAccount() + "," + resource + ")");
         }
-        String endpoint = provider.getStorageEndpoint();
+        String endpoint = getStorageEnpoint();
 
         if( wire.isDebugEnabled() ) {
             wire.debug(strMethod + "--------------------------------------------------------> " + endpoint + getStorageAccount() + resource);
@@ -1298,5 +1303,14 @@ public class AzureStorageMethod {
         }
         method.addHeader("Authorization", "SharedKeyLite " + getStorageAccount() + ":" + calculatedSharedKeyLiteSignature(method, queryParams));
         return method;
+    }
+
+    private String getStorageEnpoint() throws CloudException, InternalException {
+        String storageEndpoint = provider.getStorageEndpoint();
+        if( storageEndpoint == null || storageEndpoint.isEmpty()) {
+            throw new CloudException("Cannot find blob storage endpoint in the current region");
+        }
+
+        return storageEndpoint;
     }
 }
