@@ -196,9 +196,8 @@ public class Azure extends AbstractCloud {
                 throw new CloudException("Failed to find storage service in the current region: " + ctx.getRegionId());
             }
 
-            if( storageService == null || storageService.isEmpty()) {
-                throw new CloudException("Unable to find storage service in the current region: " + ctx.getRegionId());
-            }
+            if(storageEndpoint.isEmpty())
+                storageEndpoint = null;
         }
         return storageService;
     }

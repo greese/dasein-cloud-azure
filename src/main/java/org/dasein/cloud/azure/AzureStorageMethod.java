@@ -135,7 +135,12 @@ public class AzureStorageMethod {
         if( ctx.getStoragePrivate() == null ) {
             AzureMethod method = new AzureMethod(provider);
 
-            Document doc = method.getAsXML(ctx.getAccountNumber(), "/services/storageservices/" + provider.getStorageService() + "/keys");
+            String storageService = provider.getStorageService();
+            if( storageService == null || storageService.isEmpty()) {
+                throw new CloudException("Unable to find storage service in the current region: " + ctx.getRegionId());
+            }
+
+            Document doc = method.getAsXML(ctx.getAccountNumber(), "/services/storageservices/" + storageService + "/keys");
 
             if( doc == null ) {
                 throw new CloudException("Unable to identify the storage keys for this account");
