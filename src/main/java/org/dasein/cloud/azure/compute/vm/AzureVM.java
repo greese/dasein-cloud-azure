@@ -281,6 +281,12 @@ public class AzureVM extends AbstractVMSupport {
                     }
                 }
                 if (httpCode == HttpServletResponse.SC_OK || requestId.equals("noChange")) {
+
+                    String storageEndpoint = provider.getStorageEndpoint();
+                    if( storageEndpoint == null || storageEndpoint.isEmpty()) {
+                        throw new CloudException("Cannot find blob storage endpoint in the current region");
+                    }
+
                     //attach any disks as appropriate
                     for (int i = 0; i < diskSizes.length; i++) {
                         if (!diskSizes[i].equals("")) {
@@ -288,7 +294,7 @@ public class AzureVM extends AbstractVMSupport {
                             xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                             xml.append("<HostCaching>ReadWrite</HostCaching>");
                             xml.append("<LogicalDiskSizeInGB>").append(diskSizes[i]).append("</LogicalDiskSizeInGB>");
-                            xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(roleName).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
+                            xml.append("<MediaLink>").append(storageEndpoint).append("vhds/").append(roleName).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
                             xml.append("</DataVirtualHardDisk>");
                             logger.debug(xml);
                             resourceDir = HOSTED_SERVICES + "/" +serviceName+ "/deployments" + "/" +  deploymentName + "/roles"+"/" + roleName+ "/DataDisks";
@@ -503,6 +509,11 @@ public class AzureVM extends AbstractVMSupport {
         }
         try {
             String storageEndpoint = provider.getStorageEndpoint();
+
+            if(storageEndpoint == null || storageEndpoint.isEmpty()) {
+                provider.createDefaultStorageService();
+                storageEndpoint = provider.getStorageEndpoint();
+            }
 
             logger.debug("----------------------------------------------------------");
             logger.debug("launching vm "+options.getHostName()+" with machine image id: "+options.getMachineImageId());
