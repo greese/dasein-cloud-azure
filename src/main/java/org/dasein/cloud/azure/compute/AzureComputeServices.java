@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2012 enStratus Networks Inc
+ * Copyright (C) 2009-2014 Dell, Inc.
+ * See annotations for authorship information
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +16,6 @@
  * limitations under the License.
  * ====================================================================
  */
-
 package org.dasein.cloud.azure.compute;
 
 import org.dasein.cloud.azure.Azure;
@@ -23,20 +23,27 @@ import org.dasein.cloud.azure.compute.disk.AzureDisk;
 import org.dasein.cloud.azure.compute.image.AzureOSImage;
 import org.dasein.cloud.azure.compute.vm.AzureVM;
 import org.dasein.cloud.compute.AbstractComputeServices;
+import org.dasein.cloud.compute.AffinityGroupSupport;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Implements interaction between Dasein Cloud services and the Microsoft Azure cloud services that support
  * the Dasein Cloud services.
  * @author George Reese (george.reese@imaginary.com)
  * @since 2012.04.1
- * @version 2012.04.1
+ * @version 2014.07.1
  */
 public class AzureComputeServices extends AbstractComputeServices {
     private Azure provider;
 
     public AzureComputeServices(@Nonnull Azure provider) { this.provider = provider; }
+
+    @Override
+    public @Nullable AffinityGroupSupport getAffinityGroupSupport() {
+        return null;
+    }
 
     @Override
     public AzureOSImage getImageSupport() {
@@ -51,5 +58,10 @@ public class AzureComputeServices extends AbstractComputeServices {
     @Override
     public AzureDisk getVolumeSupport() {
         return new AzureDisk(provider);
+    }
+
+    @Override
+    public boolean hasAffinityGroupSupport() {
+        return (getAffinityGroupSupport() != null);
     }
 }
