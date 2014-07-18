@@ -108,13 +108,18 @@ public class AzureDisk implements VolumeSupport {
                 xml.append("<MediaLink>" + disk.getMediaLink()+"</MediaLink>");
                 xml.append("</DataVirtualHardDisk>");
             }else{
+
+                String storageEndpoint = provider.getStorageEndpoint();
+                if( storageEndpoint == null || storageEndpoint.isEmpty()) {
+                    throw new CloudException("Cannot find blob storage endpoint in the current region");
+                }
                 //throw new InternalException("volumeId is null !");
                 //dmayne: assume we are attaching a new empty disk?
                 xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
                 xml.append("<HostCaching>ReadWrite</HostCaching>");
                 //todo get actual disk size
                 xml.append("<LogicalDiskSizeInGB>").append("1").append("</LogicalDiskSizeInGB>");
-                xml.append("<MediaLink>").append(provider.getStorageEndpoint()).append("vhds/").append(server.getTag("roleName")).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
+                xml.append("<MediaLink>").append(storageEndpoint).append("vhds/").append(server.getTag("roleName")).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
                 xml.append("</DataVirtualHardDisk>");
             }
 

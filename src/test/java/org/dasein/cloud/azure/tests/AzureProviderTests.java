@@ -156,8 +156,8 @@ public class AzureProviderTests {
         assertEquals("Invalid storage endpoint returned", "http://testdell.blob.core.windows.net/", result);
     }
 
-    @Test(expected = CloudException.class)
-    public void storageEndpointShouldThrowExceptionIfNoBlobEndpointInCurrentRegion() throws CloudException, InternalException {
+    @Test
+    public void storageEndpointShouldReturnNullIfNoBlobEndpointInCurrentRegion() throws CloudException, InternalException {
 
         new NonStrictExpectations() {
             { providerContextMock.getAccountNumber(); result = "12323232323"; }
@@ -209,8 +209,8 @@ public class AzureProviderTests {
         assertEquals("Invalid storage service returned", "testdell", result);
     }
 
-    @Test(expected = CloudException.class)
-    public void getStorageServicShouldThrowExceptionIfNoServiceInCurrentRegion() throws CloudException, InternalException {
+    @Test
+    public void getStorageServicShouldReturnNullIfNoServiceInCurrentRegion() throws CloudException, InternalException {
 
         new NonStrictExpectations() {
             { providerContextMock.getAccountNumber(); result = "12323232323"; }

@@ -18,6 +18,7 @@
 
 package org.dasein.cloud.azure;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.AbstractCloud;
 import org.dasein.cloud.CloudException;
@@ -27,10 +28,13 @@ import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.azure.compute.AzureComputeServices;
 import org.dasein.cloud.azure.network.AzureNetworkServices;
 import org.dasein.cloud.azure.storage.AzureStorageServices;
+import org.dasein.cloud.azure.storage.model.CreateStorageServiceInputModel;
 import org.w3c.dom.Document;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.servlet.http.HttpServletResponse;
+import javax.xml.bind.JAXBException;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
@@ -39,6 +43,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Properties;
 import java.util.Random;
+import java.util.UUID;
 
 /**
  * Core cloud provider implementation for the Microsoft Azure cloud.
@@ -135,7 +140,7 @@ public class Azure extends AbstractCloud {
 
     private transient String storageEndpoint;
 
-    public @Nonnull String getStorageEndpoint() throws CloudException, InternalException {
+    public @Nullable String getStorageEndpoint() throws CloudException, InternalException {
         if( storageEndpoint == null ) {
             ProviderContext ctx = getContext();
 
@@ -159,10 +164,8 @@ public class Azure extends AbstractCloud {
                 throw new CloudException("Invalid blob endpoint search expression");
             }
 
-            if( storageEndpoint == null || storageEndpoint.isEmpty()) {
+            if( storageEndpoint == null || storageEndpoint.isEmpty())
                 storageEndpoint = null;
-                throw new CloudException("Cannot find blob storage endpoint in the current region");
-            }
         }
         return storageEndpoint;
     }
@@ -193,11 +196,52 @@ public class Azure extends AbstractCloud {
                 throw new CloudException("Failed to find storage service in the current region: " + ctx.getRegionId());
             }
 
-            if( storageService == null || storageService.isEmpty()) {
-                throw new CloudException("Unable to find storage service in the current region: " + ctx.getRegionId());
-            }
+            if( storageService == null || storageService.isEmpty())
+                storageService = null;
         }
         return storageService;
+    }
+
+    public void createDefaultStorageService() throws CloudException, InternalException {
+        ProviderContext ctx = getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No configuration was set for this request");
+        }
+
+        String randomSufix = UUID.randomUUID().toString().replace("-", "").substring(0, 13);
+        String serviceName = "portalvhds" + randomSufix;
+        CreateStorageServiceInputModel createStorageServiceInputModel = new CreateStorageServiceInputModel();
+        createStorageServiceInputModel.setServiceName(serviceName);
+        createStorageServiceInputModel.setDescription("Implicitly created storage service");
+        createStorageServiceInputModel.setLabel(new String(Base64.encodeBase64(randomSufix.getBytes())));
+        createStorageServiceInputModel.setLocation(ctx.getRegionId());
+        createStorageServiceInputModel.setGeoReplicationEnabled("true");
+
+        String requestId = null;
+        AzureMethod azureMethod = new AzureMethod(this);
+        try {
+            requestId = azureMethod.post("/services/storageservices", createStorageServiceInputModel);
+        }
+        catch (JAXBException e)
+        {
+            logger.error(e.getMessage());
+            throw new InternalException(e);
+        }
+
+        if (requestId != null) {
+            int httpCode = azureMethod.getOperationStatus(requestId);
+            while (httpCode == -1) {
+                try {
+                    Thread.sleep(15000L);
+                } catch (InterruptedException ignored) {
+                }
+                httpCode = azureMethod.getOperationStatus(requestId);
+            }
+            if (httpCode == HttpServletResponse.SC_OK) {
+                storageEndpoint = "https://" + serviceName + ".blob.core.windows.net/";
+            }
+        }
     }
 
     @Override
