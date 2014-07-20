@@ -12,6 +12,10 @@ import org.dasein.cloud.azure.compute.AzureComputeServices;
 import org.dasein.cloud.azure.network.model.*;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.network.*;
+import org.dasein.cloud.util.Cache;
+import org.dasein.cloud.util.CacheLevel;
+import org.dasein.util.uom.time.Minute;
+import org.dasein.util.uom.time.TimePeriod;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -293,7 +297,19 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
     @Override
     public @Nonnull Iterable<LoadBalancerEndpoint> listEndpoints(@Nonnull String forLoadBalancerId) throws CloudException, InternalException
     {
-        Iterable<VirtualMachine> virtualMachines = this.getProvider().getComputeServices().getVirtualMachineSupport().listVirtualMachines();
+        final Azure provider = getProvider();
+
+        // this list VM call can be very slow, so we cache for a short time to help with clients calling
+        // listEndpoints() on many LBs in a short period of time.
+        Cache<VirtualMachine> cache = Cache.getInstance(provider, "LoadBalancerVMs", VirtualMachine.class, CacheLevel.REGION_ACCOUNT, new TimePeriod<Minute>(1, TimePeriod.MINUTE));
+        Collection<VirtualMachine> virtualMachines = (Collection<VirtualMachine>)cache.get(provider.getContext());
+        if (virtualMachines == null) {
+            virtualMachines = new ArrayList<VirtualMachine>();
+            for (VirtualMachine vm : provider.getComputeServices().getVirtualMachineSupport().listVirtualMachines()) {
+                virtualMachines.add(vm);
+            }
+            cache.put(provider.getContext(), virtualMachines);
+        }
 
         DefinitionModel definitionModel = getDefinition(forLoadBalancerId);
 
