@@ -244,6 +244,10 @@ public class AzureMethod {
 
     public @Nullable <T> T get(Class<T> classType, @Nonnull URI uri) throws CloudException, InternalException{
         InputStream responseAsStream = getAsStream(provider.getContext().getAccountNumber(), uri);
+
+        if(responseAsStream == null)
+            throw new CloudException("Unable to perform HTTP GET at following resource: " + uri.toString());
+
         try {
             JAXBContext context = JAXBContext.newInstance(classType);
             Unmarshaller u = context.createUnmarshaller();
