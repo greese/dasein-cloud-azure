@@ -48,7 +48,7 @@ public class AzureLocationCapabilities extends AbstractCapabilities<Azure> imple
 
     @Override
     public boolean supportsAffinityGroups() {
-        return false;
+        return true;
     }
 
     @Override

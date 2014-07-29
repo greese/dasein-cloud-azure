@@ -173,95 +173,16 @@ public class AzureLocation implements DataCenterServices {
             throw new AzureConfigException("No context was specified for this request");
         }
 
-        Cache<DataCenter> cache = Cache.getInstance(provider, "dataCenters", DataCenter.class, CacheLevel.REGION_ACCOUNT, new TimePeriod<Minute>(15, TimePeriod.MINUTE));
-        Collection<DataCenter> dcs = (Collection<DataCenter>)cache.get(ctx);
+        Collection<DataCenter> dcs = new ArrayList<DataCenter>();
+        DataCenter dc = new DataCenter();
 
-        if( dcs == null ) {
-            dcs = new ArrayList<DataCenter>();
-            logger.info("Get affinity group for "+providerRegionId+" for account "+ctx.getAccountNumber());
-            AzureMethod method = new AzureMethod(provider);
+        dc.setActive(true);
+        dc.setAvailable(true);
+        dc.setName(region.getName());
+        dc.setProviderDataCenterId(providerRegionId);
+        dc.setRegionId(providerRegionId);
+        dcs.add(dc);
 
-            Document doc = method.getAsXML(ctx.getAccountNumber(), "/affinitygroups");
-
-            NodeList entries = doc.getElementsByTagName("AffinityGroup");
-
-            String affinityGroup = "";
-            String affinityRegion = "";
-
-            for (int i = 0; i<entries.getLength(); i++) {
-                Node entry = entries.item(i);
-
-                NodeList attributes = entry.getChildNodes();
-
-                for( int j=0; j<attributes.getLength(); j++ ) {
-                    Node attribute = attributes.item(j);
-                    if(attribute.getNodeType() == Node.TEXT_NODE) continue;
-                    String nodeName = attribute.getNodeName();
-
-                    if (nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
-                        affinityGroup = attribute.getFirstChild().getNodeValue().trim();
-                    }
-                    else if (nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes()) {
-                        affinityRegion = attribute.getFirstChild().getNodeValue().trim();
-                        if (providerRegionId.equalsIgnoreCase(affinityRegion)) {
-                            if (affinityGroup != null && !affinityGroup.equals("")) {
-                                DataCenter dc = new DataCenter();
-
-                                dc.setActive(true);
-                                dc.setAvailable(true);
-                                dc.setName(affinityGroup);
-                                dc.setProviderDataCenterId(affinityGroup);
-                                dc.setRegionId(providerRegionId);
-                                dcs.add(dc);
-                            }
-                        }
-                        else {
-                            affinityGroup = null;
-                            affinityRegion = null;
-                        }
-                    }
-                }
-            }
-            cache.put(ctx, dcs);
-            if (dcs.isEmpty()) {
-                logger.info("Create new affinity group for "+providerRegionId);
-                //create new affinityGroup
-                String name = "Affinity"+(providerRegionId.replaceAll(" ", ""));
-                logger.info(name);
-                String label;
-                try {
-                    StringBuilder xml = new StringBuilder();
-
-                    try {
-                        label = new String(Base64.encodeBase64(name.getBytes("utf-8")));
-                    }
-                    catch( UnsupportedEncodingException e ) {
-                        throw new InternalException(e);
-                    }
-
-                    xml.append("<CreateAffinityGroup xmlns=\"http://schemas.microsoft.com/windowsazure\">") ;
-                    xml.append("<Name>").append(name).append("</Name>");
-                    xml.append("<Label>").append(label).append("</Label>");
-                    xml.append("<Location>").append(providerRegionId).append("</Location>");
-                    xml.append("</CreateAffinityGroup>");
-                    method.post(ctx.getAccountNumber(),"/affinitygroups", xml.toString());
-                }
-                catch (CloudException e) {
-                    logger.error("Unable to create affinity group",e);
-                    throw new CloudException(e);
-                }
-                affinityGroup = name;
-                DataCenter dc = new DataCenter();
-
-                dc.setActive(true);
-                dc.setAvailable(true);
-                dc.setName(affinityGroup);
-                dc.setProviderDataCenterId(affinityGroup);
-                dc.setRegionId(providerRegionId);
-                dcs.add(dc);
-                cache.put(ctx, dcs);
-            }
-        }
         return dcs;
     }
 

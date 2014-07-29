@@ -109,8 +109,8 @@ public class AzureAffinityGroupSupport implements AffinityGroupSupport {
         AzureMethod method = new AzureMethod(this.provider);
         final AffinityGroupModel affinityGroupModel = method.get(AffinityGroupModel.class, String.format(RESOURCE_AFFINITYGROUP, affinityGroupId));
 
-        //TODO see what's the story with datacenterId
-        return AffinityGroup.getInstance(affinityGroupModel.getName(),affinityGroupModel.getName(),affinityGroupModel.getDescription(), "", null);
+        //TODO see if name is enough to be used as an id
+        return AffinityGroup.getInstance(affinityGroupModel.getName(),affinityGroupModel.getName(),affinityGroupModel.getDescription(), affinityGroupModel.getLocation(), null);
     }
 
     /**
@@ -131,8 +131,8 @@ public class AzureAffinityGroupSupport implements AffinityGroupSupport {
 
         for(AffinityGroupModel affinityGroupModel : affinityGroupsModel.getAffinityGroups())
         {
-            //TODO see what's the story with datacenterId
-            AffinityGroup affinityGroup = AffinityGroup.getInstance(affinityGroupModel.getName(),affinityGroupModel.getName(),affinityGroupModel.getDescription(), "", null);
+            //TODO see if name is enough to be used as an id
+            AffinityGroup affinityGroup = AffinityGroup.getInstance(affinityGroupModel.getName(),affinityGroupModel.getName(),affinityGroupModel.getDescription(), affinityGroupModel.getLocation(), null);
 
             if(options != null && options.matches(affinityGroup))
                 affinityGroups.add(affinityGroup);

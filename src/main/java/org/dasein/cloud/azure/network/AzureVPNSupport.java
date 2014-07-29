@@ -132,7 +132,7 @@ public class AzureVPNSupport implements VPNSupport {
             xml.append("<NetworkConfiguration xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns=\"http://schemas.microsoft.com/ServiceHosting/2011/07/NetworkConfiguration\">");
             xml.append("<VirtualNetworkConfiguration>");
             xml.append("<VirtualNetworkSites>");
-            xml.append("VirtualNetworkSite name=\"" + name+ "\" AffinityGroup=\"" +  this.getAffinityGroup(name) +"\">");
+            xml.append("VirtualNetworkSite name=\"" + name+ "\" Location=\"" +  ctx.getRegionId() +"\">");
             xml.append("<AddressSpace>");
             xml.append("<AddressPrefix>"+ cidr +"</AddressPrefix>");
             xml.append("</AddressSpace>");

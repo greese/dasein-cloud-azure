@@ -29,17 +29,7 @@ import org.dasein.cloud.Tag;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
-import org.dasein.cloud.compute.AbstractVolumeSupport;
-import org.dasein.cloud.compute.Platform;
-import org.dasein.cloud.compute.VirtualMachine;
-import org.dasein.cloud.compute.Volume;
-import org.dasein.cloud.compute.VolumeCapabilities;
-import org.dasein.cloud.compute.VolumeCreateOptions;
-import org.dasein.cloud.compute.VolumeFilterOptions;
-import org.dasein.cloud.compute.VolumeFormat;
-import org.dasein.cloud.compute.VolumeProduct;
-import org.dasein.cloud.compute.VolumeState;
-import org.dasein.cloud.compute.VolumeType;
+import org.dasein.cloud.compute.*;
 
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
@@ -623,7 +613,11 @@ public class AzureDisk extends AbstractVolumeSupport {
                 //get the region for this affinity group
                 String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
                 if (affinityGroup != null && !affinityGroup.equals("")) {
-                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    AffinityGroup affinityGroupModel = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
+                    if(affinityGroupModel == null)
+                        return null;
+
+                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
                     if (dc.getRegionId().equals(disk.getProviderRegionId())) {
                         disk.setProviderDataCenterId(dc.getProviderDataCenterId());
                         mediaLocationFound = true;
@@ -703,7 +697,11 @@ public class AzureDisk extends AbstractVolumeSupport {
                 //get the region for this affinity group
                 String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
                 if (affinityGroup != null && !affinityGroup.equals("")) {
-                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    AffinityGroup affinityGroupModel = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
+                    if(affinityGroupModel == null)
+                        return null;
+
+                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
                     if (dc.getRegionId().equals(regionId)) {
                         mediaLocationFound = true;
                     }
