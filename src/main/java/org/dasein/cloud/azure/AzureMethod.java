@@ -244,6 +244,10 @@ public class AzureMethod {
 
     public @Nullable <T> T get(Class<T> classType, @Nonnull URI uri) throws CloudException, InternalException{
         InputStream responseAsStream = getAsStream(provider.getContext().getAccountNumber(), uri);
+
+        if(responseAsStream == null)
+            throw new CloudException("Unable to perform HTTP GET at following resource: " + uri.toString());
+
         try {
             JAXBContext context = JAXBContext.newInstance(classType);
             Unmarshaller u = context.createUnmarshaller();
@@ -264,6 +268,15 @@ public class AzureMethod {
         m.marshal(object, stringWriter);
 
         return post(provider.getContext().getAccountNumber(), resource, stringWriter.toString());
+    }
+
+    public <T> String put(String resource, T object) throws JAXBException, CloudException, InternalException {
+        StringWriter stringWriter = new StringWriter();
+        JAXBContext jc = JAXBContext.newInstance( object.getClass());
+        Marshaller m = jc.createMarshaller();
+        m.marshal(object, stringWriter);
+
+        return invoke("PUT",provider.getContext().getAccountNumber(), resource,stringWriter.toString());
     }
 
     public @Nullable Document getAsXML(@Nonnull String account, @Nonnull URI uri) throws CloudException, InternalException {
