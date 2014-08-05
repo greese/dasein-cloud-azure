@@ -270,6 +270,15 @@ public class AzureMethod {
         return post(provider.getContext().getAccountNumber(), resource, stringWriter.toString());
     }
 
+    public <T> String put(String resource, T object) throws JAXBException, CloudException, InternalException {
+        StringWriter stringWriter = new StringWriter();
+        JAXBContext jc = JAXBContext.newInstance( object.getClass());
+        Marshaller m = jc.createMarshaller();
+        m.marshal(object, stringWriter);
+
+        return invoke("PUT",provider.getContext().getAccountNumber(), resource,stringWriter.toString());
+    }
+
     public @Nullable Document getAsXML(@Nonnull String account, @Nonnull URI uri) throws CloudException, InternalException {
         InputStream stream = getAsStream(account, uri);
         if(stream == null)
