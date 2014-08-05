@@ -341,4 +341,17 @@ public class AzureLocation implements DataCenterServices {
     public ResourcePool getResourcePool(String providerResourcePoolId) throws InternalException, CloudException {
         return null;
     }
+
+    /**
+     * Lists all storage pools
+     *
+     * @return all storage pools supported for this cloud in the context region
+     * @throws org.dasein.cloud.InternalException an error occurred locally in processing the request
+     * @throws org.dasein.cloud.CloudException    an error occurred within the cloud provider or the cloud provider did not approve of the request
+     */
+    @Nonnull
+    @Override
+    public Collection<StoragePool> listStoragePools() throws InternalException, CloudException {
+        return null;
+    }
 }

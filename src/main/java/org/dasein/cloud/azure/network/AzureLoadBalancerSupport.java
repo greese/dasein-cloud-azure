@@ -396,11 +396,10 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
     @Override
     public LoadBalancerHealthCheck getLoadBalancerHealthCheck(@Nonnull String providerLBHealthCheckId, @Nullable String providerLoadBalancerId)throws CloudException, InternalException
     {
-        // FIXME: this check is incorrect, providerLoadBalancerId is marked as @Nullable in the API so it is ok to pass null there
-        if(providerLBHealthCheckId == null && providerLoadBalancerId == null)
-            throw new InternalException("Cannot retrieve Load Balancer Health Check when providerLBHealthCheckId or providerLoadBalancerId are not provided");
+        if(providerLBHealthCheckId == null)
+            throw new InternalException("Cannot retrieve Load Balancer Health Check when providerLBHealthCheckId is not provided");
 
-        String profileId = providerLBHealthCheckId != null ? providerLBHealthCheckId : providerLoadBalancerId;
+        String profileId = providerLoadBalancerId != null ? providerLoadBalancerId : providerLBHealthCheckId;
 
         DefinitionModel definitionModel = getDefinition(profileId);
 

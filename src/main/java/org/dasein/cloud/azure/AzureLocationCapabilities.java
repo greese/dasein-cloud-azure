@@ -55,4 +55,12 @@ public class AzureLocationCapabilities extends AbstractCapabilities<Azure> imple
     public boolean supportsResourcePools() {
         return false;
     }
+
+    /**
+     * Specifies whether the given cloud supports the concept of storage pools
+     */
+    @Override
+    public boolean supportsStoragePools() {
+        return false;
+    }
 }
