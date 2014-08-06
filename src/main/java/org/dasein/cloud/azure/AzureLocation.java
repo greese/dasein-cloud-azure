@@ -352,6 +352,6 @@ public class AzureLocation implements DataCenterServices {
     @Nonnull
     @Override
     public Collection<StoragePool> listStoragePools() throws InternalException, CloudException {
-        return null;
+        return Collections.emptyList();
     }
 }
