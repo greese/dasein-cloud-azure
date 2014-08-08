@@ -42,7 +42,7 @@ public class AzureComputeServices extends AbstractComputeServices {
 
     @Override
     public @Nullable AffinityGroupSupport getAffinityGroupSupport() {
-        return null;
+        return new AzureAffinityGroupSupport(this.provider);
     }
 
     @Override

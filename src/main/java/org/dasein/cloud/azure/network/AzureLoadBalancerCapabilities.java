@@ -1,13 +1,11 @@
 package org.dasein.cloud.azure.network;
 
-import org.dasein.cloud.AbstractCapabilities;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.Requirement;
+import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.network.*;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Collections;
@@ -57,6 +55,17 @@ public class AzureLoadBalancerCapabilities extends AbstractCapabilities<Azure> i
     }
 
     /**
+     * Returns the visible scope of the load balancer or null if not applicable for the specific cloud
+     *
+     * @return The Visible Scope for the load balancer
+     */
+    @Nullable
+    @Override
+    public VisibleScope getLoadBalancerVisibleScope() {
+        return VisibleScope.ACCOUNT_GLOBAL;
+    }
+
+    /**
      * Indicates whether a health check can be created independantly of a load balancer
      *
      * @return false if a health check can exist without having been assigned to a load balancer
@@ -66,6 +75,18 @@ public class AzureLoadBalancerCapabilities extends AbstractCapabilities<Azure> i
     @Override
     public boolean healthCheckRequiresLoadBalancer() throws CloudException, InternalException {
         return true;
+    }
+
+    /**
+     * Indicates whether a name is required when creating a health check
+     *
+     * @return Requirement for health check name
+     * @throws org.dasein.cloud.CloudException
+     * @throws org.dasein.cloud.InternalException
+     */
+    @Override
+    public Requirement healthCheckRequiresName() throws CloudException, InternalException {
+        return null;
     }
 
     /**

@@ -45,6 +45,54 @@ public class AzureDiskCapabilities extends AbstractCapabilities<Azure> implement
         return 16;
     }
 
+    /**
+     * Indicates the maximum IOPS value allowed in the Volume products for the provider.
+     *
+     * @return the maximum IOPS value
+     * @throws org.dasein.cloud.InternalException an error occurred within the Dasein Cloud implementation determining the limit
+     * @throws org.dasein.cloud.CloudException    an error occurred retrieving the limit from the cloud
+     */
+    @Override
+    public int getMaximumVolumeProductIOPS() throws InternalException, CloudException {
+        return 0;
+    }
+
+    /**
+     * Indicates the minimum IOPS value allowed in the Volume products for the provider.
+     *
+     * @return the minimum IOPS value
+     * @throws org.dasein.cloud.InternalException an error occurred within the Dasein Cloud implementation determining the limit
+     * @throws org.dasein.cloud.CloudException    an error occurred retrieving the limit from the cloud
+     */
+    @Override
+    public int getMinimumVolumeProductIOPS() throws InternalException, CloudException {
+        return 0;
+    }
+
+    /**
+     * Indicates the maximum volume size for IOPS Volumes.
+     *
+     * @return the maximum size of an IOPS volume
+     * @throws org.dasein.cloud.InternalException an error occurred within the Dasein Cloud implementation determining the limit
+     * @throws org.dasein.cloud.CloudException    an error occurred retrieving the limit from the cloud
+     */
+    @Override
+    public int getMaximumVolumeSizeIOPS() throws InternalException, CloudException {
+        return 0;
+    }
+
+    /**
+     * Indicates the minimum volume size for IOPS Volumes.
+     *
+     * @return the minimum size of an IOPS volume
+     * @throws org.dasein.cloud.InternalException an error occurred within the Dasein Cloud implementation determining the limit
+     * @throws org.dasein.cloud.CloudException    an error occurred retrieving the limit from the cloud
+     */
+    @Override
+    public int getMinimumVolumeSizeIOPS() throws InternalException, CloudException {
+        return 0;
+    }
+
     @Nullable
     @Override
     public Storage<Gigabyte> getMaximumVolumeSize() throws InternalException, CloudException {

@@ -31,18 +31,7 @@ import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.AzureService;
 import org.dasein.cloud.azure.compute.image.AzureMachineImage;
-import org.dasein.cloud.compute.AbstractVMSupport;
-import org.dasein.cloud.compute.Architecture;
-import org.dasein.cloud.compute.MachineImage;
-import org.dasein.cloud.compute.Platform;
-import org.dasein.cloud.compute.VirtualMachineCapabilities;
-import org.dasein.cloud.compute.VMFilterOptions;
-import org.dasein.cloud.compute.VMLaunchOptions;
-import org.dasein.cloud.compute.VMScalingOptions;
-import org.dasein.cloud.compute.VirtualMachine;
-import org.dasein.cloud.compute.VirtualMachineProduct;
-import org.dasein.cloud.compute.VmState;
-import org.dasein.cloud.compute.VmStatistics;
+import org.dasein.cloud.compute.*;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.RawAddress;
@@ -384,7 +373,7 @@ public class AzureVM extends AbstractVMSupport {
             roleName = vmId;
         }
         DataCenter dc = null;
-
+        AffinityGroup ag = null;
         ProviderContext ctx = provider.getContext();
 
         if( ctx == null ) {
@@ -422,7 +411,11 @@ public class AzureVM extends AbstractVMSupport {
                             //get the region for this affinity group
                             String affinityGroup = property.getFirstChild().getNodeValue().trim();
                             if (affinityGroup != null && !affinityGroup.equals("")) {
-                                dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                                ag = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
+                                if(ag == null)
+                                    return null;
+
+                                dc = provider.getDataCenterServices().getDataCenter(ag.getDataCenterId());
                                 if (dc != null && dc.getRegionId().equals(ctx.getRegionId())) {
                                     mediaLocationFound = true;
                                 }
@@ -475,6 +468,10 @@ public class AzureVM extends AbstractVMSupport {
                                     else {
                                         Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(ctx.getRegionId());
                                         vm.setProviderDataCenterId(dcs.iterator().next().getProviderDataCenterId());
+                                    }
+                                    if(ag != null)
+                                    {
+                                        vm.setAffinityGroupId(ag.getAffinityGroupId());
                                     }
                                     return vm;
                                 }
@@ -542,11 +539,7 @@ public class AzureVM extends AbstractVMSupport {
             String hostName = toUniqueId(options.getHostName(), method, ctx);
             String deploymentSlot = (String)options.getMetaData().get("environment");
 
-            String dataCenterId = options.getDataCenterId();
-            if (dataCenterId == null) {
-                Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(ctx.getRegionId());
-                dataCenterId = dcs.iterator().next().getProviderDataCenterId();
-            }
+            String affinityGroupId = options.getAffinityGroupId();
 
             if( deploymentSlot == null ) {
                 deploymentSlot = "Production";
@@ -559,7 +552,12 @@ public class AzureVM extends AbstractVMSupport {
             xml.append("<ServiceName>").append(hostName).append("</ServiceName>");
             xml.append("<Label>").append(label).append("</Label>");
             xml.append("<Description>").append(options.getDescription()).append("</Description>");
-            xml.append("<AffinityGroup>").append(dataCenterId).append("</AffinityGroup>");
+            if(affinityGroupId != null) {
+                xml.append("<AffinityGroup>").append(affinityGroupId).append("</AffinityGroup>");
+            }
+            else{
+                xml.append("<Location>").append(ctx.getRegionId()).append("</Location>");
+            }
             xml.append("</CreateHostedService>");
             method.post(ctx.getAccountNumber(), HOSTED_SERVICES, xml.toString());
 
@@ -1378,7 +1376,11 @@ public class AzureVM extends AbstractVMSupport {
                         //get the region for this affinity group
                         String affinityGroup = property.getFirstChild().getNodeValue().trim();
                         if (affinityGroup != null && !affinityGroup.equals("")) {
-                            dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                            AffinityGroup affinityGroupModel = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
+                            if(affinityGroupModel == null)
+                                return;
+
+                            dc = provider.getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
                             if (dc != null && dc.getRegionId().equals(regionId)) {
                                 mediaLocationFound = true;
                             }
@@ -1494,7 +1496,11 @@ public class AzureVM extends AbstractVMSupport {
                         //get the region for this affinity group
                         String affinityGroup = property.getFirstChild().getNodeValue().trim();
                         if (affinityGroup != null && !affinityGroup.equals("")) {
-                            DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                            AffinityGroup affinityGroupModel = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
+                            if(affinityGroupModel == null)
+                                return;
+
+                            DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
                             if (dc != null && dc.getRegionId().equals(regionId)) {
                                 mediaLocationFound = true;
                             }
@@ -1961,5 +1967,10 @@ public class AzureVM extends AbstractVMSupport {
             throw new InternalException(e);
         }
         return prd;
+    }
+
+    @Override
+    public Iterable<VirtualMachineProduct> listProducts(VirtualMachineProductFilterOptions options, Architecture architecture) throws InternalException, CloudException{
+        return listProducts(architecture);
     }
 }

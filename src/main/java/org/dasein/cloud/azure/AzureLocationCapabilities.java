@@ -48,7 +48,7 @@ public class AzureLocationCapabilities extends AbstractCapabilities<Azure> imple
 
     @Override
     public boolean supportsAffinityGroups() {
-        return false;
+        return true;
     }
 
     @Override
@@ -56,6 +56,9 @@ public class AzureLocationCapabilities extends AbstractCapabilities<Azure> imple
         return false;
     }
 
+    /**
+     * Specifies whether the given cloud supports the concept of storage pools
+     */
     @Override
     public boolean supportsStoragePools() {
         return false;

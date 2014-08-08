@@ -196,4 +196,58 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
     public boolean supportsSpotVirtualMachines() throws InternalException, CloudException {
         return false;
     }
+
+    /**
+     * Non VMState Defined lifecycle supported operations
+     * The 'can' operations return similar values but based on a specific VM state. These return whether or not there is support at all.
+     */
+    @Override
+    public boolean supportsAlterVM() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsClone() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsPause() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsReboot() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsResume() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsStart() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsStop() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsSuspend() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsTerminate() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsUnPause() {
+        return false;
+    }
 }

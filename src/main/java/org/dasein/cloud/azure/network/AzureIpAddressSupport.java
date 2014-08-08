@@ -1,10 +1,8 @@
 package org.dasein.cloud.azure.network;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.Requirement;
-import org.dasein.cloud.ResourceStatus;
+import org.bouncycastle.util.IPAddress;
+import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.network.model.PersistentVMRoleModel;
@@ -16,7 +14,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.xml.bind.JAXBException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Locale;
+import java.util.concurrent.Future;
 
 /**
  * Created by Vlad_Munthiu on 7/31/2014.
@@ -47,7 +47,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
      */
     @Override
     public void assign(@Nonnull String addressId, @Nonnull String serverId) throws InternalException, CloudException {
-
+        throw new OperationNotSupportedException("AzureIpAddressSupport#assign not supported");
     }
 
     /**
@@ -60,7 +60,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
      */
     @Override
     public void assignToNetworkInterface(@Nonnull String addressId, @Nonnull String nicId) throws InternalException, CloudException {
-
+        throw new OperationNotSupportedException("AzureIpAddressSupport#assignToNetworkInterface not supported");
     }
 
     /**
@@ -144,7 +144,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public IPAddressCapabilities getCapabilities() throws CloudException, InternalException {
-        return null;
+        return new AzureIpAddressCapabilities(this.provider);
     }
 
     /**
@@ -158,7 +158,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nullable
     @Override
     public IpAddress getIpAddress(@Nonnull String addressId) throws InternalException, CloudException {
-        return null;
+        throw new OperationNotSupportedException("AzureIpAddressSupport#getIpAddress not supported");
     }
 
     /**
@@ -172,7 +172,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public String getProviderTermForIpAddress(@Nonnull Locale locale) {
-        return null;
+        return "";
     }
 
     /**
@@ -188,7 +188,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public Requirement identifyVlanForVlanIPRequirement() throws CloudException, InternalException {
-        return null;
+        throw new OperationNotSupportedException("AzureIpAddressSupport#identifyVlanForVlanIPRequirement not supported");
     }
 
     /**
@@ -318,7 +318,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public Iterable<IpAddress> listPrivateIpPool(boolean unassignedOnly) throws InternalException, CloudException {
-        return null;
+        return Collections.emptyList();
     }
 
     /**
@@ -336,7 +336,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public Iterable<IpAddress> listPublicIpPool(boolean unassignedOnly) throws InternalException, CloudException {
-        return null;
+        return Collections.emptyList();
     }
 
     /**
@@ -352,6 +352,23 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public Iterable<IpAddress> listIpPool(@Nonnull IPVersion version, boolean unassignedOnly) throws InternalException, CloudException {
+        return Collections.emptyList();
+    }
+
+    /**
+     * Lists all IP addresses of the specified IP version that are allocated to the account holder's IP address pool. If
+     * the specified version is not supported, an empty list should be returned.  This method implements a callable so
+     * it can be called concurrently.
+     *
+     * @param version        the version of the IP protocol for which you are looking for IP addresses
+     * @param unassignedOnly show only IP addresses that have yet to be assigned to cloud resources
+     * @return all matching IP addresses from the IP address pool
+     * @throws org.dasein.cloud.InternalException a local error occurred loading the IP addresses
+     * @throws org.dasein.cloud.CloudException    an error occurred with the cloud provider while requesting the IP addresses
+     */
+    @Nonnull
+    @Override
+    public Future<Iterable<IpAddress>> listIpPoolConcurrently(@Nonnull IPVersion version, boolean unassignedOnly) throws InternalException, CloudException {
         return null;
     }
 
@@ -367,7 +384,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public Iterable<ResourceStatus> listIpPoolStatus(@Nonnull IPVersion version) throws InternalException, CloudException {
-        return null;
+        return Collections.emptyList();
     }
 
     /**
@@ -383,7 +400,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public Iterable<IpForwardingRule> listRules(@Nonnull String addressId) throws InternalException, CloudException {
-        return null;
+        return Collections.emptyList();
     }
 
     /**
@@ -397,7 +414,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public Iterable<IPVersion> listSupportedIPVersions() throws CloudException, InternalException {
-        return null;
+        return Collections.emptyList();
     }
 
     /**
@@ -412,7 +429,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
      */
     @Override
     public void releaseFromPool(@Nonnull String addressId) throws InternalException, CloudException {
-
+        throw new OperationNotSupportedException("AzureIpAddressSupport#releaseFromPool not supported");
     }
 
     /**
@@ -427,7 +444,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
      */
     @Override
     public void releaseFromServer(@Nonnull String addressId) throws InternalException, CloudException {
-
+        throw new OperationNotSupportedException("AzureIpAddressSupport#releaseFromServer not supported");
     }
 
     /**
@@ -445,7 +462,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public String request(@Nonnull AddressType typeOfAddress) throws InternalException, CloudException {
-        return null;
+        return "";
     }
 
     /**
@@ -459,7 +476,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public String request(@Nonnull IPVersion version) throws InternalException, CloudException {
-        return null;
+        return "";
     }
 
     /**
@@ -475,7 +492,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public String requestForVLAN(@Nonnull IPVersion version) throws InternalException, CloudException {
-        return null;
+        return "";
     }
 
     /**
@@ -492,7 +509,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public String requestForVLAN(@Nonnull IPVersion version, @Nonnull String vlanId) throws InternalException, CloudException {
-        return null;
+        return "";
     }
 
     /**
@@ -505,7 +522,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
      */
     @Override
     public void stopForward(@Nonnull String ruleId) throws InternalException, CloudException {
-
+        throw new OperationNotSupportedException("AzureIpAddressSupport#stopForward not supported");
     }
 
     /**
