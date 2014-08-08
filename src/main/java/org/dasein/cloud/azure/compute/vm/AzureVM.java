@@ -373,7 +373,7 @@ public class AzureVM extends AbstractVMSupport {
             roleName = vmId;
         }
         DataCenter dc = null;
-
+        AffinityGroup ag = null;
         ProviderContext ctx = provider.getContext();
 
         if( ctx == null ) {
@@ -411,11 +411,11 @@ public class AzureVM extends AbstractVMSupport {
                             //get the region for this affinity group
                             String affinityGroup = property.getFirstChild().getNodeValue().trim();
                             if (affinityGroup != null && !affinityGroup.equals("")) {
-                                AffinityGroup affinityGroupModel = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
-                                if(affinityGroupModel == null)
+                                ag = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
+                                if(ag == null)
                                     return null;
 
-                                dc = provider.getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
+                                dc = provider.getDataCenterServices().getDataCenter(ag.getDataCenterId());
                                 if (dc != null && dc.getRegionId().equals(ctx.getRegionId())) {
                                     mediaLocationFound = true;
                                 }
@@ -468,6 +468,10 @@ public class AzureVM extends AbstractVMSupport {
                                     else {
                                         Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(ctx.getRegionId());
                                         vm.setProviderDataCenterId(dcs.iterator().next().getProviderDataCenterId());
+                                    }
+                                    if(ag != null)
+                                    {
+                                        vm.setAffinityGroupId(ag.getAffinityGroupId());
                                     }
                                     return vm;
                                 }
@@ -1963,5 +1967,10 @@ public class AzureVM extends AbstractVMSupport {
             throw new InternalException(e);
         }
         return prd;
+    }
+
+    @Override
+    public Iterable<VirtualMachineProduct> listProducts(VirtualMachineProductFilterOptions options, Architecture architecture) throws InternalException, CloudException{
+        return listProducts(architecture);
     }
 }

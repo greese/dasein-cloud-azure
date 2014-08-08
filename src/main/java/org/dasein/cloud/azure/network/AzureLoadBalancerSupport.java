@@ -399,8 +399,9 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
                                                                     currentMonitor.getHttpOptions().getRelativePath(),
                                                                     Integer.parseInt(currentMonitor.getIntervalInSeconds()),
                                                                     Integer.parseInt(currentMonitor.getTimeoutInSeconds()),
-                                                                    0,
+                                                                    1,
                                                                     Integer.parseInt(currentMonitor.getToleratedNumberOfFailures()));
+            loadBalancerHealthCheck.addProviderLoadBalancerId(profile.getName());
 
             if(opts == null || (opts.matches(loadBalancerHealthCheck)))
                 loadBalancerHealthChecks.add(loadBalancerHealthCheck);
@@ -429,8 +430,9 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
                 currentMonitor.getHttpOptions().getRelativePath(),
                 Integer.parseInt(currentMonitor.getIntervalInSeconds()),
                 Integer.parseInt(currentMonitor.getTimeoutInSeconds()),
-                0,
+                1,
                 Integer.parseInt(currentMonitor.getToleratedNumberOfFailures()));
+        loadBalancerHealthCheck.addProviderLoadBalancerId(profileId);
 
         return loadBalancerHealthCheck;
     }

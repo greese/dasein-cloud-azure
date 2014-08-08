@@ -104,7 +104,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-test</artifactId>
-            <version>2014.07.1-SNAPSHOT</version>
+            <version>2014.08.1</version>
             <scope>test</scope>
             <optional>false</optional>
         </dependency>
@@ -202,6 +202,10 @@
                         <property>
                             <name>endpoint</name>
                             <value>${endpoint}</value>
+                        </property>
+                        <property>
+                            <name>userName</name>
+                            <value>${user.name}</value>
                         </property>
                         <property>
                             <name>accountNumber</name>

@@ -971,7 +971,16 @@ public class AzureVlanSupport extends AbstractVLANSupport {
                     if ( region != null && !region.getProviderRegionId().equals(ctx.getRegionId())) {
                         return null;
                     }
-                    // else: setProviderRegionId was already called above
+                    else
+                    {
+                        DataCenter dc = provider.getDataCenterServices().getDataCenter(region.getProviderRegionId());
+                        if ( dc != null && dc.getRegionId().equals(ctx.getRegionId())) {
+                            vlan.setProviderDataCenterId(dc.getProviderDataCenterId());
+                        }
+                        else {
+                            return null;
+                        }
+                    }
                 }
             }
             else if (nodeName.equalsIgnoreCase("state") && attribute.hasChildNodes() ) {
