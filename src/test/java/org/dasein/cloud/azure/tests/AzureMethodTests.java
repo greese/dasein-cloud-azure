@@ -82,6 +82,27 @@ public class AzureMethodTests
 
     }
 
+    @Test(expected = CloudException.class)
+    public void genericGetThrowsCloudExceptionWhenInputStreamNull(@Injectable final Azure mockedCloudProvider) throws CloudException, URISyntaxException, InternalException {
+        final String dummyXml = "<myroot><node>value</node></myroot>";
+
+        new NonStrictExpectations(){
+            {mockedProviderContext.getEndpoint(); result = "myendpoint";}
+            { mockedCloudProvider.getContext(); result = mockedProviderContext;}
+        };
+        new MockUp<AzureMethod>(){
+            @Mock
+            InputStream getAsStream(@Nonnull String account, @Nonnull String resource) throws UnsupportedEncodingException {return null;}
+        };
+        new MockUp<AzureMethod>(){
+            @Mock
+            InputStream getAsStream(@Nonnull String account, @Nonnull URI uri) throws UnsupportedEncodingException {return null;}
+        };
+
+        final AzureMethod azureMethod = new AzureMethod(mockedCloudProvider);
+        DummyTest actuallObject = azureMethod.<DummyTest>get(DummyTest.class, new URI("myuri"));
+    }
+
     @Test(expected = InternalException.class)
     public void genericGetThrowsInternalExceptionWhenCannotDeserializeTheXml(@Injectable final Azure mockedCloudProvider) throws CloudException, URISyntaxException, InternalException {
         final String dummyXml = "<myroot><node>value</node></myroot>";

@@ -732,6 +732,7 @@ public class AzureOSImage implements MachineImageSupport {
         AzureMachineImage image= new AzureMachineImage();
 
         HashMap<String,String> tags = new HashMap<String,String>();
+        String fullName = null;
         image.setCurrentState(MachineImageState.ACTIVE);
         image.setProviderRegionId(ctx.getRegionId());
         image.setArchitecture(Architecture.I64);

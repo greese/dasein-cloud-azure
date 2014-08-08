@@ -18,15 +18,13 @@
 
 package org.dasein.cloud.azure.network;
 
-import org.dasein.cloud.AbstractCapabilities;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.Requirement;
+import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.network.IPVersion;
 import org.dasein.cloud.network.VLANCapabilities;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Locale;
 
@@ -110,6 +108,12 @@ public class VlanCapabilities extends AbstractCapabilities<Azure> implements VLA
     @Override
     public Requirement getSubnetSupport() throws CloudException, InternalException {
         return Requirement.REQUIRED;
+    }
+
+    @Nullable
+    @Override
+    public VisibleScope getVLANVisibleScope() {
+        return null;
     }
 
     @Nonnull

@@ -50,7 +50,7 @@ public class AzureNetworkServices implements NetworkServices {
 	@Override
 	public IpAddressSupport getIpAddressSupport() {
 		// TODO Auto-generated method stub
-		return null;
+		return new AzureIpAddressSupport(provider);
 	}
 
 	@Override

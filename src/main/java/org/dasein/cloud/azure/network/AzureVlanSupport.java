@@ -45,6 +45,7 @@ import org.dasein.cloud.Tag;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
+import org.dasein.cloud.compute.AffinityGroup;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.dc.Region;
 import org.dasein.cloud.identity.ServiceAction;
@@ -277,7 +278,7 @@ public class AzureVlanSupport implements VLANSupport {
                 xml.append("<VirtualNetworkConfiguration>");
                 xml.append("<Dns />");
                 xml.append("<VirtualNetworkSites>");
-                xml.append("<VirtualNetworkSite name=\"" + name+ "\" AffinityGroup=\"" +  dataCenterId +"\">");
+                xml.append("<VirtualNetworkSite name=\"" + name+ "\" Location=\"" +  regionId +"\">");
                 xml.append("<AddressSpace>");
                 xml.append("<AddressPrefix>").append(cidr).append("</AddressPrefix>");
                 xml.append("</AddressSpace>");
@@ -306,7 +307,7 @@ public class AzureVlanSupport implements VLANSupport {
 
                 Element vns = doc.createElement("VirtualNetworkSite");
                 vns.setAttribute("name", name);
-                vns.setAttribute("AffinityGroup", dataCenterId);
+                vns.setAttribute("Location", regionId);
 
                 Element addressSpace = doc.createElement("AddressSpace");
                 Element addressPrefix = doc.createElement("AddressPrefix");
@@ -936,7 +937,11 @@ public class AzureVlanSupport implements VLANSupport {
             else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
                 String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
                 if (affinityGroup != null && !affinityGroup.equals("")) {
-                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    AffinityGroup affinityGroupModel = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
+                    if(affinityGroupModel == null)
+                        return null;
+
+                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
                     if ( dc != null && dc.getRegionId().equals(ctx.getRegionId())) {
                         vlan.setProviderDataCenterId(dc.getProviderDataCenterId());
                     }
@@ -953,7 +958,16 @@ public class AzureVlanSupport implements VLANSupport {
                     if ( region != null && !region.getProviderRegionId().equals(ctx.getRegionId())) {
                         return null;
                     }
-                    // else: setProviderRegionId was already called above
+                    else
+                    {
+                        DataCenter dc = provider.getDataCenterServices().getDataCenter(region.getProviderRegionId());
+                        if ( dc != null && dc.getRegionId().equals(ctx.getRegionId())) {
+                            vlan.setProviderDataCenterId(dc.getProviderDataCenterId());
+                        }
+                        else {
+                            return null;
+                        }
+                    }
                 }
             }
             else if (nodeName.equalsIgnoreCase("state") && attribute.hasChildNodes() ) {
@@ -1041,7 +1055,11 @@ public class AzureVlanSupport implements VLANSupport {
             else if (nodeName.equalsIgnoreCase("affinitygroup") && attribute.hasChildNodes() ) {
                 String affinityGroup = attribute.getFirstChild().getNodeValue().trim();
                 if (affinityGroup != null && !affinityGroup.equals("")) {
-                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroup);
+                    AffinityGroup affinityGroupModel = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
+                    if(affinityGroupModel == null)
+                        return null;
+
+                    DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
                     if (dc == null || !dc.getRegionId().equals(ctx.getRegionId())) {
                         return null;
                     }

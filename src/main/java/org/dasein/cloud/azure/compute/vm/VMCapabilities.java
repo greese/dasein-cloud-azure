@@ -18,10 +18,7 @@
 
 package org.dasein.cloud.azure.compute.vm;
 
-import org.dasein.cloud.AbstractCapabilities;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.Requirement;
+import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.compute.Architecture;
 import org.dasein.cloud.compute.ImageClass;
@@ -39,62 +36,63 @@ import java.util.Locale;
 /**
  * Describes the capabilities of Azure with respect to Dasein virtual machine operations.
  * <p>Created by Danielle Mayne: 4/03/14 14:00 PM</p>
+ *
  * @author Danielle Mayne
  * @version 2014.03 initial version
  * @since 2014.03
  */
-public class VMCapabilities extends AbstractCapabilities<Azure> implements VirtualMachineCapabilities{
-    public VMCapabilities(@Nonnull Azure provider) {
+public class VMCapabilities extends AbstractCapabilities<Azure> implements VirtualMachineCapabilities {
+    public VMCapabilities( @Nonnull Azure provider ) {
         super(provider);
     }
 
     @Override
-    public boolean canAlter(@Nonnull VmState fromState) throws CloudException, InternalException {
+    public boolean canAlter( @Nonnull VmState fromState ) throws CloudException, InternalException {
         return true;
     }
 
     @Override
-    public boolean canClone(@Nonnull VmState fromState) throws CloudException, InternalException {
+    public boolean canClone( @Nonnull VmState fromState ) throws CloudException, InternalException {
         return false;
     }
 
     @Override
-    public boolean canPause(@Nonnull VmState fromState) throws CloudException, InternalException {
+    public boolean canPause( @Nonnull VmState fromState ) throws CloudException, InternalException {
         return false;
     }
 
     @Override
-    public boolean canReboot(@Nonnull VmState fromState) throws CloudException, InternalException {
+    public boolean canReboot( @Nonnull VmState fromState ) throws CloudException, InternalException {
         return true;
     }
 
     @Override
-    public boolean canResume(@Nonnull VmState fromState) throws CloudException, InternalException {
+    public boolean canResume( @Nonnull VmState fromState ) throws CloudException, InternalException {
         return false;
     }
 
     @Override
-    public boolean canStart(@Nonnull VmState fromState) throws CloudException, InternalException {
+    public boolean canStart( @Nonnull VmState fromState ) throws CloudException, InternalException {
         return !fromState.equals(VmState.RUNNING);
     }
 
     @Override
-    public boolean canStop(@Nonnull VmState fromState) throws CloudException, InternalException {
+    public boolean canStop( @Nonnull VmState fromState ) throws CloudException, InternalException {
         return !fromState.equals(VmState.STOPPED);
     }
 
     @Override
-    public boolean canSuspend(@Nonnull VmState fromState) throws CloudException, InternalException {
+    public boolean canSuspend( @Nonnull VmState fromState ) throws CloudException, InternalException {
         return false;
     }
 
     @Override
-    public boolean canTerminate(@Nonnull VmState fromState) throws CloudException, InternalException {
+    public boolean canTerminate( @Nonnull VmState fromState ) throws CloudException, InternalException {
         return !fromState.equals(VmState.TERMINATED);
     }
 
     @Override
-    public boolean canUnpause(@Nonnull VmState fromState) throws CloudException, InternalException {
+    public boolean canUnpause( @Nonnull VmState fromState ) throws CloudException, InternalException {
         return false;
     }
 
@@ -104,26 +102,38 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
     }
 
     @Override
-    public int getCostFactor(@Nonnull VmState state) throws CloudException, InternalException {
+    public int getCostFactor( @Nonnull VmState state ) throws CloudException, InternalException {
         return !state.equals(VmState.TERMINATED) ? 100 : 0;
     }
 
     @Nonnull
     @Override
-    public String getProviderTermForVirtualMachine(@Nonnull Locale locale) throws CloudException, InternalException {
+    public String getProviderTermForVirtualMachine( @Nonnull Locale locale ) throws CloudException, InternalException {
         return "virtual machine";
     }
 
     @Nullable
     @Override
     public VMScalingCapabilities getVerticalScalingCapabilities() throws CloudException, InternalException {
-        return VMScalingCapabilities.getInstance(false,true,Requirement.REQUIRED,Requirement.NONE);
+        return VMScalingCapabilities.getInstance(false, true, Requirement.REQUIRED, Requirement.NONE);
     }
 
     @Nonnull
     @Override
     public NamingConstraints getVirtualMachineNamingConstraints() throws CloudException, InternalException {
         return NamingConstraints.getStrictInstance(3, 15).constrainedBy(new char[]{'-'});
+    }
+
+    @Nullable
+    @Override
+    public VisibleScope getVirtualMachineVisibleScope() {
+        return null;
+    }
+
+    @Nullable
+    @Override
+    public VisibleScope getVirtualMachineProductVisibleScope() {
+        return null;
     }
 
     @Nonnull
@@ -134,13 +144,13 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
 
     @Nonnull
     @Override
-    public Requirement identifyImageRequirement(@Nonnull ImageClass cls) throws CloudException, InternalException {
-        return (cls.equals(ImageClass.MACHINE) ? Requirement.REQUIRED : Requirement.NONE);
+    public Requirement identifyImageRequirement( @Nonnull ImageClass cls ) throws CloudException, InternalException {
+        return ( cls.equals(ImageClass.MACHINE) ? Requirement.REQUIRED : Requirement.NONE );
     }
 
     @Nonnull
     @Override
-    public Requirement identifyPasswordRequirement(Platform platform) throws CloudException, InternalException {
+    public Requirement identifyPasswordRequirement( Platform platform ) throws CloudException, InternalException {
         return Requirement.OPTIONAL;
     }
 
@@ -152,7 +162,7 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
 
     @Nonnull
     @Override
-    public Requirement identifyShellKeyRequirement(Platform platform) throws CloudException, InternalException {
+    public Requirement identifyShellKeyRequirement( Platform platform ) throws CloudException, InternalException {
         return Requirement.OPTIONAL;
     }
 
@@ -198,5 +208,64 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
     @Override
     public Iterable<Architecture> listSupportedArchitectures() throws InternalException, CloudException {
         return Collections.singletonList(Architecture.I64);
+    }
+
+    @Override
+    public boolean supportsSpotVirtualMachines() throws InternalException, CloudException {
+        return false;
+    }
+
+    /**
+     * Non VMState Defined lifecycle supported operations
+     * The 'can' operations return similar values but based on a specific VM state. These return whether or not there is support at all.
+     */
+    @Override
+    public boolean supportsAlterVM() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsClone() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsPause() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsReboot() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsResume() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsStart() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsStop() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsSuspend() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsTerminate() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsUnPause() {
+        return false;
     }
 }
