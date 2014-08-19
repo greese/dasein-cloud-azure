@@ -63,4 +63,9 @@ public class AzureLocationCapabilities extends AbstractCapabilities<Azure> imple
     public boolean supportsStoragePools() {
         return false;
     }
+
+    @Override
+    public boolean supportsFolders() {
+        return false;
+    }
 }
