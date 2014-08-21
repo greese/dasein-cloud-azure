@@ -19,23 +19,9 @@
 package org.dasein.cloud.azure;
 
 
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpVersion;
-import org.apache.http.StatusLine;
+import org.apache.http.*;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpHead;
-import org.apache.http.client.methods.HttpOptions;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.client.methods.HttpTrace;
-import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.methods.*;
 import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.conn.scheme.Scheme;
@@ -69,7 +55,6 @@ import javax.xml.bind.Unmarshaller;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import java.beans.XMLDecoder;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -132,6 +117,10 @@ public class AzureMethod {
 
             if (uri.toString().indexOf("/services/images") > -1) {
                 get.addHeader("x-ms-version", "2012-08-01");
+            }
+            else if(uri.toString().contains("/services/vmimages"))
+            {
+                get.addHeader("x-ms-version", "2014-02-01");
             }
             else {
                 get.addHeader("x-ms-version", "2012-03-01");
@@ -264,7 +253,7 @@ public class AzureMethod {
 
     public <T> String post(String resource, T object) throws JAXBException, CloudException, InternalException {
         StringWriter stringWriter = new StringWriter();
-        JAXBContext jc = JAXBContext.newInstance( object.getClass());
+        JAXBContext jc = JAXBContext.newInstance(object.getClass());
         Marshaller m = jc.createMarshaller();
         m.marshal(object, stringWriter);
 
@@ -428,8 +417,18 @@ public class AzureMethod {
             String url = endpoint + account + resource;
 
             HttpPost post = new HttpPost(url);
-          
-            post.addHeader("x-ms-version", "2012-03-01");
+
+            if(url.toLowerCase().contains("operations"))
+            {
+                post.addHeader("x-ms-version", "2014-02-01");
+            }
+            else if(url.toLowerCase().contains("/deployments"))
+            {
+                post.addHeader("x-ms-version", "2014-05-01");
+            }
+            else {
+                post.addHeader("x-ms-version", "2012-03-01");
+            }
             
             //If it is networking configuration services
             if(url.endsWith("/services/networking/media")){
