@@ -29,7 +29,6 @@ import org.dasein.cloud.compute.MachineImage;
  */
 public class AzureMachineImage extends MachineImage {
     private String mediaLink;
-    private String azureImageType;
 
     public AzureMachineImage() { }
 
@@ -39,13 +38,5 @@ public class AzureMachineImage extends MachineImage {
 
     public void setMediaLink(String mediaLink) {
         this.mediaLink = mediaLink;
-    }
-
-    public String getAzureImageType() {
-        return azureImageType;
-    }
-
-    public void setAzureImageType(String azureImageType) {
-        this.azureImageType = azureImageType;
     }
 }
