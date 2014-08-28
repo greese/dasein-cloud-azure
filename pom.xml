@@ -271,6 +271,14 @@
                             <name>shareAccount</name>
                             <value>${test.shareAccount}</value>
                         </property>
+                        <property>
+                            <name>http.proxyHost</name>
+                            <value>${http.proxyHost}</value>
+                        </property>
+                        <property>
+                            <name>http.proxyPort</name>
+                            <value>${http.proxyPort}</value>
+                        </property>
                     </systemProperties>
                     <excludes>
                         <exclude>**/TestSuite.java</exclude>
@@ -279,6 +287,11 @@
                         <exclude>**/AzureLoadBalancerSupportTest.java</exclude>
                         <exclude>**/AzureComputeServicesTest.java</exclude>
                         <exclude>**/TestHelpers.java</exclude>
+                        <exclude>**/DummyTest.java</exclude>
+                        <exclude>**/AzureVMTest.java</exclude>
+                        <exclude>**/AzureLoadBalancerSupportTest.java</exclude>
+                        <exclude>**/TestHelpers.java</exclude>
+                        <exclude>**/AzureComputeServicesTest.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
