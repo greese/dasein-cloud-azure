@@ -272,12 +272,12 @@
                             <value>${test.shareAccount}</value>
                         </property>
                         <property>
-                            <name>http.proxyHost</name>
-                            <value>${http.proxyHost}</value>
+                            <name>proxyHost</name>
+                            <value>${proxyHost}</value>
                         </property>
                         <property>
-                            <name>http.proxyPort</name>
-                            <value>${http.proxyPort}</value>
+                            <name>proxyPort</name>
+                            <value>${proxyPort}</value>
                         </property>
                     </systemProperties>
                     <excludes>

@@ -386,9 +386,9 @@ public class AzureMethod {
         }
         else {
             p = System.getProperties();
-            if (p != null && p.getProperty("http.proxyHost") != null && p.getProperty("http.proxyPort") != null) {
-                if (p.getProperty("http.proxyPort").length() > 0) {
-                    httpProxyConfig = new HttpProxyConfig(p.getProperty("http.proxyHost"), Integer.parseInt(p.getProperty("http.proxyPort")));
+            if (p != null && p.getProperty("proxyHost") != null && p.getProperty("proxyPort") != null) {
+                if (p.getProperty("proxyPort").length() > 0) {
+                    httpProxyConfig = new HttpProxyConfig(p.getProperty("proxyHost"), Integer.parseInt(p.getProperty("proxyPort")));
                 }
             }
         }
