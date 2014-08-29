@@ -38,6 +38,7 @@ import org.apache.http.client.methods.HttpTrace;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.conn.params.ConnRoutePNames;
+import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.entity.StringEntity;
@@ -362,9 +363,10 @@ public class AzureMethod {
         params.setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 10000);
         params.setParameter(CoreConnectionPNames.SO_TIMEOUT, 300000);
 
-        HttpProxyConfig httpProxyConfig = tryGetHttpProxyConfigData();
+        HttpProxyConfig httpProxyConfig = getHttpProxyConfigData();
         if(httpProxyConfig != null){
-            params.setParameter(ConnRoutePNames.DEFAULT_PROXY, new HttpHost(httpProxyConfig.getHost(), httpProxyConfig.getPort(), ssl ? "https" : "http"));
+            params.setParameter(ConnRoutePNames.DEFAULT_PROXY, new HttpHost(httpProxyConfig.getHost(), httpProxyConfig.getPort()));
+            registry.register(new Scheme("http", httpProxyConfig.getPort(), new PlainSocketFactory()));
         }
 
         ClientConnectionManager ccm = new ThreadSafeClientConnManager(registry);
@@ -372,7 +374,7 @@ public class AzureMethod {
         return new DefaultHttpClient(ccm, params);
     }
 
-    private HttpProxyConfig tryGetHttpProxyConfigData()
+    private HttpProxyConfig getHttpProxyConfigData()
     {
         Properties p = provider.getContext().getCustomProperties();
 
