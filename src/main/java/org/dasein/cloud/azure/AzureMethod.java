@@ -38,6 +38,7 @@ import org.apache.http.client.methods.HttpTrace;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.conn.params.ConnRoutePNames;
+import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.entity.StringEntity;
@@ -93,7 +94,27 @@ public class AzureMethod {
         public int httpCode;
         public Object body;
     }
-    
+
+    private class HttpProxyConfig
+    {
+        private String host;
+        private Integer port;
+
+        public HttpProxyConfig(String host, Integer port)
+        {
+            this.host = host;
+            this.port = port;
+        }
+
+        public String getHost() {
+            return host;
+        }
+
+        public Integer getPort() {
+            return port;
+        }
+    }
+
     private String endpoint;
     private Azure provider;
     
@@ -342,25 +363,36 @@ public class AzureMethod {
         params.setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 10000);
         params.setParameter(CoreConnectionPNames.SO_TIMEOUT, 300000);
 
-        Properties p = ctx.getCustomProperties();
-
-        if( p != null ) {
-            String proxyHost = p.getProperty("proxyHost");
-            String proxyPort = p.getProperty("proxyPort");
-
-            if( proxyHost != null ) {
-                int port = 0;
-
-                if( proxyPort != null && proxyPort.length() > 0 ) {
-                    port = Integer.parseInt(proxyPort);
-                }
-                params.setParameter(ConnRoutePNames.DEFAULT_PROXY, new HttpHost(proxyHost, port, ssl ? "https" : "http"));
-            }
+        HttpProxyConfig httpProxyConfig = getHttpProxyConfigData();
+        if(httpProxyConfig != null){
+            params.setParameter(ConnRoutePNames.DEFAULT_PROXY, new HttpHost(httpProxyConfig.getHost(), httpProxyConfig.getPort()));
+            registry.register(new Scheme("http", httpProxyConfig.getPort(), new PlainSocketFactory()));
         }
 
         ClientConnectionManager ccm = new ThreadSafeClientConnManager(registry);
 
         return new DefaultHttpClient(ccm, params);
+    }
+
+    private HttpProxyConfig getHttpProxyConfigData()
+    {
+        Properties p = provider.getContext().getCustomProperties();
+
+        HttpProxyConfig httpProxyConfig = null;
+        if( p != null && p.getProperty("proxyHost") != null && p.getProperty("proxyPort") != null) {
+            if(p.getProperty("proxyPort").length() > 0) {
+                httpProxyConfig = new HttpProxyConfig(p.getProperty("proxyHost"), Integer.parseInt(p.getProperty("proxyPort")));
+            }
+        }
+        else {
+            p = System.getProperties();
+            if (p != null && p.getProperty("proxyHost") != null && p.getProperty("proxyPort") != null) {
+                if (p.getProperty("proxyPort").length() > 0) {
+                    httpProxyConfig = new HttpProxyConfig(p.getProperty("proxyHost"), Integer.parseInt(p.getProperty("proxyPort")));
+                }
+            }
+        }
+        return httpProxyConfig;
     }
 
     public @Nonnull Document parseResponse(@Nonnull String responseBody, boolean withWireLogging) throws CloudException, InternalException {
@@ -919,4 +951,6 @@ public class AzureMethod {
         }
         return errMsg;
     }
+
+
 }
