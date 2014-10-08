@@ -344,7 +344,7 @@ public class AzureVM extends AbstractVMSupport {
 
     @Override
     public @Nullable VirtualMachineProduct getProduct(@Nonnull String productId) throws InternalException, CloudException {
-        for( VirtualMachineProduct product : listProducts(Architecture.I64) ) {
+        for( VirtualMachineProduct product : listProducts(null, Architecture.I64) ) {
             if( product.getProviderProductId().equals(productId) ) {            	
                 return product;
             }
@@ -732,14 +732,14 @@ public class AzureVM extends AbstractVMSupport {
     }
 
     @Override
-    public @Nonnull Iterable<VirtualMachineProduct> listProducts(@Nonnull Architecture architecture) throws InternalException, CloudException {
+    public @Nonnull Iterable<VirtualMachineProduct> listProducts(@Nullable VirtualMachineProductFilterOptions options, @Nonnull Architecture architecture) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "listVMProducts");
         try {
             Cache<VirtualMachineProduct> cache = Cache.getInstance(getProvider(), "products" + architecture.name(), VirtualMachineProduct.class, CacheLevel.REGION, new TimePeriod<Day>(1, TimePeriod.DAY));
             Iterable<VirtualMachineProduct> products = cache.get(getContext());
 
             if( products == null ) {
-                ArrayList<VirtualMachineProduct> list = new ArrayList<VirtualMachineProduct>();
+                List<VirtualMachineProduct> list = new ArrayList<VirtualMachineProduct>();
 
                 try {
                     String resource = ((Azure)getProvider()).getVMProductsResource();
@@ -827,7 +827,16 @@ public class AzureVM extends AbstractVMSupport {
                             VirtualMachineProduct prd = toProduct(product);
 
                             if( prd != null ) {
-                                list.add(prd);
+                                if( options != null) {
+                                    // Filter supplied, add matches only.
+                                    if( options.matches(prd) ) {
+                                        list.add(prd);
+                                    }
+                                }
+                                else {
+                                    // No filter supplied, add all survived.
+                                    list.add(prd);
+                                }
                             }
                         }
                     }
@@ -1969,8 +1978,4 @@ public class AzureVM extends AbstractVMSupport {
         return prd;
     }
 
-    @Override
-    public Iterable<VirtualMachineProduct> listProducts(VirtualMachineProductFilterOptions options, Architecture architecture) throws InternalException, CloudException{
-        return listProducts(architecture);
-    }
 }
