@@ -355,7 +355,7 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
     @Nonnull
     @Override
     public Iterable<MachineImage> listImages(@Nullable ImageFilterOptions imageFilterOptions) throws CloudException, InternalException {
-        if (!imageFilterOptions.getImageClass().equals(ImageClass.MACHINE)) {
+        if (imageFilterOptions.getImageClass() != null && !imageFilterOptions.getImageClass().equals(ImageClass.MACHINE)) {
             return Collections.emptyList();
         }
 
