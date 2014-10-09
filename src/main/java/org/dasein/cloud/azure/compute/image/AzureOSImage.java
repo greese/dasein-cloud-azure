@@ -69,7 +69,7 @@ import java.util.Locale;
  * @since 2012.04.1
  * @version 2012.04.1
  */
-public class AzureOSImage extends AbstractImageSupport {
+public class AzureOSImage extends AbstractImageSupport<Azure> {
     static private final Logger logger = Azure.getLogger(AzureOSImage.class);
 
     static private final String IMAGES = "/services/images";
