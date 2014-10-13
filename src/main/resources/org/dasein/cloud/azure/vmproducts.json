@@ -5,11 +5,56 @@
         "products":[
             {
                 "architectures":["I64"],
+                "id":"Basic_A0",
+                "name":"Basic_A0",
+                "description":"Basic_A0",
+                "cpuCount":1,
+                "rootVolumeSizeInGb":20,
+                "ramSizeInMb":768
+            },
+            {
+                "architectures":["I64"],
+                "id":"Basic_A1",
+                "name":"Basic_A1",
+                "description":"Basic_A1",
+                "cpuCount":1,
+                "rootVolumeSizeInGb":40,
+                "ramSizeInMb":1786
+            },
+            {
+                "architectures":["I64"],
+                "id":"Basic_A2",
+                "name":"Basic_A2",
+                "description":"Basic_A2",
+                "cpuCount":2,
+                "rootVolumeSizeInGb":60,
+                "ramSizeInMb":3584
+            },
+            {
+                "architectures":["I64"],
+                "id":"Basic_A3",
+                "name":"Basic_A3",
+                "description":"Basic_A3",
+                "cpuCount":4,
+                "rootVolumeSizeInGb":120,
+                "ramSizeInMb":7168
+            },
+            {
+                "architectures":["I64"],
+                "id":"Basic_A4",
+                "name":"Basic_A4",
+                "description":"Basic_A4",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":240,
+                "ramSizeInMb":14336
+            },
+            {
+                "architectures":["I64"],
                 "id":"ExtraSmall",
                 "name":"Extra Small",
                 "description":"Extra Small",
                 "cpuCount":1,
-                "rootVolumeSizeInGb":15,
+                "rootVolumeSizeInGb":20,
                 "ramSizeInMb":1024
             },
             {
@@ -18,8 +63,8 @@
                 "name":"Small",
                 "description":"Small",
                 "cpuCount":1,
-                "rootVolumeSizeInGb":15,
-                "ramSizeInMb":2048
+                "rootVolumeSizeInGb":70,
+                "ramSizeInMb":1786
             },
             {
                 "architectures":["I64"],
@@ -27,8 +72,8 @@
                 "name":"Medium",
                 "description":"Medium",
                 "cpuCount":2,
-                "rootVolumeSizeInGb":15,
-                "ramSizeInMb":4096
+                "rootVolumeSizeInGb":135,
+                "ramSizeInMb":3584
             },
             {
                 "architectures":["I64"],
@@ -36,7 +81,7 @@
                 "name":"Large",
                 "description":"Large",
                 "cpuCount":4,
-                "rootVolumeSizeInGb":15,
+                "rootVolumeSizeInGb":285,
                 "ramSizeInMb":7168
             },
             {
@@ -45,7 +90,7 @@
                 "name":"Extra Large",
                 "description":"Extra Large",
                 "cpuCount":8,
-                "rootVolumeSizeInGb":15,
+                "rootVolumeSizeInGb":605,
                 "ramSizeInMb":14336
             },
             {
@@ -54,7 +99,7 @@
                 "name":"A5",
                 "description":"A5",
                 "cpuCount":2,
-                "rootVolumeSizeInGb":15,
+                "rootVolumeSizeInGb":135,
                 "ramSizeInMb":14336
             },
             {
@@ -63,7 +108,7 @@
                 "name":"A6",
                 "description":"A6",
                 "cpuCount":4,
-                "rootVolumeSizeInGb":15,
+                "rootVolumeSizeInGb":285,
                 "ramSizeInMb":28672
             },
             {
@@ -72,8 +117,98 @@
                 "name":"A7",
                 "description":"A7",
                 "cpuCount":8,
-                "rootVolumeSizeInGb":15,
+                "rootVolumeSizeInGb":605,
                 "ramSizeInMb":57344
+            },
+            {
+                "architectures":["I64"],
+                "id":"A8",
+                "name":"A8",
+                "description":"A8",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":382,
+                "ramSizeInMb":57344
+            },
+            {
+                "architectures":["I64"],
+                "id":"A9",
+                "name":"A9",
+                "description":"A9",
+                "cpuCount":16,
+                "rootVolumeSizeInGb":382,
+                "ramSizeInMb":114688
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D1",
+                "name":"Standard_D1",
+                "description":"Standard_D1",
+                "cpuCount":1,
+                "rootVolumeSizeInGb":50,
+                "ramSizeInMb":3584
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D2",
+                "name":"Standard_D2",
+                "description":"Standard_D2",
+                "cpuCount":2,
+                "rootVolumeSizeInGb":100,
+                "ramSizeInMb":7168
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D3",
+                "name":"Standard_D3",
+                "description":"Standard_D3",
+                "cpuCount":4,
+                "rootVolumeSizeInGb":200,
+                "ramSizeInMb":14336
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D4",
+                "name":"Standard_D4",
+                "description":"Standard_D4",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":400,
+                "ramSizeInMb":28672
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D11",
+                "name":"Standard_D11",
+                "description":"Standard_D11",
+                "cpuCount":2,
+                "rootVolumeSizeInGb":100,
+                "ramSizeInMb":14336
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D12",
+                "name":"Standard_D12",
+                "description":"Standard_D12",
+                "cpuCount":4,
+                "rootVolumeSizeInGb":200,
+                "ramSizeInMb":28672
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D13",
+                "name":"Standard_D13",
+                "description":"Standard_D13",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":400,
+                "ramSizeInMb":57344
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D14",
+                "name":"Standard_D14",
+                "description":"Standard_D14",
+                "cpuCount":16,
+                "rootVolumeSizeInGb":800,
+                "ramSizeInMb":114688
             }
         ]
     }
