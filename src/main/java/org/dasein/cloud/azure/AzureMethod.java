@@ -154,6 +154,9 @@ public class AzureMethod {
             if (uri.toString().indexOf("/services/images") > -1) {
                 get.addHeader("x-ms-version", "2012-08-01");
             }
+            else if (uri.toString().indexOf("/services/vmimages") > -1) {
+               get.addHeader("x-ms-version", "2014-02-01");
+            }
             else {
                 get.addHeader("x-ms-version", "2012-03-01");
             }
@@ -461,7 +464,7 @@ public class AzureMethod {
 
             HttpPost post = new HttpPost(url);
           
-            post.addHeader("x-ms-version", "2012-03-01");
+            post.addHeader("x-ms-version", "2014-02-01");
             
             //If it is networking configuration services
             if(url.endsWith("/services/networking/media")){
@@ -626,6 +629,9 @@ public class AzureMethod {
             if (url.indexOf("/services/images") > -1 || (httpMethod instanceof HttpDelete && url.indexOf("/services/disks") > -1)) {
                 httpMethod.addHeader("x-ms-version", "2012-08-01");
             }
+            else if (url.indexOf("/services/vmimages") > -1) {
+                httpMethod.addHeader("x-ms-version", "2014-02-01");
+            }
             else {
                 httpMethod.addHeader("x-ms-version", "2012-03-01");
             }
@@ -786,6 +792,9 @@ public class AzureMethod {
             //dmayne version is older for anything to do with images and for disk deletion
             if (url.indexOf("/services/images") > -1 || (httpMethod instanceof HttpDelete && url.indexOf("/services/disks") > -1)) {
                 httpMethod.addHeader("x-ms-version", "2012-08-01");
+            }
+            else if (url.indexOf("/services/vmimages") > -1) {
+                httpMethod.addHeader("x-ms-version", "2014-02-01");
             }
             else {
                 httpMethod.addHeader("x-ms-version", "2012-03-01");
