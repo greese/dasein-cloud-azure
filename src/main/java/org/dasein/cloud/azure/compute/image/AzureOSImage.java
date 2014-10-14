@@ -61,6 +61,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -73,6 +74,7 @@ public class AzureOSImage extends AbstractImageSupport {
     static private final Logger logger = Azure.getLogger(AzureOSImage.class);
 
     static private final String IMAGES = "/services/images";
+    static private final String VMIMAGES = "/services/vmimages";
     static private final String MICROSOFT = "--microsoft--";
 
     private Azure provider;
@@ -367,16 +369,34 @@ public class AzureOSImage extends AbstractImageSupport {
 
         ArrayList<MachineImage> images = new ArrayList<MachineImage>();
         AzureMethod method = new AzureMethod(provider);
-
+        List<Node> nodes = new ArrayList<Node>();
         Document doc = method.getAsXML(ctx.getAccountNumber(), IMAGES);
 
         if( doc == null ) {
             throw new CloudException(CloudErrorType.AUTHENTICATION, HttpServletResponse.SC_FORBIDDEN, "Illegal Access", "Illegal access to requested resource");
         }
         NodeList entries = doc.getElementsByTagName("OSImage");
+        int listSize = entries.getLength();
+        if (listSize > 0) {
+            for (int i = 0; i < listSize; i++) {
+                nodes.add(entries.item(i));
+            }
+        }
 
-        for( int i=0; i<entries.getLength(); i++ ) {
-            Node entry = entries.item(i);
+        doc = method.getAsXML(ctx.getAccountNumber(), VMIMAGES);
+        if( doc == null ) {
+            throw new CloudException(CloudErrorType.AUTHENTICATION, HttpServletResponse.SC_FORBIDDEN, "Illegal Access", "Illegal access to requested resource");
+        }
+        entries = doc.getElementsByTagName("VMImage");
+        listSize = entries.getLength();
+        if (listSize > 0) {
+            for (int i = 0; i < listSize; i++) {
+               nodes.add(entries.item(i));
+            }
+        }
+
+        for( int i=0; i<nodes.size(); i++ ) {
+            Node entry = nodes.get(i);
             AzureMachineImage image = toImage(ctx, entry);
             if (image != null) {
                 image.setImageClass(ImageClass.MACHINE);
@@ -406,17 +426,10 @@ public class AzureOSImage extends AbstractImageSupport {
         ProviderContext ctx = provider.getContext();
 
         String me = ctx.getAccountNumber();
-        ArrayList<MachineImage> allImages = listMachineImages();
-
-        ArrayList<MachineImage> list = new ArrayList<MachineImage>();
-
-        for (MachineImage img : allImages) {
-            if (img.getProviderOwnerId().equalsIgnoreCase(me)) {
-                img.setImageClass(ImageClass.MACHINE);
-                list.add(img);
-            }
-        }
-        return list;
+        ImageFilterOptions options = ImageFilterOptions.getInstance();
+        options.withImageClass(cls);
+        options.withAccountNumber(me);
+        return listImages(options);
     }
 
     @Nonnull
@@ -426,20 +439,10 @@ public class AzureOSImage extends AbstractImageSupport {
             return Collections.emptyList();
         }
 
-        ProviderContext ctx = provider.getContext();
-
-        String me = ctx.getAccountNumber();
-        ArrayList<MachineImage> allImages = listMachineImages();
-
-        ArrayList<MachineImage> list = new ArrayList<MachineImage>();
-
-        for (MachineImage img : allImages) {
-            if (img.getProviderOwnerId().equalsIgnoreCase(ownedBy)) {
-                img.setImageClass(ImageClass.MACHINE);
-                list.add(img);
-            }
-        }
-        return list;
+        ImageFilterOptions options = ImageFilterOptions.getInstance();
+        options.withImageClass(cls);
+        options.withAccountNumber(ownedBy);
+        return listImages(options);
     }
 
     @Override
@@ -525,18 +528,36 @@ public class AzureOSImage extends AbstractImageSupport {
             Node entry = entries.item(i);
             AzureMachineImage image = toImage(ctx, entry);
 
-            if( image != null ) {            	
-            	if(accounts != null){            		
-            		for( String accountNumber : accounts ) {
-            			if( accountNumber.equalsIgnoreCase(image.getProviderOwnerId())) {
-            				iterator.push(image);
+            if( image != null ) {
+                if(accounts != null){
+                    for( String accountNumber : accounts ) {
+                        if( accountNumber.equalsIgnoreCase(image.getProviderOwnerId())) {
+                            iterator.push(image);
                             break;
-            			}
-            		}            	
-            	}
+                        }
+                    }
+                }
                 else if( image.getProviderOwnerId() == null || MICROSOFT.equals(image.getProviderOwnerId()) || "--public--".equals(image.getProviderOwnerId()) ) {
-            		iterator.push(image);
-            	}         
+                    iterator.push(image);
+                }
+            }
+        }
+
+        // Discover any VM images belonging to the account and add them to the list.  
+        doc = method.getAsXML(ctx.getAccountNumber(), VMIMAGES);
+
+        if( doc == null ) {
+            throw new CloudException(CloudErrorType.AUTHENTICATION, HttpServletResponse.SC_FORBIDDEN, "Illegal Access", "Illegal access to requested resource");
+        }
+        entries = doc.getElementsByTagName("VMImage");
+        for( int i=0; i<entries.getLength(); i++ ) {
+            Node entry = entries.item(i);
+            AzureMachineImage image = toImage(ctx, entry);
+
+            if( image != null ) {
+                if( ctx.getAccountNumber().equalsIgnoreCase(image.getProviderOwnerId())) {
+                    iterator.push(image);
+                }
             }
         }
     }

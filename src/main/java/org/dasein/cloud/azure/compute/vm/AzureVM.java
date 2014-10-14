@@ -63,6 +63,7 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -541,6 +542,16 @@ public class AzureVM extends AbstractVMSupport {
 
             String affinityGroupId = options.getAffinityGroupId();
 
+            // Determine if this is a VM Image belonging to an account by examining the imageType metadata.
+            // This value determines the launch parameters that are used.
+            boolean isPrivateImage = false;
+            if (options.getMetaData() != null) {
+                Object imageType = options.getMetaData().get("imageType");
+                if (imageType != null) {
+                    isPrivateImage = imageType.toString().equalsIgnoreCase("private");
+                }
+            }
+
             if( deploymentSlot == null ) {
                 deploymentSlot = "Production";
             }
@@ -582,6 +593,10 @@ public class AzureVM extends AbstractVMSupport {
                     xml.append("<ConfigurationSetType>WindowsProvisioningConfiguration</ConfigurationSetType>");
                     xml.append("<ComputerName>").append(hostName).append("</ComputerName>");
                     xml.append("<AdminPassword>").append(password).append("</AdminPassword>");
+                    // A username of Administrator, Admin, and Admin1 causes provisioning to fail.
+                    String username = (options.getBootstrapUser() == null || options.getBootstrapUser().trim().length() == 0 || options.getBootstrapUser().equalsIgnoreCase("Administrator") 
+                            || options.getBootstrapUser().equalsIgnoreCase("Admin") || options.getBootstrapUser().equalsIgnoreCase("Admin1") ? "dasein" : options.getBootstrapUser());
+                    xml.append("<AdminUsername>").append(username).append("</AdminUsername>");
                     xml.append("<EnableAutomaticUpdate>true</EnableAutomaticUpdate>");
                     xml.append("<TimeZone>UTC</TimeZone>");
                     xml.append("</ConfigurationSet>");
@@ -636,13 +651,18 @@ public class AzureVM extends AbstractVMSupport {
                 }
                 xml.append("</ConfigurationSet>");
                 xml.append("</ConfigurationSets>");
-                xml.append("<DataVirtualHardDisks/>");
-                xml.append("<OSVirtualHardDisk>");
-                xml.append("<HostCaching>ReadWrite</HostCaching>");
-                xml.append("<DiskLabel>OS</DiskLabel>");
-                xml.append("<MediaLink>").append(storageEndpoint).append("vhds/").append(hostName).append(".vhd</MediaLink>");
-                xml.append("<SourceImageName>").append(options.getMachineImageId()).append("</SourceImageName>");
-                xml.append("</OSVirtualHardDisk>");
+                if (isPrivateImage) {
+                   xml.append("<VMImageName>").append(options.getMachineImageId()).append("</VMImageName>");
+                }
+                else {
+                   xml.append("<DataVirtualHardDisks/>");
+                   xml.append("<OSVirtualHardDisk>");
+                   xml.append("<HostCaching>ReadWrite</HostCaching>");
+                   xml.append("<DiskLabel>OS</DiskLabel>");
+                   xml.append("<MediaLink>").append(storageEndpoint).append("vhds/").append(hostName).append(".vhd</MediaLink>");
+                   xml.append("<SourceImageName>").append(options.getMachineImageId()).append("</SourceImageName>");
+                   xml.append("</OSVirtualHardDisk>");
+                }
                 xml.append("<RoleSize>").append(options.getStandardProductId()).append("</RoleSize>");
                 xml.append("</Role>");
                 xml.append("</RoleList>");
