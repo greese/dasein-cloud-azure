@@ -31,6 +31,11 @@ import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.AzureService;
 import org.dasein.cloud.azure.compute.image.AzureMachineImage;
+import org.dasein.cloud.azure.compute.vm.model.ConfigurationSetModel;
+import org.dasein.cloud.azure.compute.vm.model.CreateHostedServiceModel;
+import org.dasein.cloud.azure.compute.vm.model.DeploymentModel;
+import org.dasein.cloud.azure.compute.vm.model.Operation;
+import org.dasein.cloud.azure.network.model.PersistentVMRoleModel;
 import org.dasein.cloud.compute.*;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
@@ -58,6 +63,7 @@ import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletResponse;
+import javax.xml.bind.JAXBException;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
@@ -88,6 +94,7 @@ public class AzureVM extends AbstractVMSupport {
     static private final Logger logger = Azure.getLogger(AzureVM.class);
 
     static public final String HOSTED_SERVICES = "/services/hostedservices";
+    static public final String OPERATIONS_RESOURCES = "/services/hostedservices/%s/deployments/%s/roleInstances/%s/Operations";
 
     private Azure provider;
 
@@ -98,9 +105,9 @@ public class AzureVM extends AbstractVMSupport {
 
     @Override
     public void start(@Nonnull String vmId) throws InternalException, CloudException {
-        if( logger.isTraceEnabled() ) {
-            logger.trace("ENTER: " + AzureVM.class.getName() + ".Boot()");
-        }
+        if(vmId == null)
+            throw new InternalException("The id of the Virtual Machine to start cannot be null.");
+
         VirtualMachine vm = getVirtualMachine(vmId);
 
         if( vm == null ) {
@@ -111,37 +118,19 @@ public class AzureVM extends AbstractVMSupport {
         if( ctx == null ) {
             throw new AzureConfigException("No context was set for this request");
         }
-        String serviceName, deploymentName, roleName;
 
-        serviceName = vm.getTag("serviceName").toString();
-        deploymentName = vm.getTag("deploymentName").toString();
-        roleName = vm.getTag("roleName").toString();
+        String resourceUrl = String.format(OPERATIONS_RESOURCES, vm.getTag("serviceName").toString(),
+                vm.getTag("deploymentName").toString(), vm.getTag("roleName").toString());
+        AzureMethod azureMethod = new AzureMethod(this.provider);
 
-        String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
-        logger.debug("_______________________________________________________");
-        logger.debug("Start operation - "+resourceDir);
-
-        try{
-            AzureMethod method = new AzureMethod(provider);
-           
-        	StringBuilder xml = new StringBuilder();
-        	xml.append("<StartRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\"");
-        	xml.append(" ");
-        	xml.append("xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-        	xml.append("\n");
-        	xml.append("<OperationType>StartRoleOperation</OperationType>");
-        	xml.append("\n");
-        	xml.append("</StartRoleOperation>");
-        	xml.append("\n");
-
-            logger.debug(xml);
-            logger.debug("___________________________________________________");
-          	method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-        	
-        }finally {
-        	if( logger.isTraceEnabled() ) {
-                logger.trace("EXIT: " + AzureVM.class.getName() + ".launch()");
-            }
+        try
+        {
+            azureMethod.post(resourceUrl, new Operation.StartRoleOperation());
+        }
+        catch (JAXBException e)
+        {
+            logger.error(e.getMessage());
+            throw new InternalException(e);
         }
     }
 
@@ -535,7 +524,6 @@ public class AzureVM extends AbstractVMSupport {
                 throw new InternalException(e);
             }
             AzureMethod method = new AzureMethod(provider);
-            StringBuilder xml = new StringBuilder();
             String hostName = toUniqueId(options.getHostName(), method, ctx);
             String deploymentSlot = (String)options.getMetaData().get("environment");
 
@@ -548,132 +536,32 @@ public class AzureVM extends AbstractVMSupport {
                 deploymentSlot = "Production";
             }
 
-            xml.append("<CreateHostedService xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-            xml.append("<ServiceName>").append(hostName).append("</ServiceName>");
-            xml.append("<Label>").append(label).append("</Label>");
-            xml.append("<Description>").append(options.getDescription()).append("</Description>");
-            if(affinityGroupId != null) {
-                xml.append("<AffinityGroup>").append(affinityGroupId).append("</AffinityGroup>");
+            CreateHostedService(options.getDescription(), ctx.getRegionId(), label, hostName, affinityGroupId);
+
+
+            String password = (options.getBootstrapPassword() == null ? provider.generateToken(8, 15) : options.getBootstrapPassword());
+
+            Subnet subnet = null;
+            String vlanName = null;
+            if (options.getVlanId() != null) {
+                subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getSubnetId());
+                if (subnet != null) {
+                    vlanName = subnet.getTags().get("vlanName");
+                } else {
+                    VLAN vlan = provider.getNetworkServices().getVlanSupport().getVlan(options.getVlanId());
+                    if (vlan != null) {
+                        vlanName = vlan.getName();
+                    }
+                }
             }
-            else{
-                xml.append("<Location>").append(ctx.getRegionId()).append("</Location>");
-            }
-            xml.append("</CreateHostedService>");
-            method.post(ctx.getAccountNumber(), HOSTED_SERVICES, xml.toString());
 
             String requestId = null;
-            String password = null;
             try {
-                xml = new StringBuilder();
-                xml.append("<Deployment xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-                xml.append("<Name>").append(hostName).append("</Name>");
-                xml.append("<DeploymentSlot>").append(deploymentSlot).append("</DeploymentSlot>");
-                xml.append("<Label>").append(label).append("</Label>");
-                xml.append("<RoleList>");
-                xml.append("<Role>");
-                xml.append("<RoleName>").append(hostName).append("</RoleName>");
-                xml.append("<RoleType>PersistentVMRole</RoleType>");
-                xml.append("<ConfigurationSets>");
-
-                password = (options.getBootstrapPassword() == null ? provider.generateToken(8, 15) : options.getBootstrapPassword());
-
-                if( image.getPlatform().isWindows() ) {
-                    xml.append("<ConfigurationSet>");
-                    xml.append("<ConfigurationSetType>WindowsProvisioningConfiguration</ConfigurationSetType>");
-                    xml.append("<ComputerName>").append(hostName).append("</ComputerName>");
-                    xml.append("<AdminPassword>").append(password).append("</AdminPassword>");
-                    xml.append("<EnableAutomaticUpdate>true</EnableAutomaticUpdate>");
-                    xml.append("<TimeZone>UTC</TimeZone>");
-                    xml.append("</ConfigurationSet>");
-                }
-                else {
-                    xml.append("<ConfigurationSet>");
-                    xml.append("<ConfigurationSetType>LinuxProvisioningConfiguration</ConfigurationSetType>");
-                    xml.append("<HostName>").append(hostName).append("</HostName>");
-
-                    //dmayne using root causes vm to fail provisioning
-                    String username = (options.getBootstrapUser() == null || options.getBootstrapUser().trim().length() == 0 || options.getBootstrapUser().equals("root") 
-                          ? "dasein" : options.getBootstrapUser());
-                    xml.append("<UserName>").append(username).append("</UserName>");
-                    xml.append("<UserPassword>").append(password).append("</UserPassword>");
-                    xml.append("<DisableSshPasswordAuthentication>false</DisableSshPasswordAuthentication>");
-                    xml.append("</ConfigurationSet>");
-                }
-                xml.append("<ConfigurationSet>");
-                xml.append("<ConfigurationSetType>NetworkConfiguration</ConfigurationSetType>") ;
-                xml.append("<InputEndpoints><InputEndpoint>");
-                if( image.getPlatform().isWindows() ) {
-                    xml.append("<LocalPort>3389</LocalPort>");
-                    xml.append("<Name>RemoteDesktop</Name>");
-                    xml.append("<Port>58622</Port>");
-                }
-                else {
-                    xml.append("<LocalPort>22</LocalPort>");
-                    xml.append("<Name>SSH</Name>");
-                    xml.append("<Port>22</Port>");
-                }
-                xml.append("<Protocol>TCP</Protocol>");
-                xml.append("</InputEndpoint></InputEndpoints>");
-                //dmayne assuming this is a subnet
-                Subnet subnet = null;
-                String vlanName = null;
-                if (options.getVlanId() != null) {
-                    subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getSubnetId());
-                    if (subnet != null) {
-                        xml.append("<SubnetNames>");
-                        xml.append("<SubnetName>").append(subnet.getName()).append("</SubnetName>");
-                        xml.append("</SubnetNames>");
-
-                        //dmayne needed for virtual network name later
-                        vlanName = subnet.getTags().get("vlanName");
-                    }
-                    else {
-                        VLAN vlan = provider.getNetworkServices().getVlanSupport().getVlan(options.getVlanId());
-                        if (vlan != null) {
-                            vlanName = vlan.getName();
-                        }
-                    }
-                }
-                xml.append("</ConfigurationSet>");
-                xml.append("</ConfigurationSets>");
-                xml.append("<DataVirtualHardDisks/>");
-                xml.append("<OSVirtualHardDisk>");
-                xml.append("<HostCaching>ReadWrite</HostCaching>");
-                xml.append("<DiskLabel>OS</DiskLabel>");
-                xml.append("<MediaLink>").append(storageEndpoint).append("vhds/").append(hostName).append(".vhd</MediaLink>");
-                xml.append("<SourceImageName>").append(options.getMachineImageId()).append("</SourceImageName>");
-                xml.append("</OSVirtualHardDisk>");
-                xml.append("<RoleSize>").append(options.getStandardProductId()).append("</RoleSize>");
-                xml.append("</Role>");
-                xml.append("</RoleList>");
-
-                if (options.getVlanId() != null) {
-                    xml.append("<VirtualNetworkName>").append(vlanName).append("</VirtualNetworkName>");
-                }
-                xml.append("</Deployment>");
-
-                requestId = method.post(ctx.getAccountNumber(), HOSTED_SERVICES + "/" + hostName + "/deployments", xml.toString());
+                requestId = CreateDeployment(options, storageEndpoint, image, label, hostName, deploymentSlot, subnet, vlanName, password);
             }
             catch (CloudException e) {
                 logger.error("Launch server failed - now cleaning up service");
-                String resourceDir = HOSTED_SERVICES + "/" + hostName;
-                long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
-                while( timeout > System.currentTimeMillis() ) {
-                    try{
-                        if( logger.isInfoEnabled() ) {
-                            logger.info("Deleting hosted service " + hostName);
-                        }
-                        method.invoke("DELETE", ctx.getAccountNumber(), resourceDir, "");
-                        break;
-                    }
-                    catch( CloudException err ) {
-                        logger.error("Unable to delete hosted service for " + hostName + ": " + err.getMessage());
-                        logger.error("Retrying...");
-                        try { Thread.sleep(30000L); }
-                        catch( InterruptedException ignore ) { }
-                        continue;
-                    }
-                }
+                DeleteHostedService(hostName);
                 throw e;
             }
 
@@ -723,6 +611,149 @@ public class AzureVM extends AbstractVMSupport {
             if( logger.isTraceEnabled() ) {
                 logger.trace("EXIT: " + AzureVM.class.getName() + ".launch()");
             }
+        }
+    }
+
+    private void DeleteHostedService(String hostName) throws InternalException {
+        String resourceDir = HOSTED_SERVICES + "/" + hostName;
+        long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+        while( timeout > System.currentTimeMillis() ) {
+            try{
+                if( logger.isInfoEnabled() ) {
+                    logger.info("Deleting hosted service " + hostName);
+                }
+                AzureMethod method = new AzureMethod(provider);
+                method.invoke("DELETE", provider.getContext().getAccountNumber(), resourceDir, "");
+                break;
+            }
+            catch( CloudException err ) {
+                logger.error("Unable to delete hosted service for " + hostName + ": " + err.getMessage());
+                logger.error("Retrying...");
+                try { Thread.sleep(30000L); }
+                catch( InterruptedException ignore ) { }
+                continue;
+            }
+        }
+    }
+
+    private String CreateDeployment(VMLaunchOptions options, String storageEndpoint, AzureMachineImage image, String label, String hostName, String deploymentSlot, Subnet subnet, String vlanName, String password) throws CloudException, InternalException {
+        DeploymentModel deploymentModel = new DeploymentModel();
+        deploymentModel.setName(hostName);
+        deploymentModel.setDeploymentSlot(deploymentSlot);
+        deploymentModel.setLabel(label);
+
+        DeploymentModel.RoleModel roleModel = new DeploymentModel.RoleModel();
+        roleModel.setRoleName(hostName);
+        roleModel.setRoleType("PersistentVMRole");
+
+        ArrayList<ConfigurationSetModel> configurations = new ArrayList<ConfigurationSetModel>();
+        if (image.getPlatform().isWindows())
+        {
+            ConfigurationSetModel windowsConfigurationSetModel = new ConfigurationSetModel();
+            windowsConfigurationSetModel.setConfigurationSetType("WindowsProvisioningConfiguration");
+            windowsConfigurationSetModel.setType("WindowsProvisioningConfigurationSet");
+            windowsConfigurationSetModel.setComputerName(hostName);
+            windowsConfigurationSetModel.setAdminPassword(password);
+            windowsConfigurationSetModel.setEnableAutomaticUpdates("true");
+            windowsConfigurationSetModel.setTimeZone("UTC");
+            windowsConfigurationSetModel.setAdminUsername((options.getBootstrapUser() == null || options.getBootstrapUser().trim().length() == 0 || options.getBootstrapUser().equalsIgnoreCase("root") || options.getBootstrapUser().equalsIgnoreCase("admin") || options.getBootstrapUser().equalsIgnoreCase("administrator") ? "dasein" : options.getBootstrapUser()));
+            configurations.add(windowsConfigurationSetModel);
+        }
+        else
+        {
+            ConfigurationSetModel unixConfigurationSetModel = new ConfigurationSetModel();
+            unixConfigurationSetModel.setConfigurationSetType("LinuxProvisioningConfiguration");
+            unixConfigurationSetModel.setType("LinuxProvisioningConfigurationSet");
+            unixConfigurationSetModel.setHostName(hostName);
+            unixConfigurationSetModel.setUserName((options.getBootstrapUser() == null || options.getBootstrapUser().trim().length() == 0 || options.getBootstrapUser().equals("root") ? "dasein" : options.getBootstrapUser()));
+            unixConfigurationSetModel.setUserPassword(password);
+            unixConfigurationSetModel.setDisableSshPasswordAuthentication("false");
+            configurations.add(unixConfigurationSetModel);
+
+        }
+
+
+        ConfigurationSetModel networkConfigurationSetModel = new ConfigurationSetModel();
+        networkConfigurationSetModel.setConfigurationSetType("NetworkConfiguration");
+        ArrayList<ConfigurationSetModel.InputEndpointModel> inputEndpointModels = new ArrayList<ConfigurationSetModel.InputEndpointModel>();
+        if(image.getPlatform().isWindows())
+        {
+            ConfigurationSetModel.InputEndpointModel inputEndpointModel = new ConfigurationSetModel.InputEndpointModel();
+            inputEndpointModel.setLocalPort("3389");
+            inputEndpointModel.setName("RemoteDesktop");
+            inputEndpointModel.setPort("58622");
+            inputEndpointModel.setProtocol("TCP");
+            inputEndpointModels.add(inputEndpointModel);
+        }
+        else
+        {
+            ConfigurationSetModel.InputEndpointModel inputEndpointModel = new ConfigurationSetModel.InputEndpointModel();
+            inputEndpointModel.setLocalPort("22");
+            inputEndpointModel.setName("SSH");
+            inputEndpointModel.setPort("22");
+            inputEndpointModel.setProtocol("TCP");
+            inputEndpointModels.add(inputEndpointModel);
+        }
+        networkConfigurationSetModel.setInputEndpoints(inputEndpointModels);
+        if(subnet != null)
+        {
+            ArrayList<String> subnets = new ArrayList<String>();
+            subnets.add(subnet.getName());
+            networkConfigurationSetModel.setSubnetNames(subnets);
+        }
+        configurations.add(networkConfigurationSetModel);
+
+        roleModel.setConfigurationsSets(configurations);
+        if(image.getAzureImageType().equalsIgnoreCase("osimage"))
+        {
+            DeploymentModel.OSVirtualHardDiskModel osVirtualHardDiskModel = new DeploymentModel.OSVirtualHardDiskModel();
+            osVirtualHardDiskModel.setHostCaching("ReadWrite");
+            osVirtualHardDiskModel.setDiskLabel("OS");
+            osVirtualHardDiskModel.setMediaLink(storageEndpoint + "vhds/" + hostName + ".vhd");
+            osVirtualHardDiskModel.setSourceImageName(options.getMachineImageId());
+            roleModel.setOsVirtualDisk(osVirtualHardDiskModel);
+        }
+        else if(image.getAzureImageType().equalsIgnoreCase("vmimage"))
+        {
+            roleModel.setVmImageName(image.getProviderMachineImageId());
+        }
+        roleModel.setRoleSize(options.getStandardProductId());
+
+        ArrayList<DeploymentModel.RoleModel> roles = new ArrayList<DeploymentModel.RoleModel>();
+        roles.add(roleModel);
+        deploymentModel.setRoles(roles);
+
+        if(options.getVlanId() != null)
+        {
+            deploymentModel.setVirtualNetworkName(vlanName);
+        }
+
+        try {
+            AzureMethod method = new AzureMethod(provider);
+            return method.post(HOSTED_SERVICES + "/" + hostName + "/deployments", deploymentModel);
+        } catch (JAXBException e) {
+            logger.error(e.getMessage());
+            throw new CloudException(e);
+        }
+    }
+
+    private void CreateHostedService(String description, String regionId,String label, String hostName, String affinityGroupId) throws CloudException, InternalException {
+        CreateHostedServiceModel createHostedServiceModel = new CreateHostedServiceModel();
+        createHostedServiceModel.setServiceName(hostName);
+        createHostedServiceModel.setLabel(label);
+        createHostedServiceModel.setDescription(description);
+        if(affinityGroupId != null) {
+            createHostedServiceModel.setAffinityGroup(affinityGroupId);
+        } else {
+            createHostedServiceModel.setLocation(regionId);
+        }
+
+        try {
+            AzureMethod method = new AzureMethod(provider);
+            method.post(HOSTED_SERVICES, createHostedServiceModel);
+        } catch (JAXBException e) {
+            logger.error(e.getMessage());
+            throw new CloudException(e);
         }
     }
 
@@ -1562,57 +1593,37 @@ public class AzureVM extends AbstractVMSupport {
 
     @Override
     public void reboot(@Nonnull String vmId) throws CloudException, InternalException {
-        if( logger.isTraceEnabled() ) {
-            logger.trace("ENTER: " + AzureVM.class.getName() + ".reboot()");
+        if(vmId == null)
+            throw new InternalException("The id of the Virtual Machine to reboot cannot be null.");
+
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was set for this request");
         }
-        try {
-            ProviderContext ctx = provider.getContext();
+        VirtualMachine vm = getVirtualMachine(vmId);
 
-            if( ctx == null ) {
-                throw new AzureConfigException("No context was set for this request");
-            }
-            VirtualMachine vm = getVirtualMachine(vmId);
-
-            if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
-            }
-            String serviceName, deploymentName, roleName;
-
-            serviceName = vm.getTag("serviceName").toString();
-            deploymentName = vm.getTag("deploymentName").toString();
-            roleName = vm.getTag("roleName").toString();
-
-            String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
-
-            AzureMethod method = new AzureMethod(provider);
-           
-        	StringBuilder xml = new StringBuilder();
-        	xml.append("<RestartRoleOperation xmlns=\"http://schemas.microsoft.com/windowsazure\"");
-        	xml.append(" ");
-        	xml.append("xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-        	xml.append("\n");
-        	xml.append("<OperationType>RestartRoleOperation</OperationType>");
-        	xml.append("\n");
-        	xml.append("</RestartRoleOperation>");
-        	xml.append("\n");
-
-            if( logger.isInfoEnabled() ) {
-                logger.info("Rebooting " + vmId);
-            }
-          	method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-        	
+        if( vm == null ) {
+            throw new CloudException("No such virtual machine: " + vmId);
         }
-        finally {
-        	if( logger.isTraceEnabled() ) {
-                logger.trace("EXIT: " + AzureVM.class.getName() + ".reboot()");
-            }
+        String resourceUrl = String.format(OPERATIONS_RESOURCES, vm.getTag("serviceName").toString(),
+                vm.getTag("deploymentName").toString(), vm.getTag("roleName").toString());
+        AzureMethod azureMethod = new AzureMethod(this.provider);
+
+        try
+        {
+            azureMethod.post(resourceUrl, new Operation.RestartRoleOperation());
         }
-    
+        catch (JAXBException e)
+        {
+            logger.error(e.getMessage());
+            throw new InternalException(e);
+        }
     }
 
     @Override
     public void resume(@Nonnull String vmId) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Suspend/resume is not supported in Microsoft Azure");
+        this.start(vmId);
     }
 
     @Override
@@ -1622,60 +1633,66 @@ public class AzureVM extends AbstractVMSupport {
 
     @Override
     public void stop(@Nonnull String vmId, boolean force) throws InternalException, CloudException {
-        if( logger.isTraceEnabled() ) {
-            logger.trace("ENTER: " + AzureVM.class.getName() + ".Boot()");
+        if(vmId == null)
+            throw new InternalException("The id of the Virtual Machine to stop cannot be null.");
+
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was set for this request");
         }
-        try {
-            // TODO: force vs not force
-            ProviderContext ctx = provider.getContext();
+        VirtualMachine vm = getVirtualMachine(vmId);
 
-            if( ctx == null ) {
-                throw new AzureConfigException("No context was set for this request");
-            }
-            VirtualMachine vm = getVirtualMachine(vmId);
-
-            if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
-            }
-            String serviceName, deploymentName, roleName;
-
-            serviceName = vm.getTag("serviceName").toString();
-            deploymentName = vm.getTag("deploymentName").toString();
-            roleName = vm.getTag("roleName").toString();
-
-            String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roleInstances/" + roleName + "/Operations";
-            logger.debug("__________________________________________________________");
-            logger.debug("Stop vm "+resourceDir);
-
-            AzureMethod method = new AzureMethod(provider);
-
-            StringBuilder xml = new StringBuilder();
-            xml.append("<ShutdownRoleOperation  xmlns=\"http://schemas.microsoft.com/windowsazure\"");
-            xml.append(" ");
-            xml.append("xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-            xml.append("\n");
-            xml.append("<OperationType>ShutdownRoleOperation </OperationType>");
-            xml.append("\n");
-            xml.append("</ShutdownRoleOperation>");
-            xml.append("\n");
-
-            if( logger.isInfoEnabled() ) {
-                logger.info("Stopping the " + provider.getCloudName() + " virtual machine: " + vmId);
-            }
-            logger.debug(xml);
-            logger.debug("__________________________________________________________");
-            method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
+        if( vm == null ) {
+            throw new CloudException("No such virtual machine: " + vmId);
         }
-        finally {
-            if( logger.isTraceEnabled() ) {
-                logger.trace("EXIT: " + AzureVM.class.getName() + ".launch()");
-            }
+        String resourceUrl = String.format(OPERATIONS_RESOURCES, vm.getTag("serviceName").toString(),
+                vm.getTag("deploymentName").toString(), vm.getTag("roleName").toString());
+        AzureMethod azureMethod = new AzureMethod(this.provider);
+
+        Operation.ShutdownRoleOperation shutdownRoleOperation = new Operation.ShutdownRoleOperation();
+        shutdownRoleOperation.setPostShutdownAction("Stopped");
+        try
+        {
+            azureMethod.post(resourceUrl, shutdownRoleOperation);
+        }
+        catch (JAXBException e)
+        {
+            logger.error(e.getMessage());
+            throw new InternalException(e);
         }
     }
 
     @Override
     public void suspend(@Nonnull String vmId) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Suspend/resume is not supported in Microsoft Azure");
+        if(vmId == null)
+            throw new InternalException("The id of the Virtual Machine to suspend cannot be null.");
+
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was set for this request");
+        }
+        VirtualMachine vm = getVirtualMachine(vmId);
+
+        if( vm == null ) {
+            throw new CloudException("No such virtual machine: " + vmId);
+        }
+        String resourceUrl = String.format(OPERATIONS_RESOURCES, vm.getTag("serviceName").toString(),
+                vm.getTag("deploymentName").toString(), vm.getTag("roleName").toString());
+        AzureMethod azureMethod = new AzureMethod(this.provider);
+
+        Operation.ShutdownRoleOperation shutdownRoleOperation = new Operation.ShutdownRoleOperation();
+        shutdownRoleOperation.setPostShutdownAction("StoppedDeallocated");
+        try
+        {
+            azureMethod.post(resourceUrl, shutdownRoleOperation);
+        }
+        catch (JAXBException e)
+        {
+            logger.error(e.getMessage());
+            throw new InternalException(e);
+        }
     }
 
     @Override
