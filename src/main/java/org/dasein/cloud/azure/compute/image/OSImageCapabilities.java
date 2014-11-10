@@ -110,6 +110,9 @@ public class OSImageCapabilities extends AbstractCapabilities<Azure> implements 
     }
 
     @Override
+    public boolean supportsListingAllRegions() throws CloudException, InternalException {return true;}
+
+    @Override
     public boolean supportsPublicLibrary(@Nonnull ImageClass cls) throws CloudException, InternalException {
         return true;
     }

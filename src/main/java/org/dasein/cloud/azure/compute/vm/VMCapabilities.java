@@ -186,6 +186,9 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
         return false;
     }
 
+    @Override
+    public boolean isUserDefinedPrivateIPSupported() throws CloudException, InternalException{return false;}
+
     @Nonnull
     @Override
     public Iterable<Architecture> listSupportedArchitectures() throws InternalException, CloudException {

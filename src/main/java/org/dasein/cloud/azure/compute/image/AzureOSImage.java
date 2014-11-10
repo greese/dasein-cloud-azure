@@ -266,17 +266,17 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
     @Override
     public boolean isImageSharedWithPublic(@Nonnull String machineImageId) throws CloudException, InternalException {
         MachineImage img = getMachineImage(machineImageId);
-        
-        return (img != null &&
-                (MICROSOFT.equals(img.getProviderOwnerId())
-                    || "--public--".equals(img.getProviderOwnerId())
-                    || "--Canonical--".equals(img.getProviderOwnerId())
-                    || "--RightScaleLinux--".equals(img.getProviderOwnerId())
-                    || "--RightScaleWindows--".equals(img.getProviderOwnerId())
-                    || "--OpenLogic--".equals(img.getProviderOwnerId())
-                    || "--SUSE--".equals(img.getProviderOwnerId())
-                )
-                );
+        return (img != null && isPublicImageProviderOwnerId(img.getProviderOwnerId()));
+    }
+
+    static private boolean isPublicImageProviderOwnerId(String providerOwnerId) {
+        return (MICROSOFT.equals(providerOwnerId)
+                || "--public--".equals(providerOwnerId)
+                || "--Canonical--".equals(providerOwnerId)
+                || "--RightScaleLinux--".equals(providerOwnerId)
+                || "--RightScaleWindows--".equals(providerOwnerId)
+                || "--OpenLogic--".equals(providerOwnerId)
+                || "--SUSE--".equals(providerOwnerId));
     }
 
     private boolean isImageSharedWithPublic(@Nonnull MachineImage img) {
@@ -394,6 +394,64 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
             }
         }
         return images;
+    }
+
+    @Override
+    public @Nonnull Iterable<MachineImage> listImagesAllRegions(@Nullable ImageFilterOptions options) throws CloudException, InternalException{
+        final ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new AzureConfigException("No context was specified for this request");
+        }
+
+        ArrayList<MachineImage> list = new ArrayList<MachineImage>();
+        AzureMethod method = new AzureMethod(provider);
+
+        Document doc = method.getAsXML(ctx.getAccountNumber(), IMAGES);
+
+        if( doc == null ) {
+            throw new CloudException(CloudErrorType.AUTHENTICATION, HttpServletResponse.SC_FORBIDDEN, "Illegal Access", "Illegal access to requested resource");
+        }
+        NodeList entries = doc.getElementsByTagName("OSImage");
+
+        for( int i=0; i<entries.getLength(); i++ ) {
+            Node entry = entries.item(i);
+            String[] allLocations = allLocations(entry);
+            if (allLocations != null) {
+                for (String location : allLocations) {
+                    parseAndAddPrivate(ctx, list, entry, location);
+                }
+            } else {
+                parseAndAddPrivate(ctx, list, entry, null);
+            }
+        }
+        return list;
+    }
+
+    private @Nullable String[] allLocations(@Nullable Node entry) {
+        if( entry == null ) {
+            return null;
+        }
+        NodeList attributes = entry.getChildNodes();
+        for( int i=0; i<attributes.getLength(); i++ ) {
+            Node attribute = attributes.item(i);
+            if(attribute.getNodeType() == Node.TEXT_NODE) continue;
+            String nodeName = attribute.getNodeName();
+            if( nodeName.equalsIgnoreCase("location") && attribute.hasChildNodes() ) {
+                String location = attribute.getFirstChild().getNodeValue().trim();
+                return location.split(";");
+            }
+        }
+        return null;
+    }
+
+    private void parseAndAddPrivate(@Nonnull ProviderContext ctx, @Nonnull ArrayList<MachineImage> list, Node entry, String location) throws CloudException, InternalException {
+        AzureMachineImage image = toImageWithRegion(ctx, entry, location);
+        if( image != null ) {
+            if( ctx.getAccountNumber().equalsIgnoreCase(image.getProviderOwnerId())) {
+                list.add(image);
+            }
+        }
     }
 
     @Nonnull
@@ -730,17 +788,27 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
     }
 
     private @Nullable AzureMachineImage toImage(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
+        return toImageWithRegion(ctx, entry, null);
+    }
+
+    private @Nullable AzureMachineImage toImageWithRegion(@Nonnull ProviderContext ctx, @Nullable Node entry, String forceRegionId) throws CloudException, InternalException {
         if( entry == null ) {
             return null;
         }
 
-        String regionID = ctx.getRegionId();
+        String regionID;
+        if (forceRegionId != null) {
+            regionID = forceRegionId;
+        } else {
+            regionID = ctx.getRegionId();
+        }
+
         AzureMachineImage image= new AzureMachineImage();
 
         HashMap<String,String> tags = new HashMap<String,String>();
         String fullName = null;
         image.setCurrentState(MachineImageState.ACTIVE);
-        image.setProviderRegionId(ctx.getRegionId());
+        image.setProviderRegionId(regionID);
         image.setArchitecture(Architecture.I64);
 
         NodeList attributes = entry.getChildNodes();
@@ -847,6 +915,11 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
             }
         }
         image.setSoftware(descriptor.contains("SQL Server") ? "SQL Server" : "");
+        if (isPublicImageProviderOwnerId(image.getProviderOwnerId())) {
+            tags.put("public", "true");
+        } else {
+            tags.put("public", "false");
+        }
         image.setTags(tags);
         image.setType(MachineImageType.VOLUME);
 
