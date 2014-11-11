@@ -375,57 +375,40 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
         }
         NodeList entries = doc.getElementsByTagName("OSImage");
 
-        for( int i=0; i<entries.getLength(); i++ ) {
-            Node entry = entries.item(i);
-            AzureMachineImage image = toImage(ctx, entry);
-            if (image != null) {
-                image.setImageClass(ImageClass.MACHINE);
+        if(imageFilterOptions.getWithAllRegions()){
+            for( int i=0; i<entries.getLength(); i++ ) {
+                Node entry = entries.item(i);
+                String[] allLocations = allLocations(entry);
+                if (allLocations != null) {
+                    for (String location : allLocations) {
+                        parseAndAddPrivate(ctx, images, entry, location);
+                    }
+                } else {
+                    parseAndAddPrivate(ctx, images, entry, null);
+                }
+            }
+        }
+        else{
+            for( int i=0; i<entries.getLength(); i++ ) {
+                Node entry = entries.item(i);
+                AzureMachineImage image = toImage(ctx, entry);
+                if (image != null) {
+                    image.setImageClass(ImageClass.MACHINE);
 
-                if (imageFilterOptions.matches(image)) {
-                   if (imageFilterOptions.getAccountNumber() == null) {
-                       if (ctx.getAccountNumber().equals(image.getProviderOwnerId())) {
-                           images.add(image);
-                       }
-                   }
-                   else if (image.getProviderOwnerId().equalsIgnoreCase(imageFilterOptions.getAccountNumber())) {
-                           images.add(image);
-                   }
+                    if (imageFilterOptions.matches(image)) {
+                        if (imageFilterOptions.getAccountNumber() == null) {
+                            if (ctx.getAccountNumber().equals(image.getProviderOwnerId())) {
+                                images.add(image);
+                            }
+                        }
+                        else if (image.getProviderOwnerId().equalsIgnoreCase(imageFilterOptions.getAccountNumber())) {
+                            images.add(image);
+                        }
+                    }
                 }
             }
         }
         return images;
-    }
-
-    @Override
-    public @Nonnull Iterable<MachineImage> listImagesAllRegions(@Nullable ImageFilterOptions options) throws CloudException, InternalException{
-        final ProviderContext ctx = provider.getContext();
-
-        if( ctx == null ) {
-            throw new AzureConfigException("No context was specified for this request");
-        }
-
-        ArrayList<MachineImage> list = new ArrayList<MachineImage>();
-        AzureMethod method = new AzureMethod(provider);
-
-        Document doc = method.getAsXML(ctx.getAccountNumber(), IMAGES);
-
-        if( doc == null ) {
-            throw new CloudException(CloudErrorType.AUTHENTICATION, HttpServletResponse.SC_FORBIDDEN, "Illegal Access", "Illegal access to requested resource");
-        }
-        NodeList entries = doc.getElementsByTagName("OSImage");
-
-        for( int i=0; i<entries.getLength(); i++ ) {
-            Node entry = entries.item(i);
-            String[] allLocations = allLocations(entry);
-            if (allLocations != null) {
-                for (String location : allLocations) {
-                    parseAndAddPrivate(ctx, list, entry, location);
-                }
-            } else {
-                parseAndAddPrivate(ctx, list, entry, null);
-            }
-        }
-        return list;
     }
 
     private @Nullable String[] allLocations(@Nullable Node entry) {
