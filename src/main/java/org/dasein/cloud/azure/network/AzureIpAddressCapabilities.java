@@ -32,7 +32,7 @@ public class AzureIpAddressCapabilities extends AbstractCapabilities<Azure> impl
     @Nonnull
     @Override
     public String getProviderTermForIpAddress(@Nonnull Locale locale) {
-        return null;
+        return "IP Address";
     }
 
     /**
@@ -47,8 +47,11 @@ public class AzureIpAddressCapabilities extends AbstractCapabilities<Azure> impl
     @Nonnull
     @Override
     public Requirement identifyVlanForVlanIPRequirement() throws CloudException, InternalException {
-        return null;
+        return Requirement.NONE;
     }
+
+    @Override
+    public @Nonnull Requirement identifyVlanForIPRequirement() throws CloudException, InternalException {return Requirement.NONE;}
 
     /**
      * Indicates whether the underlying cloud supports the assignment of addresses of the specified version
