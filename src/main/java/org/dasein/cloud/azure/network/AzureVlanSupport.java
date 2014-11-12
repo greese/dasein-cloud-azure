@@ -913,6 +913,20 @@ public class AzureVlanSupport extends AbstractVLANSupport {
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
+    /**
+     * Updates meta-data for an internet gateway with the new values. It will not overwrite any value that currently
+     * exists unless it appears in the tags you submit.
+     *
+     * @param internetGatewayId the internet gateway to update
+     * @param tags              the meta-data tags to set
+     * @throws org.dasein.cloud.CloudException    an error occurred within the cloud provider
+     * @throws org.dasein.cloud.InternalException an error occurred within the Dasein Cloud API implementation
+     */
+    @Override
+    public void updateInternetGatewayTags(@Nonnull String internetGatewayId, @Nonnull Tag... tags) throws CloudException, InternalException {
+
+    }
+
     private @Nullable Iterable<VLAN> toVLAN(@Nonnull ProviderContext ctx, @Nullable Node entry) throws CloudException, InternalException {
         if( entry == null ) {
             return null;
