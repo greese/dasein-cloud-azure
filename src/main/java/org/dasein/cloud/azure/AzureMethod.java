@@ -37,10 +37,7 @@ import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ProviderContext;
+import org.dasein.cloud.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -102,6 +99,7 @@ public class AzureMethod {
 
     private String endpoint;
     private Azure provider;
+    private RequestTrackingStrategy strategy;
     
     public AzureMethod(Azure azure) throws CloudException {
         provider = azure;
@@ -117,6 +115,8 @@ public class AzureMethod {
         if( !endpoint.endsWith("/") ) {
             endpoint = endpoint + "/";
         }
+
+        this.strategy = provider.getContext().getRequestTrackingStrategy();
     }
 
     public @Nullable InputStream getAsStream(@Nonnull String account, @Nonnull String resource) throws CloudException, InternalException {
@@ -145,6 +145,10 @@ public class AzureMethod {
             }
             else {
                 get.addHeader("x-ms-version", "2012-03-01");
+            }
+
+            if(strategy != null && strategy.getSendAsHeader()){
+               get.addHeader(strategy.getHeaderName(), strategy.getRequestId());
             }
 
             wire.debug(get.getRequestLine().toString());
@@ -461,7 +465,11 @@ public class AzureMethod {
             else {
                 post.addHeader("x-ms-version", "2012-03-01");
             }
-            
+
+            if(strategy != null && strategy.getSendAsHeader()){
+                post.addHeader(strategy.getHeaderName(), strategy.getRequestId());
+            }
+
             //If it is networking configuration services
             if(url.endsWith("/services/networking/media")){
             	post.addHeader("Content-Type", "text/plain;charset=UTF-8");
@@ -628,6 +636,11 @@ public class AzureMethod {
             else {
                 httpMethod.addHeader("x-ms-version", "2012-03-01");
             }
+
+            if(strategy != null && strategy.getSendAsHeader()){
+                httpMethod.addHeader(strategy.getHeaderName(), strategy.getRequestId());
+            }
+
             if( wire.isDebugEnabled() ) {
                 wire.debug(httpMethod.getRequestLine().toString());
                 for( Header header : httpMethod.getAllHeaders() ) {
@@ -789,6 +802,11 @@ public class AzureMethod {
             else {
                 httpMethod.addHeader("x-ms-version", "2012-03-01");
             }
+
+            if(strategy != null && strategy.getSendAsHeader()){
+                httpMethod.addHeader(strategy.getHeaderName(), strategy.getRequestId());
+            }
+
             if( wire.isDebugEnabled() ) {
                 wire.debug(httpMethod.getRequestLine().toString());
                 for( Header header : httpMethod.getAllHeaders() ) {
