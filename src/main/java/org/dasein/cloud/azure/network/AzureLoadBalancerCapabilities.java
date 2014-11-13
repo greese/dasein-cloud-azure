@@ -113,6 +113,11 @@ public class AzureLoadBalancerCapabilities extends AbstractCapabilities<Azure> i
         return Requirement.REQUIRED;
     }
 
+    @Override
+    public Requirement identifyVlanOnCreateRequirement() throws CloudException, InternalException {
+        return Requirement.NONE;
+    }
+
     /**
      * @return whether or not you are expected to provide an address as part of the create process or one gets assigned
      * by the provider
