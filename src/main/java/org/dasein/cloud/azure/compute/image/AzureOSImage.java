@@ -750,6 +750,10 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
         azureMachineImage.setType(MachineImageType.VOLUME);
         azureMachineImage.setDescription(vmImageModel.getDescription() != null ? vmImageModel.getDescription() : vmImageModel.getName() );
 
+        if(vmImageModel.getOsDiskConfiguration() != null && vmImageModel.getOsDiskConfiguration().getOsState() != null){
+            azureMachineImage.setTag("OSState", vmImageModel.getOsDiskConfiguration().getOsState());
+        }
+
         if(vmImageModel.getOsDiskConfiguration().getMediaLink() != null)
             azureMachineImage.setMediaLink(vmImageModel.getOsDiskConfiguration().getMediaLink());
 
