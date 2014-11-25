@@ -531,11 +531,11 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
         return searchPublicImages(null, platform, null, cls);
     }
 
-    @Nonnull
+    /*@Nonnull
     @Override
     public Iterable<MachineImage> searchImages(@Nullable String accountNumber, @Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture, @Nullable ImageClass... imageClasses) throws CloudException, InternalException {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
+    }*/
 
     @Nonnull
     @Override
@@ -543,7 +543,7 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
         ArrayList<MachineImage> list = new ArrayList<MachineImage>();
         if (imageClasses.length < 1) {
             // return all images
-            Iterable<MachineImage> images = searchMachineImages(keyword, platform, architecture);
+            Iterable<MachineImage> images = searchPublicMachineImages(keyword, platform, architecture);
             for (MachineImage img : images) {
                 if (isImageSharedWithPublic(img)) {
                     list.add(img);
@@ -553,7 +553,7 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
         else {
             for (ImageClass cls : imageClasses) {
                 if (cls.equals(ImageClass.MACHINE)) {
-                    Iterable<MachineImage> images = searchMachineImages(keyword, platform, architecture);
+                    Iterable<MachineImage> images = searchPublicMachineImages(keyword, platform, architecture);
                     for (MachineImage img : images) {
                         if (isImageSharedWithPublic(img)) {
                             list.add(img);
@@ -635,9 +635,13 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
             return "--OpenLogic--";
         } else if( category.toLowerCase().contains("suse") ) {
             return "--SUSE--";
+        } else if( category.toLowerCase().contains("oracle") ) {
+            return "--Oracle--";
+        }else if( category.toLowerCase().contains("public") ) {
+            return "--Public--";
+        } else {
+            return "--" + category + "--";
         }
-
-        return null;
     }
 
     private ArrayList<MachineImage> getOSImages(boolean isGlobalQuery, boolean isPrivate, boolean isPublic) throws CloudException, InternalException
@@ -779,6 +783,7 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
         azureMachineImage.setPlatform(osImageModel.getOs().equalsIgnoreCase("windows") ? Platform.WINDOWS : Platform.UNIX);
         azureMachineImage.setTags(new HashMap<String,String>());
         azureMachineImage.setType(MachineImageType.VOLUME);
+        azureMachineImage.setImageClass(ImageClass.MACHINE);
 
         if( azureMachineImage.getName() == null ) {
             azureMachineImage.setName(azureMachineImage.getProviderMachineImageId());
