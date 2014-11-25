@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 enStratus Networks Inc
+ * Copyright (C) 2013-2014 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -60,7 +60,7 @@ import org.w3c.dom.NodeList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class BlobStore extends AbstractBlobStoreSupport {
+public class BlobStore extends AbstractBlobStoreSupport<Azure> {
     static private final Logger logger = Azure.getLogger(BlobStore.class);
 
     static public final int                                       MAX_BUCKETS     = 100;
@@ -70,6 +70,7 @@ public class BlobStore extends AbstractBlobStoreSupport {
     private Azure provider = null;
 
     public BlobStore(Azure provider) {
+        super(provider);
         this.provider = provider;
     }
 

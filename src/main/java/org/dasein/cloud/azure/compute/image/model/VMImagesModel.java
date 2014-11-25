@@ -16,36 +16,29 @@
  * ====================================================================
  */
 
-package org.dasein.cloud.azure.compute.image;
+package org.dasein.cloud.azure.compute.image.model;
 
-import org.dasein.cloud.compute.MachineImage;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
+import java.util.List;
 
 /**
- * Created by IntelliJ IDEA.
- * User: greese
- * Date: 5/24/12
- * Time: 8:32 AM
- * To change this template use File | Settings | File Templates.
+ * Created by Vlad_Munthiu on 8/15/2014.
  */
-public class AzureMachineImage extends MachineImage {
-    private String mediaLink;
-    private String azureImageType;
+@XmlRootElement(name="VMImages", namespace ="http://schemas.microsoft.com/windowsazure")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class VMImagesModel
+{
+    @XmlElement(name="VMImage", namespace ="http://schemas.microsoft.com/windowsazure")
+    private List<VMImageModel> vmImages;
 
-    public AzureMachineImage() { }
-
-    public String getMediaLink() {
-        return mediaLink;
+    public List<VMImageModel> getVmImages() {
+        return vmImages;
     }
 
-    public void setMediaLink(String mediaLink) {
-        this.mediaLink = mediaLink;
-    }
-
-    public String getAzureImageType() {
-        return azureImageType;
-    }
-
-    public void setAzureImageType(String azureImageType) {
-        this.azureImageType = azureImageType;
+    public void setVmImages(List<VMImageModel> vmImages) {
+        this.vmImages = vmImages;
     }
 }

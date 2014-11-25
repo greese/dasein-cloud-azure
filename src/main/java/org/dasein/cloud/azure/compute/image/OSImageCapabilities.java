@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 enStratus Networks Inc
+ * Copyright (C) 2013-2014 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -117,6 +117,18 @@ public class OSImageCapabilities extends AbstractCapabilities<Azure> implements 
         return type.equals(MachineImageType.VOLUME);
     }
 
+    /**
+     * Indicates whether copying of an image to another region is supported by this cloud.
+     *
+     * @return true if you can copy images in this cloud to other regions
+     * @throws org.dasein.cloud.CloudException    an error occurred with the cloud provider when checking this capability
+     * @throws org.dasein.cloud.InternalException an error occurred within the Dasein cloud implementation while check this capability
+     */
+    @Override
+    public boolean supportsImageCopy() throws CloudException, InternalException {
+        return false;
+    }
+
     @Override
     public boolean supportsImageSharing() throws CloudException, InternalException {
         return false;
@@ -126,6 +138,9 @@ public class OSImageCapabilities extends AbstractCapabilities<Azure> implements 
     public boolean supportsImageSharingWithPublic() throws CloudException, InternalException {
         return false;
     }
+
+    @Override
+    public boolean supportsListingAllRegions() throws CloudException, InternalException {return true;}
 
     @Override
     public boolean supportsPublicLibrary(@Nonnull ImageClass cls) throws CloudException, InternalException {

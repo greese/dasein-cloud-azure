@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 enStratus Networks Inc
+ * Copyright (C) 2013-2014 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -203,6 +203,9 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
     public boolean isUserDataSupported() throws CloudException, InternalException {
         return false;
     }
+
+    @Override
+    public boolean isUserDefinedPrivateIPSupported() throws CloudException, InternalException{return false;}
 
     @Nonnull
     @Override

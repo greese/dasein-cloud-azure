@@ -16,7 +16,7 @@
  * ====================================================================
  */
 
-package org.dasein.cloud.azure.compute.model;
+package org.dasein.cloud.azure.compute.vm.model;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -24,28 +24,28 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 
 /**
- * Created by Vlad_Munthiu on 7/23/2014.
+ * Created by Vlad_Munthiu on 8/19/2014.
  */
-
-@XmlRootElement(name="CreateAffinityGroup", namespace ="http://schemas.microsoft.com/windowsazure")
+@XmlRootElement(name="CreateHostedService", namespace ="http://schemas.microsoft.com/windowsazure")
 @XmlAccessorType(XmlAccessType.FIELD)
-public class CreateAffinityGroupModel {
-
-    @XmlElement(name="Name", namespace ="http://schemas.microsoft.com/windowsazure")
-    private String name;
+public class CreateHostedServiceModel {
+    @XmlElement(name="ServiceName", namespace ="http://schemas.microsoft.com/windowsazure")
+    private String serviceName;
     @XmlElement(name="Label", namespace ="http://schemas.microsoft.com/windowsazure")
     private String label;
     @XmlElement(name="Description", namespace ="http://schemas.microsoft.com/windowsazure")
     private String description;
+    @XmlElement(name="AffinityGroup", namespace ="http://schemas.microsoft.com/windowsazure")
+    private String affinityGroup;
     @XmlElement(name="Location", namespace ="http://schemas.microsoft.com/windowsazure")
     private String location;
 
-    public String getName() {
-        return name;
+    public String getServiceName() {
+        return serviceName;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setServiceName(String serviceName) {
+        this.serviceName = serviceName;
     }
 
     public String getLabel() {
@@ -62,6 +62,14 @@ public class CreateAffinityGroupModel {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getAffinityGroup() {
+        return affinityGroup;
+    }
+
+    public void setAffinityGroup(String affinityGroup) {
+        this.affinityGroup = affinityGroup;
     }
 
     public String getLocation() {

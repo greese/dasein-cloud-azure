@@ -16,10 +16,7 @@
  * ====================================================================
  */
 
-package org.dasein.cloud.azure.tests.compute;
+@XmlSchema(namespace = "http://schemas.microsoft.com/windowsazure", elementFormDefault = javax.xml.bind.annotation.XmlNsForm.QUALIFIED)
+package org.dasein.cloud.azure.compute.vm.model;
 
-/**
- * Created by Vlad_Munthiu on 7/23/2014.
- */
-public class AzureAffinityGroupSupportTests {
-}
+import javax.xml.bind.annotation.XmlSchema;

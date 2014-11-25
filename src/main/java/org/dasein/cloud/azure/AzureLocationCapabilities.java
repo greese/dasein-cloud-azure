@@ -1,6 +1,5 @@
 /**
- * Copyright (C) 2009-2014 Dell, Inc.
- * See annotations for authorship information
+ * Copyright (C) 2013-2014 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +15,7 @@
  * limitations under the License.
  * ====================================================================
  */
+
 package org.dasein.cloud.azure;
 
 import org.dasein.cloud.AbstractCapabilities;
@@ -61,6 +61,11 @@ public class AzureLocationCapabilities extends AbstractCapabilities<Azure> imple
      */
     @Override
     public boolean supportsStoragePools() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsFolders() {
         return false;
     }
 }

@@ -16,36 +16,28 @@
  * ====================================================================
  */
 
-package org.dasein.cloud.azure.compute.image;
+package org.dasein.cloud.azure.compute.image.model;
 
-import org.dasein.cloud.compute.MachineImage;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
+import java.util.List;
 
 /**
- * Created by IntelliJ IDEA.
- * User: greese
- * Date: 5/24/12
- * Time: 8:32 AM
- * To change this template use File | Settings | File Templates.
+ * Created by Vlad_Munthiu on 8/18/2014.
  */
-public class AzureMachineImage extends MachineImage {
-    private String mediaLink;
-    private String azureImageType;
+@XmlRootElement(name="Images", namespace ="http://schemas.microsoft.com/windowsazure")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class OSImagesModel {
+    @XmlElement(name="OSImage", namespace ="http://schemas.microsoft.com/windowsazure")
+    private List<OSImageModel> images;
 
-    public AzureMachineImage() { }
-
-    public String getMediaLink() {
-        return mediaLink;
+    public List<OSImageModel> getImages() {
+        return images;
     }
 
-    public void setMediaLink(String mediaLink) {
-        this.mediaLink = mediaLink;
-    }
-
-    public String getAzureImageType() {
-        return azureImageType;
-    }
-
-    public void setAzureImageType(String azureImageType) {
-        this.azureImageType = azureImageType;
+    public void setImages(List<OSImageModel> images) {
+        this.images = images;
     }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 enStratus Networks Inc
+ * Copyright (C) 2013-2014 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,25 +19,12 @@
 package org.dasein.cloud.azure;
 
 
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpVersion;
-import org.apache.http.StatusLine;
+import org.apache.http.*;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpHead;
-import org.apache.http.client.methods.HttpOptions;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.client.methods.HttpTrace;
-import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.methods.*;
 import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.conn.params.ConnRoutePNames;
+import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.entity.StringEntity;
@@ -50,10 +37,7 @@ import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
-import org.dasein.cloud.CloudErrorType;
-import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
-import org.dasein.cloud.ProviderContext;
+import org.dasein.cloud.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -69,7 +53,6 @@ import javax.xml.bind.Unmarshaller;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import java.beans.XMLDecoder;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -93,9 +76,30 @@ public class AzureMethod {
         public int httpCode;
         public Object body;
     }
-    
+
+    private class HttpProxyConfig
+    {
+        private String host;
+        private Integer port;
+
+        public HttpProxyConfig(String host, Integer port)
+        {
+            this.host = host;
+            this.port = port;
+        }
+
+        public String getHost() {
+            return host;
+        }
+
+        public Integer getPort() {
+            return port;
+        }
+    }
+
     private String endpoint;
     private Azure provider;
+    private RequestTrackingStrategy strategy;
     
     public AzureMethod(Azure azure) throws CloudException {
         provider = azure;
@@ -111,6 +115,8 @@ public class AzureMethod {
         if( !endpoint.endsWith("/") ) {
             endpoint = endpoint + "/";
         }
+
+        this.strategy = provider.getContext().getRequestTrackingStrategy();
     }
 
     public @Nullable InputStream getAsStream(@Nonnull String account, @Nonnull String resource) throws CloudException, InternalException {
@@ -133,8 +139,16 @@ public class AzureMethod {
             if (uri.toString().indexOf("/services/images") > -1) {
                 get.addHeader("x-ms-version", "2012-08-01");
             }
+            else if(uri.toString().contains("/services/vmimages"))
+            {
+                get.addHeader("x-ms-version", "2014-05-01");
+            }
             else {
                 get.addHeader("x-ms-version", "2012-03-01");
+            }
+
+            if(strategy != null && strategy.getSendAsHeader()){
+               get.addHeader(strategy.getHeaderName(), strategy.getRequestId());
             }
 
             wire.debug(get.getRequestLine().toString());
@@ -264,7 +278,7 @@ public class AzureMethod {
 
     public <T> String post(String resource, T object) throws JAXBException, CloudException, InternalException {
         StringWriter stringWriter = new StringWriter();
-        JAXBContext jc = JAXBContext.newInstance( object.getClass());
+        JAXBContext jc = JAXBContext.newInstance(object.getClass());
         Marshaller m = jc.createMarshaller();
         m.marshal(object, stringWriter);
 
@@ -342,25 +356,36 @@ public class AzureMethod {
         params.setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 10000);
         params.setParameter(CoreConnectionPNames.SO_TIMEOUT, 300000);
 
-        Properties p = ctx.getCustomProperties();
-
-        if( p != null ) {
-            String proxyHost = p.getProperty("proxyHost");
-            String proxyPort = p.getProperty("proxyPort");
-
-            if( proxyHost != null ) {
-                int port = 0;
-
-                if( proxyPort != null && proxyPort.length() > 0 ) {
-                    port = Integer.parseInt(proxyPort);
-                }
-                params.setParameter(ConnRoutePNames.DEFAULT_PROXY, new HttpHost(proxyHost, port, ssl ? "https" : "http"));
-            }
+        HttpProxyConfig httpProxyConfig = getHttpProxyConfigData();
+        if(httpProxyConfig != null){
+            params.setParameter(ConnRoutePNames.DEFAULT_PROXY, new HttpHost(httpProxyConfig.getHost(), httpProxyConfig.getPort()));
+            registry.register(new Scheme("http", httpProxyConfig.getPort(), new PlainSocketFactory()));
         }
 
         ClientConnectionManager ccm = new ThreadSafeClientConnManager(registry);
 
         return new DefaultHttpClient(ccm, params);
+    }
+
+    private HttpProxyConfig getHttpProxyConfigData()
+    {
+        Properties p = provider.getContext().getCustomProperties();
+
+        HttpProxyConfig httpProxyConfig = null;
+        if( p != null && p.getProperty("proxyHost") != null && p.getProperty("proxyPort") != null) {
+            if(p.getProperty("proxyPort").length() > 0) {
+                httpProxyConfig = new HttpProxyConfig(p.getProperty("proxyHost"), Integer.parseInt(p.getProperty("proxyPort")));
+            }
+        }
+        else {
+            p = System.getProperties();
+            if (p != null && p.getProperty("proxyHost") != null && p.getProperty("proxyPort") != null) {
+                if (p.getProperty("proxyPort").length() > 0) {
+                    httpProxyConfig = new HttpProxyConfig(p.getProperty("proxyHost"), Integer.parseInt(p.getProperty("proxyPort")));
+                }
+            }
+        }
+        return httpProxyConfig;
     }
 
     public @Nonnull Document parseResponse(@Nonnull String responseBody, boolean withWireLogging) throws CloudException, InternalException {
@@ -428,9 +453,23 @@ public class AzureMethod {
             String url = endpoint + account + resource;
 
             HttpPost post = new HttpPost(url);
-          
-            post.addHeader("x-ms-version", "2012-03-01");
-            
+
+            if(url.toLowerCase().contains("operations"))
+            {
+                post.addHeader("x-ms-version", "2014-02-01");
+            }
+            else if(url.toLowerCase().contains("/deployments"))
+            {
+                post.addHeader("x-ms-version", "2014-05-01");
+            }
+            else {
+                post.addHeader("x-ms-version", "2012-03-01");
+            }
+
+            if(strategy != null && strategy.getSendAsHeader()){
+                post.addHeader(strategy.getHeaderName(), strategy.getRequestId());
+            }
+
             //If it is networking configuration services
             if(url.endsWith("/services/networking/media")){
             	post.addHeader("Content-Type", "text/plain;charset=UTF-8");
@@ -598,6 +637,11 @@ public class AzureMethod {
             else {
                 httpMethod.addHeader("x-ms-version", "2012-03-01");
             }
+
+            if(strategy != null && strategy.getSendAsHeader()){
+                httpMethod.addHeader(strategy.getHeaderName(), strategy.getRequestId());
+            }
+
             if( wire.isDebugEnabled() ) {
                 wire.debug(httpMethod.getRequestLine().toString());
                 for( Header header : httpMethod.getAllHeaders() ) {
@@ -759,6 +803,11 @@ public class AzureMethod {
             else {
                 httpMethod.addHeader("x-ms-version", "2012-03-01");
             }
+
+            if(strategy != null && strategy.getSendAsHeader()){
+                httpMethod.addHeader(strategy.getHeaderName(), strategy.getRequestId());
+            }
+
             if( wire.isDebugEnabled() ) {
                 wire.debug(httpMethod.getRequestLine().toString());
                 for( Header header : httpMethod.getAllHeaders() ) {
@@ -920,4 +969,6 @@ public class AzureMethod {
         }
         return errMsg;
     }
+
+
 }

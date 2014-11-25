@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 enStratus Networks Inc
+ * Copyright (C) 2013-2014 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,12 +18,10 @@
 
 package org.dasein.cloud.azure;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
-import org.dasein.cloud.azure.compute.image.AzureMachineImage;
 import org.dasein.cloud.dc.*;
 import org.dasein.cloud.util.Cache;
 import org.dasein.cloud.util.CacheLevel;
@@ -35,7 +33,6 @@ import org.w3c.dom.NodeList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -50,9 +47,9 @@ import java.util.Locale;
 public class AzureLocation implements DataCenterServices {
     static private final Logger logger = Azure.getLogger(AzureLocation.class);
     static private final String LOCATIONS = "/locations";
-    
+
     private Azure provider;
-    
+
     AzureLocation(Azure provider) { this.provider = provider; }
 
     private transient volatile AzureLocationCapabilities capabilities;
@@ -68,12 +65,12 @@ public class AzureLocation implements DataCenterServices {
     @Override
     public @Nullable DataCenter getDataCenter(@Nonnull String providerDataCenterId) throws InternalException, CloudException {
         ProviderContext ctx = provider.getContext();
-        
+
         if( ctx == null ) {
             throw new AzureConfigException("No context was specified for this request");
         }
         String regionId = ctx.getRegionId();
-        
+
         if( regionId == null ) {
             throw new AzureConfigException("No region was specified for this request");
         }
@@ -113,9 +110,20 @@ public class AzureLocation implements DataCenterServices {
         }
         AzureMethod method = new AzureMethod(provider);
 
+        final String cacheName = "AzureLocation.isSubscribed." + toService;
+        Cache<Boolean> cache = org.dasein.cloud.util.Cache.getInstance(provider, cacheName, Boolean.class, CacheLevel.REGION_ACCOUNT);
+        final Iterable<Boolean> cachedIsSubscribed = cache.get(ctx);
+        if (cachedIsSubscribed != null && cachedIsSubscribed.iterator().hasNext()) {
+            final Boolean isSubscribed = cachedIsSubscribed.iterator().next();
+            if (isSubscribed != null) {
+                return isSubscribed;
+            }
+        }
+
         Document doc = method.getAsXML(ctx.getAccountNumber(), LOCATIONS);
 
         if( doc == null ) {
+            cache.put(ctx, Collections.singleton(false));
             return false;
         }
         NodeList entries = doc.getElementsByTagName("Location");
@@ -127,7 +135,7 @@ public class AzureLocation implements DataCenterServices {
                 NodeList attributes = entry.getChildNodes();
                 String regionId = null;
                 boolean subscribed = false;
-                
+
                 for( int j=0; j<attributes.getLength(); j++ ) {
                     Node attribute = attributes.item(j);
 
@@ -139,10 +147,10 @@ public class AzureLocation implements DataCenterServices {
 
                         for( int k=0; k<services.getLength(); k++ ) {
                             Node service = services.item(k);
-                            
+
                             if( service != null && service.getNodeName().equalsIgnoreCase("availableservice") && service.hasChildNodes() ) {
                                 String serviceName = service.getFirstChild().getNodeValue().trim();
-                                
+
                                 if( toService.toString().equalsIgnoreCase(serviceName) ) {
                                     subscribed = true;
                                     break;
@@ -152,17 +160,19 @@ public class AzureLocation implements DataCenterServices {
                     }
                 }
                 if( regionId != null && regionId.equalsIgnoreCase(ctx.getRegionId()) ) {
+                    cache.put(ctx, Collections.singleton(subscribed));
                     return subscribed;
                 }
             }
         }
+        cache.put(ctx, Collections.singleton(false));
         return false;
     }
-    
+
     @Override
     public @Nonnull Collection<DataCenter> listDataCenters(@Nonnull String providerRegionId) throws InternalException, CloudException {
         Region region = getRegion(providerRegionId);
-        
+
         if( region == null ) {
             return Collections.emptyList();
         }
@@ -220,19 +230,19 @@ public class AzureLocation implements DataCenterServices {
         }
         return regions;
     }
-    
+
     private @Nullable Region toRegion(@Nullable Node entry) {
         if( entry == null ) {
             return null;
         }
         Region region = new Region();
-        
+
         NodeList attributes = entry.getChildNodes();
-        
+
         for( int i=0; i<attributes.getLength(); i++ ) {
             Node attribute = attributes.item(i);
             String nodeName = attribute.getNodeName();
-            
+
             if( nodeName.equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
                 region.setProviderRegionId(attribute.getFirstChild().getNodeValue().trim());
             }
@@ -273,5 +283,23 @@ public class AzureLocation implements DataCenterServices {
     @Override
     public Collection<StoragePool> listStoragePools() throws InternalException, CloudException {
         return Collections.emptyList();
+    }
+
+    @Nonnull
+    @Override
+    public StoragePool getStoragePool(String providerStoragePoolId) throws InternalException, CloudException {
+        return null;
+    }
+
+    @Nonnull
+    @Override
+    public Collection<Folder> listVMFolders() throws InternalException, CloudException {
+        return Collections.emptyList();
+    }
+
+    @Nonnull
+    @Override
+    public Folder getVMFolder(String providerVMFolderId) throws InternalException, CloudException {
+        return null;
     }
 }
