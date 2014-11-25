@@ -281,17 +281,7 @@
                         </property>
                     </systemProperties>
                     <excludes>
-                        <exclude>**/TestSuite.java</exclude>
-                        <exclude>**/DummyTest.java</exclude>
-                        <exclude>**/AzureVMTest.java</exclude>
-                        <exclude>**/AzureLoadBalancerSupportTest.java</exclude>
-                        <exclude>**/AzureComputeServicesTest.java</exclude>
-                        <exclude>**/TestHelpers.java</exclude>
-                        <exclude>**/DummyTest.java</exclude>
-                        <exclude>**/AzureVMTest.java</exclude>
-                        <exclude>**/AzureLoadBalancerSupportTest.java</exclude>
-                        <exclude>**/TestHelpers.java</exclude>
-                        <exclude>**/AzureComputeServicesTest.java</exclude>
+                        <exclude>**/*.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
