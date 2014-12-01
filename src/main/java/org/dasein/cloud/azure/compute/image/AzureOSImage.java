@@ -207,7 +207,7 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
         if(machineImageId == null)
             throw new InternalException("The parameter machineImageId cannot be null");
 
-        final Iterable<MachineImage> allImages = getAllImages(false, true, false);
+        final Iterable<MachineImage> allImages = getAllImages(false, true, true);
         for( MachineImage img : allImages ) {
             if( machineImageId.equals(img.getProviderMachineImageId()) ) {
                 logger.debug("Found image i'm looking for "+machineImageId);
