@@ -766,6 +766,7 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
 
         azureMachineImage.setAzureImageType("VMImage");
         azureMachineImage.setMediaLink(vmImageModel.getOsDiskConfiguration().getMediaLink());
+        azureMachineImage.setTag("public", Boolean.toString(isPublicImage(azureMachineImage)));
 
         return azureMachineImage;
     }
@@ -816,6 +817,15 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
         }
         azureMachineImage.setSoftware(descriptor.contains("SQL Server") ? "SQL Server" : "");
         azureMachineImage.setAzureImageType("OSImage");
+        azureMachineImage.setTag("public", Boolean.toString(isPublicImage(azureMachineImage)));
+
         return azureMachineImage;
+    }
+
+    private boolean isPublicImage(AzureMachineImage image){
+        if (this.provider.getContext().getAccountNumber().equalsIgnoreCase(image.getProviderOwnerId())) {
+            return false;
+        }
+        return true;
     }
 }
