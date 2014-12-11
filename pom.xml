@@ -280,9 +280,12 @@
                             <value>${proxyPort}</value>
                         </property>
                     </systemProperties>
-                    <excludes>
+                    <!--<excludes>
                         <exclude>**/*.java</exclude>
-                    </excludes>
+                    </excludes>-->
+                    <includes>
+                        <include>**/TestSuite.java</include>
+                    </includes>
                 </configuration>
             </plugin>
             <plugin>
