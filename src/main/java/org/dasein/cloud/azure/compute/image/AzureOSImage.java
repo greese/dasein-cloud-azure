@@ -77,6 +77,7 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
     static private final Logger logger = Azure.getLogger(AzureOSImage.class);
 
     static private final String IMAGES = "/services/images";
+    static private final String VMIMAGES = "/services/vmimages";
     static private final String RESOURCE_VMIMAGES = "/services/vmimages?location=%s&category=%s";
     static private final String MICROSOFT = "--microsoft--";
 
@@ -442,16 +443,19 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
                 throw new AzureConfigException("No context was specified for this request");
             }
 
-            MachineImage image = getMachineImage(machineImageId);
+            AzureMachineImage image = (AzureMachineImage )getMachineImage(machineImageId);
 
             if( image == null ) {
                 throw new CloudException("No such machine image: " + machineImageId);
             }
 
-            AzureMethod method = new AzureMethod(provider);
+            String url = VMIMAGES;
+            if(image.getAzureImageType().equalsIgnoreCase("osimage")) {
+                url = IMAGES;
+            }
 
-            //dmayne 20130425: delete image blob too
-            method.invoke("DELETE",ctx.getAccountNumber(), IMAGES + "/" + machineImageId+"?comp=media", null);
+            AzureMethod method = new AzureMethod(provider);
+            method.invoke("DELETE", ctx.getAccountNumber(), url + "/" + machineImageId + "?comp=media", null);
         }
         finally {
             if( logger.isTraceEnabled() ) {
