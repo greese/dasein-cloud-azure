@@ -94,6 +94,7 @@ public class AzureVM extends AbstractVMSupport {
     static private final Logger logger = Azure.getLogger(AzureVM.class);
 
     static public final String HOSTED_SERVICES = "/services/hostedservices";
+    static public final String DEPLOYMENT_RESOURCE = "/services/hostedservices/%s/deployments/%s";
     static public final String OPERATIONS_RESOURCES = "/services/hostedservices/%s/deployments/%s/roleInstances/%s/Operations";
 
     private Azure provider;
@@ -450,19 +451,20 @@ public class AzureVM extends AbstractVMSupport {
                             if (depName.equals(deploymentName)) {
                                 parseDeployment(ctx, ctx.getRegionId(), sName + ":" + deploymentName, deployment, list);
                                 if (list != null && list.size() > 0) {
-                                    VirtualMachine vm = list.get(0);
-                                    if (dc != null) {
-                                        vm.setProviderDataCenterId(dc.getProviderDataCenterId());
+                                    for(VirtualMachine vm : list) {
+                                        if (vm.getTag("roleName").toString().equalsIgnoreCase(roleName)) {
+                                            if (dc != null) {
+                                                vm.setProviderDataCenterId(dc.getProviderDataCenterId());
+                                            } else {
+                                                Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(ctx.getRegionId());
+                                                vm.setProviderDataCenterId(dcs.iterator().next().getProviderDataCenterId());
+                                            }
+                                            if (ag != null) {
+                                                vm.setAffinityGroupId(ag.getAffinityGroupId());
+                                            }
+                                            return vm;
+                                        }
                                     }
-                                    else {
-                                        Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(ctx.getRegionId());
-                                        vm.setProviderDataCenterId(dcs.iterator().next().getProviderDataCenterId());
-                                    }
-                                    if(ag != null)
-                                    {
-                                        vm.setAffinityGroupId(ag.getAffinityGroupId());
-                                    }
-                                    return vm;
                                 }
                             }
                         }
@@ -1710,81 +1712,97 @@ public class AzureVM extends AbstractVMSupport {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".terminate()");
         }
         try {
-            VirtualMachine vm = getVirtualMachine(vmId);
-
-            if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
-            }
-
-            ArrayList<String> disks = getAttachedDisks(vm);
-            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
-
-            while( timeout > System.currentTimeMillis() ) {
-                if( vm == null || VmState.TERMINATED.equals(vm.getCurrentState()) ) {
-                    return;
-                }
-                if( !VmState.PENDING.equals(vm.getCurrentState()) && !VmState.STOPPING.equals(vm.getCurrentState()) ) {
-                    break;
-                }
-                try { Thread.sleep(15000L); }
-                catch( InterruptedException ignore ) { }
-                try { vm = getVirtualMachine(vmId); }
-                catch( Throwable ignore ) { }
-            }
             ProviderContext ctx = provider.getContext();
 
             if( ctx == null ) {
                 throw new AzureConfigException("No context was set for this request");
             }
-            String serviceName, deploymentName;
 
-            serviceName = vm.getTag("serviceName").toString();
-            deploymentName = vm.getTag("deploymentName").toString();
+            waitForVMTerminableState(vmId);
 
-            String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName;
-            AzureMethod method = new AzureMethod(provider);
+            AzureRoleDetails azureNames = AzureRoleDetails.fromString(vmId);
+            String serviceName = azureNames.getServiceName();
+            String deploymentName = azureNames.getDeploymentName();
+            String roleName = azureNames.getRoleName();
 
-            timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE*10L);
-            while( timeout > System.currentTimeMillis() ) {
-                if( logger.isInfoEnabled() ) {
-                    logger.info("Deleting deployments for " + serviceName);
-                }
-                try {
-                    method.invoke("DELETE", ctx.getAccountNumber(), resourceDir, "");
-                    break;
-                }
-                catch( CloudException e ) {
-                    if( e.getProviderCode() != null && e.getProviderCode().equals("ConflictError") ) {
-                        logger.warn("Conflict error, maybe retrying in 30 seconds");
-                        try { Thread.sleep(30000L); }
-                        catch( InterruptedException ignore ) { }
-                        continue;
-                    }
-                    throw e;
-                }
+            if(canDeleteDeployment(serviceName, deploymentName, roleName)) {
+                deleteVirtualMachineDeployment(vmId, serviceName, deploymentName, roleName);
+                terminateService(serviceName, explanation);
             }
-
-            timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE*10L);
-            while( timeout > System.currentTimeMillis() ) {
-                if( vm == null || VmState.TERMINATED.equals(vm.getCurrentState()) ) {
-                    break;
-                }
-                try { Thread.sleep(15000L); }
-                catch( InterruptedException ignore ) { }
-                try { vm = getVirtualMachine(vmId); }
-                catch( Throwable ignore ) { }
-            }
-
-            terminateService(serviceName, explanation);
-
-            //now delete the orphaned disks
-            for (String disk : disks) {
-                provider.getComputeServices().getVolumeSupport().remove(disk);
+            else {
+                deleteVirtualMachineRole(vmId, serviceName, deploymentName, roleName);
             }
         }
         finally {
             if( logger.isTraceEnabled() ) {
                 logger.trace("EXIT: " + AzureVM.class.getName() + ".terminate()");
+            }
+        }
+    }
+
+    private boolean canDeleteDeployment(String serviceName, String deploymentName, String roleName) throws CloudException, InternalException {
+        AzureMethod azureMethod = new AzureMethod(provider);
+        DeploymentModel deploymentModel = azureMethod.get(DeploymentModel.class, String.format(DEPLOYMENT_RESOURCE, serviceName, deploymentName));
+
+        if(deploymentModel.getRoles() == null)
+            return true;
+
+        if(deploymentModel.getRoles().size() == 1 && deploymentModel.getRoles().get(0).getRoleName().equalsIgnoreCase(roleName))
+            return true;
+
+        return false;
+    }
+
+    private void deleteVirtualMachineRole(String vmId, String serviceName, String deploymentName, String roleName) throws CloudException, InternalException {
+        String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" + deploymentName + "/roles/" + roleName + "?comp=media";
+        AzureMethod method = new AzureMethod(provider);
+        method.invoke("DELETE", provider.getContext().getAccountNumber(), resourceDir, "");
+        waitForVMTerminated(vmId);
+    }
+
+    private void deleteVirtualMachineDeployment(String vmId, String serviceName, String deploymentName, String roleName) throws CloudException, InternalException {
+        String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" + deploymentName + "?comp=media";
+        AzureMethod method = new AzureMethod(provider);
+        method.invoke("DELETE", provider.getContext().getAccountNumber(), resourceDir, "");
+        waitForVMTerminated(vmId);
+    }
+
+    private void waitForVMTerminableState(String vmId) throws CloudException, InternalException {
+        VirtualMachine vm = getVirtualMachine(vmId);
+        if( vm == null ) {
+            throw new CloudException("No such virtual machine: " + vmId);
+        }
+
+        long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+
+        while( timeout > System.currentTimeMillis() ) {
+            if( vm == null || VmState.TERMINATED.equals(vm.getCurrentState()) ) {
+                return;
+            }
+            if( !VmState.PENDING.equals(vm.getCurrentState()) && !VmState.STOPPING.equals(vm.getCurrentState()) ) {
+                break;
+            }
+            try { Thread.sleep(15000L); }
+            catch( InterruptedException ignore ) { }
+            try { vm = getVirtualMachine(vmId); }
+            catch( Throwable ignore ) { }
+        }
+    }
+
+    private void waitForVMTerminated(String vmId) throws CloudException, InternalException {
+        VirtualMachine vm = getVirtualMachine(vmId);
+        long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+        while (timeout > System.currentTimeMillis()) {
+            if (vm == null || VmState.TERMINATED.equals(vm.getCurrentState())) {
+                break;
+            }
+            try {
+                Thread.sleep(15000L);
+            } catch (InterruptedException ignore) {
+            }
+            try {
+                vm = getVirtualMachine(vmId);
+            } catch (Throwable ignore) {
             }
         }
     }
