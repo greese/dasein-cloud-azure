@@ -637,6 +637,9 @@ public class AzureMethod {
             else if(httpMethod instanceof HttpDelete && url.indexOf("services/vmimages") > -1 ){
                 httpMethod.addHeader("x-ms-version", "2014-06-01");
             }
+            else if(httpMethod instanceof HttpDelete && url.contains("deployments") && url.endsWith("?comp=media")){
+                httpMethod.addHeader("x-ms-version", "2013-08-01");
+            }
             else {
                 httpMethod.addHeader("x-ms-version", "2012-03-01");
             }
