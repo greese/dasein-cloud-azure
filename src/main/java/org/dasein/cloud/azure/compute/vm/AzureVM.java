@@ -77,10 +77,8 @@ import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 /**
  * Implements virtual machine support for Microsoft Azure.
@@ -716,7 +714,8 @@ public class AzureVM implements VirtualMachineSupport {
             DeploymentModel.OSVirtualHardDiskModel osVirtualHardDiskModel = new DeploymentModel.OSVirtualHardDiskModel();
             osVirtualHardDiskModel.setHostCaching("ReadWrite");
             osVirtualHardDiskModel.setDiskLabel("OS");
-            osVirtualHardDiskModel.setMediaLink(storageEndpoint + "vhds/" + hostName + ".vhd");
+            String vhdFileName = String.format("%s-%s-%s-%s.vhd", hostName, hostName, hostName, new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+            osVirtualHardDiskModel.setMediaLink(storageEndpoint + "vhds/" + vhdFileName);
             osVirtualHardDiskModel.setSourceImageName(options.getMachineImageId());
             roleModel.setOsVirtualDisk(osVirtualHardDiskModel);
         }
