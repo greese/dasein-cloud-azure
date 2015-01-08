@@ -115,7 +115,7 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
     @Nullable
     @Override
     public VMScalingCapabilities getVerticalScalingCapabilities() throws CloudException, InternalException {
-        return VMScalingCapabilities.getInstance(false, true, Requirement.REQUIRED, Requirement.NONE);
+        return VMScalingCapabilities.getInstance(false, true, false);
     }
 
     @Nonnull
