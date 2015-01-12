@@ -42,7 +42,7 @@ public class AzureDiskCapabilities extends AbstractCapabilities<Azure> implement
 
     @Override
     public int getMaximumVolumeCount() throws InternalException, CloudException {
-        return 16;
+        return 2;
     }
 
     /**
