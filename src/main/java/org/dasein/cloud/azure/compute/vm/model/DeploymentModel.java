@@ -18,6 +18,8 @@
 
 package org.dasein.cloud.azure.compute.vm.model;
 
+import org.dasein.cloud.azure.compute.disk.model.DataVirtualHardDiskModel;
+
 import javax.xml.bind.annotation.*;
 import java.util.List;
 
@@ -93,6 +95,9 @@ public class DeploymentModel {
         private String vmImageName;
         @XmlElement(name="MediaLocation")
         private String mediaLocation;
+        @XmlElementWrapper(name = "DataVirtualHardDisks")
+        @XmlElement(name="DataVirtualHardDisk")
+        private List<DataVirtualHardDiskModel> dataVirtualDisks;
         @XmlElement(name="OSVirtualHardDisk")
         private OSVirtualHardDiskModel osVirtualDisk;
         @XmlElement(name="RoleSize")
@@ -162,6 +167,14 @@ public class DeploymentModel {
 
         public void setProvisionGuestAgent(String provisionGuestAgent) {
             this.provisionGuestAgent = provisionGuestAgent;
+        }
+
+        public List<DataVirtualHardDiskModel> getDataVirtualDisks() {
+            return dataVirtualDisks;
+        }
+
+        public void setDataVirtualDisks(List<DataVirtualHardDiskModel> dataVirtualDisks) {
+            this.dataVirtualDisks = dataVirtualDisks;
         }
     }
 
