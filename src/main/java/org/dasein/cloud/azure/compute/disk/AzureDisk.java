@@ -29,6 +29,8 @@ import org.dasein.cloud.Tag;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
+import org.dasein.cloud.azure.compute.disk.model.DataVirtualHardDiskModel;
+import org.dasein.cloud.azure.compute.vm.model.DeploymentModel;
 import org.dasein.cloud.compute.*;
 
 import org.dasein.cloud.dc.DataCenter;
@@ -42,8 +44,11 @@ import org.w3c.dom.NodeList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.xml.bind.JAXBException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Locale;
 
 /**
@@ -58,6 +63,9 @@ public class AzureDisk implements VolumeSupport {
 
     static private final String DISK_SERVICES = "/services/disks";
     static private final String HOSTED_SERVICES = "/services/hostedservices";
+    static public final String DEPLOYMENT_RESOURCE = "/services/hostedservices/%s/deployments/%s";
+    static public final String DATA_DISK_LUN = "/services/hostedservices/%s/deployments/%s/roles/%s/DataDisks/%s";
+    static public final String DATA_DISK_RESOURCE = "/services/hostedservices/%s/deployments/%s/roles/%s/DataDisks";
     
     private Azure provider;
 
@@ -77,58 +85,32 @@ public class AzureDisk implements VolumeSupport {
                 throw new AzureConfigException("No context was specified for this request");
             }
 
-            if (device != null) {
-                if (device.startsWith("/dev/")) {
-                    device = device.substring(5);
-                }
+            if(volumeId == null || volumeId.isEmpty())
+                throw new InternalException("No volumeId was specified to be attached");
+
+            Volume disk = getVolume(volumeId);
+            if(disk == null ){
+                throw new InternalException("The volumeId specified is not a valid one");
             }
+
+            if(toServer == null)
+                throw new InternalException("The virtual machine id cannot be empty");
+
             VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(toServer);
+            if(server == null)
+                throw new InternalException("The specified virtual machine id is invalid");
 
-            Volume disk ;
-            StringBuilder xml = new StringBuilder();
-            if(volumeId != null){
-            	 disk = getVolume(volumeId);
-            	 if(disk == null ){
-            		throw new InternalException("Can not find the source snapshot !"); 
-            	 }
-                xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-                xml.append("<HostCaching>ReadWrite</HostCaching>");
-                xml.append("<DiskName>" + disk.getName() + "</DiskName>");
-                xml.append("<LogicalDiskSizeInGB>" + disk.getSizeInGigabytes() + "</LogicalDiskSizeInGB>");
-                xml.append("<MediaLink>" + disk.getMediaLink()+"</MediaLink>");
-                xml.append("</DataVirtualHardDisk>");
-            }else{
 
-                String storageEndpoint = provider.getStorageEndpoint();
-                if( storageEndpoint == null || storageEndpoint.isEmpty()) {
-                    throw new CloudException("Cannot find blob storage endpoint in the current region");
-                }
-                //throw new InternalException("volumeId is null !");
-                //dmayne: assume we are attaching a new empty disk?
-                xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-                xml.append("<HostCaching>ReadWrite</HostCaching>");
-                //todo get actual disk size
-                xml.append("<LogicalDiskSizeInGB>").append("1").append("</LogicalDiskSizeInGB>");
-                xml.append("<MediaLink>").append(storageEndpoint).append("vhds/").append(server.getTag("roleName")).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
-                xml.append("</DataVirtualHardDisk>");
-            }
+            DataVirtualHardDiskModel dataVirtualHardDiskModel = new DataVirtualHardDiskModel();
+            dataVirtualHardDiskModel.setHostCaching("ReadWrite");
+            dataVirtualHardDiskModel.setDiskName(disk.getName());
+            dataVirtualHardDiskModel.setMediaLink(disk.getMediaLink());
 
-         	String resourceDir = HOSTED_SERVICES + "/" +server.getTag("serviceName") + "/deployments" + "/" +  server.getTag("deploymentName") + "/roles"+"/" + server.getTag("roleName") + "/DataDisks";
-         	                                
             AzureMethod method = new AzureMethod(provider);
-
-            if( logger.isDebugEnabled() ) {
-                try {
-                    method.parseResponse(xml.toString(), false);
-                }
-                catch( Exception e ) {
-                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
-                    logger.warn("XML:");
-                    logger.warn(xml.toString());
-                }
-            }
-            method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-
+            method.post(String.format(DATA_DISK_RESOURCE, server.getTag("serviceName"), server.getTag("deploymentName"), server.getTag("roleName")), dataVirtualHardDiskModel);
+        } catch (JAXBException e) {
+            logger.error(e.getMessage());
+            throw new InternalException(e);
         }
         finally {
             if( logger.isTraceEnabled() ) {
@@ -139,9 +121,7 @@ public class AzureDisk implements VolumeSupport {
 
     @Override
     public @Nonnull String createVolume(@Nonnull VolumeCreateOptions options) throws InternalException, CloudException {
-        throw new OperationNotSupportedException("Azure does not support creating standalone volumes");
-
-        /*if( logger.isTraceEnabled() ) {
+        if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureDisk.class.getName() + ".createVolume(" + options + ")");
         }
         try {
@@ -151,76 +131,96 @@ public class AzureDisk implements VolumeSupport {
                 throw new AzureConfigException("No context was specified for this request");
             }
 
-            String fromVolumeId = options.getSnapshotId();
-            Volume disk ;
-            if(fromVolumeId != null){
-            	 disk = getVolume(fromVolumeId);
-            	 if(disk == null ){
-            		throw new InternalException("Can not find the source snapshot !"); 
-            	 }
-            }else{
-            	throw new InternalException("Azure needs a source snapshot Id to create a new disk volume !");
+            String storageEndpoint = provider.getStorageEndpoint();
+            if( storageEndpoint == null || storageEndpoint.isEmpty()) {
+                throw new CloudException("Cannot find blob storage endpoint in the current region");
             }
-                        
+
+            if(options.getProviderVirtualMachineId() == null || options.getProviderVirtualMachineId().isEmpty())
+                throw new InternalException("VolumeCreateOptions does not specify a virtual machine id");
+
+            if(options.getVolumeSize() == null)
+                throw new InternalException("VolumeCreateOptions should specify a volume size");
+
+            VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(options.getProviderVirtualMachineId());
+            if(server == null)
+                throw new InternalException("The specified virtual machine id is invalid");
+
+            Integer dataDiskCount = getDataDisksCount(server);
+            if(dataDiskCount == 2)
+                throw new InternalException("The maximum number of data disks currently permitted is 2. The current number of data disks is 2. The operation is attempting to add 1 additional data disks.");
+
+            String diskName = String.format("%s-%s-%s-%s", server.getTag("serviceName"), server.getTag("deploymentName"), server.getTag("roleName"), new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+            String storageMediaLink = String.format("%s/vhds/%s.vhd", storageEndpoint, diskName);
+            String lun = String.valueOf(dataDiskCount + 1);
+
+            DataVirtualHardDiskModel dataVirtualHardDiskModel = new DataVirtualHardDiskModel();
+            dataVirtualHardDiskModel.setHostCaching("ReadWrite");
+            dataVirtualHardDiskModel.setLun(lun);
+            dataVirtualHardDiskModel.setLogicalDiskSizeInGB(Integer.toString(options.getVolumeSize().intValue()));
+            dataVirtualHardDiskModel.setMediaLink(storageMediaLink);
+
             AzureMethod method = new AzureMethod(provider);
-            StringBuilder xml = new StringBuilder();
+            String requestId = method.post(String.format(DATA_DISK_RESOURCE, server.getTag("serviceName"), server.getTag("deploymentName"), server.getTag("roleName")), dataVirtualHardDiskModel);
+            waitForOperation(requestId);
 
-            String label;
-
-            try {
-                label = new String(Base64.encodeBase64(options.getName().getBytes("utf-8")));
-            }
-            catch( UnsupportedEncodingException e ) {
-                throw new InternalException(e);
-            }
-                        
-            xml.append("<Disk xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-            Platform platform = disk.getGuestOperatingSystem();
-            if(platform.isWindows()){
-                xml.append("<OS>Windows</OS>");
-            }else{
-                xml.append("<OS>Linux</OS>");
-            }
-            xml.append("<Label>" + label + "</Label>");
-            xml.append("<MediaLink>" + disk.getMediaLink()+"</MediaLink>");
-            xml.append("<Name>" + options.getName() + "</Name>");
-            xml.append("</Disk>");
-
-            if( logger.isDebugEnabled() ) {
-                try {
-                    method.parseResponse(xml.toString(), false);
-                }
-                catch( Exception e ) {
-                    logger.warn("Unable to parse outgoing XML locally: " + e.getMessage());
-                    logger.warn("XML:");
-                    logger.warn(xml.toString());
-                }
-            }
-
-            String requestId = method.post(ctx.getAccountNumber(), DISK_SERVICES, xml.toString());
-            Volume v = null;
-            if (requestId != null) {
-                int httpCode = method.getOperationStatus(requestId);
-                while (httpCode == -1) {
-                    httpCode = method.getOperationStatus(requestId);
-                }
-                if (httpCode == HttpServletResponse.SC_OK) {
-                    try {
-                        v = getVolume(options.getName());
-                        return v.getProviderVolumeId();
-                    }
-                    catch( Throwable ignore ) { }
-                }
-            }
+            return getDataDiskName(server, lun);
+        }catch (JAXBException e) {
+            logger.error(e.getMessage());
+            throw new InternalException(e);
         }
         finally {
             if( logger.isTraceEnabled() ) {
                 logger.trace("EXIT: " + AzureDisk.class.getName() + ".launch()");
             }
         }
-       return null; */
     }
-    
+
+    private void waitForOperation(String requestId) throws CloudException, InternalException {
+        if(requestId == null)
+            return;
+
+        AzureMethod method = new AzureMethod(provider);
+        int httpCode = method.getOperationStatus(requestId);
+        while (httpCode == -1) {
+            try {
+                Thread.sleep(15000L);
+            }
+            catch (InterruptedException ignored){}
+            httpCode = method.getOperationStatus(requestId);
+        }
+    }
+
+    private String getDataDiskName(VirtualMachine virtualMachine, String lun) throws CloudException, InternalException {
+        AzureMethod azureMethod = new AzureMethod(provider);
+        DataVirtualHardDiskModel dataVirtualHardDiskModel = azureMethod.get(DataVirtualHardDiskModel.class, String.format(DATA_DISK_LUN, virtualMachine.getTag("serviceName"), virtualMachine.getTag("deploymentName"), virtualMachine.getTag("roleName"), lun));
+
+        if(dataVirtualHardDiskModel == null)
+            return null;
+
+        return dataVirtualHardDiskModel.getDiskName();
+    }
+
+
+    private Integer getDataDisksCount(VirtualMachine virtualMachine) throws CloudException, InternalException {
+        AzureMethod azureMethod = new AzureMethod(provider);
+        DeploymentModel deploymentModel = azureMethod.get(DeploymentModel.class, String.format(DEPLOYMENT_RESOURCE, virtualMachine.getTag("serviceName"), virtualMachine.getTag("deploymentName")));
+
+        if(deploymentModel.getRoles() == null)
+            return 0;
+
+        for(DeploymentModel.RoleModel role : deploymentModel.getRoles()){
+            if(role.getRoleName().equalsIgnoreCase((String) virtualMachine.getTag("roleName"))){
+                if(role.getDataVirtualDisks() == null)
+                    return 0;
+
+                return role.getDataVirtualDisks().size();
+            }
+        }
+
+        return 0;
+    }
+
     @Override
     public void detach(@Nonnull String volumeId, boolean force) throws InternalException, CloudException {
         if( logger.isTraceEnabled() ) {
