@@ -53,6 +53,21 @@ public class AzureIpAddressCapabilities extends AbstractCapabilities<Azure> impl
     @Override
     public @Nonnull Requirement identifyVlanForIPRequirement() throws CloudException, InternalException {return Requirement.NONE;}
 
+   /* *//**
+     * Indicates whether you need to specify which VLAN you are tying a static IP address to when creating any
+     * IP address. REQUIRED means you must specify the VLAN, OPTIONAL means you may, and NONE
+     * means you do not specify a VLAN.
+     *
+     * @return the level of requirement for specifying a VLAN when creating an IP address
+     * @throws org.dasein.cloud.CloudException    an error occurred processing the request in the cloud
+     * @throws org.dasein.cloud.InternalException an internal error occurred inside the Dasein Cloud implementation
+     *//*
+    @Nonnull
+    @Override
+    public Requirement identifyVlanForIPRequirement() throws CloudException, InternalException {
+        return null;
+    }*/
+
     /**
      * Indicates whether the underlying cloud supports the assignment of addresses of the specified version
      *

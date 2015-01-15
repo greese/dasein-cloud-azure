@@ -18,13 +18,7 @@ import org.dasein.cloud.identity.ServiceAction;
 
 import javax.annotation.Nonnull;
 import javax.xml.bind.JAXBException;
-import javax.xml.bind.annotation.XmlRootElement;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Created by Vlad_Munthiu on 7/23/2014.
