@@ -19,6 +19,12 @@
 package org.dasein.cloud.azure;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.HttpClientConnectionManager;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.AbstractCloud;
 import org.dasein.cloud.CloudException;
@@ -27,6 +33,7 @@ import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.azure.compute.AzureComputeServices;
 import org.dasein.cloud.azure.network.AzureNetworkServices;
+import org.dasein.cloud.azure.platform.AzurePlatformServices;
 import org.dasein.cloud.azure.storage.AzureStorageServices;
 import org.dasein.cloud.azure.storage.model.CreateStorageServiceInputModel;
 import org.w3c.dom.Document;
@@ -130,6 +137,8 @@ public class Azure extends AbstractCloud {
     public @Nonnull AzureLocation getDataCenterServices() {
         return new AzureLocation(this);
     }
+
+    public @Nonnull AzurePlatformServices getPlatformServices(){ return new AzurePlatformServices(this);}
     
     @Override
     public @Nonnull AzureNetworkServices getNetworkServices() {
@@ -344,6 +353,20 @@ public class Azure extends AbstractCloud {
             if( logger.isTraceEnabled() ) {
                 logger.trace("EXIT: " + Azure.class.getName() + ".testContext()");
             }
+        }
+    }
+
+    public HttpClientBuilder getAzureClientBuilder() throws CloudException {
+        try {
+            HttpClientBuilder builder = HttpClientBuilder.create();
+            Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
+                    .register("https", new AzureSSLSocketFactory(new AzureX509(this)))
+                    .build();
+            HttpClientConnectionManager ccm = new BasicHttpClientConnectionManager(registry);
+            builder.setConnectionManager(ccm);
+            return builder;
+        } catch (Exception e) {
+            throw new CloudException(e.getMessage());
         }
     }
 }
