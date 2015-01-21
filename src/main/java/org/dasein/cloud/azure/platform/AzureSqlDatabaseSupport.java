@@ -232,7 +232,7 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
     @Override
     public boolean isSubscribed() throws CloudException, InternalException {
-        return false;
+        return true;
     }
 
     @Override
