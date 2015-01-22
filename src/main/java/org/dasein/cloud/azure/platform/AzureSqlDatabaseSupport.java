@@ -207,6 +207,7 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
                     DatabaseProduct product = new DatabaseProduct(serviceLevelObjective.getName(), edition.getName());
                     product.setProviderDataCenterId(provider.getDataCenterId(provider.getContext().getRegionId()));
                     product.setEngine(DatabaseEngine.SQLSERVER_EE);
+                    product.setLicenseModel(DatabaseLicenseModel.LICENSE_INCLUDED);
                     products.add(product);
                 }
             }
