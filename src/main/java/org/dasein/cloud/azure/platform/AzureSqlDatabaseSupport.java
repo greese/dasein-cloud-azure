@@ -56,15 +56,24 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         HttpUriRequest createServerRequest =  new AzureSQLDatabaseSupportRequests(provider).createServer(serverToCreate).build();
         ServerNameModel resultServerName = new AzureRequester(provider, createServerRequest).withXmlProcessor(ServerNameModel.class).execute();
 
-        String productGUID = getProductGUID(product);
+        try {
+            String productGUID = getProductGUID(product);
 
-        DatabaseServiceResourceModel dbToCreate = new DatabaseServiceResourceModel();
-        dbToCreate.setName(dataSourceName);
-        dbToCreate.setServiceObjectiveId(productGUID);
+            DatabaseServiceResourceModel dbToCreate = new DatabaseServiceResourceModel();
+            dbToCreate.setName(dataSourceName);
+            dbToCreate.setEdition(product.getName());
+            dbToCreate.setServiceObjectiveId(productGUID);
 
-        HttpUriRequest createDatabaseRequest = new AzureSQLDatabaseSupportRequests(provider).createDatabase(resultServerName.getName(), dbToCreate).build();
-        DatabaseServiceResourceModel database = new AzureRequester(provider, createDatabaseRequest).withXmlProcessor(DatabaseServiceResourceModel.class).execute();
-        return String.format("%s:%s", resultServerName.getName(), database.getName());
+            HttpUriRequest createDatabaseRequest = new AzureSQLDatabaseSupportRequests(provider).createDatabase(resultServerName.getName(), dbToCreate).build();
+            DatabaseServiceResourceModel database = new AzureRequester(provider, createDatabaseRequest).withXmlProcessor(DatabaseServiceResourceModel.class).execute();
+            return String.format("%s:%s", resultServerName.getName(), database.getName());
+        }
+        catch (Exception ex) {
+            //delete server
+            HttpUriRequest deleteServerRequest = new AzureSQLDatabaseSupportRequests(provider).deleteServer(resultServerName.getName()).build();
+            new AzureRequester(provider, deleteServerRequest).execute();
+            throw new CloudException("Could not create database. " + ex.getMessage());
+        }
     }
 
     private boolean isValidAdminUserName(String name){
