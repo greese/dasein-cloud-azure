@@ -61,6 +61,7 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
             DatabaseServiceResourceModel dbToCreate = new DatabaseServiceResourceModel();
             dbToCreate.setName(dataSourceName);
+            dbToCreate.setEdition(product.getName());
             dbToCreate.setServiceObjectiveId(productGUID);
 
             HttpUriRequest createDatabaseRequest = new AzureSQLDatabaseSupportRequests(provider).createDatabase(resultServerName.getName(), dbToCreate).build();
