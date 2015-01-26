@@ -3,7 +3,7 @@
 
     <groupId>org.dasein</groupId>
     <artifactId>dasein-cloud-azure</artifactId>
-    <version>2014.11.12-SNAPSHOT</version>
+    <version>2014.11.12</version>
     <packaging>jar</packaging>
 
     <name>dasein-cloud-azure</name>
@@ -113,7 +113,7 @@
         <dependency>
             <groupId>org.dasein</groupId>
             <artifactId>dasein-cloud-test</artifactId>
-            <version>2014.11.2-SNAPSHOT</version>
+            <version>2014.11.1</version>
             <scope>test</scope>
             <optional>false</optional>
         </dependency>
