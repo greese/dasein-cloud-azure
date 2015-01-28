@@ -294,7 +294,7 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
         ServerServiceResourcesModel serversModel = new AzureRequester(provider, httpUriRequest).withXmlProcessor(ServerServiceResourcesModel.class).execute();
 
-        if(serversModel == null)
+        if(serversModel == null || serversModel.getServerServiceResourcesModels() == null)
             return databases;
 
         for (ServerServiceResourceModel serverModel : serversModel.getServerServiceResourcesModels()){
