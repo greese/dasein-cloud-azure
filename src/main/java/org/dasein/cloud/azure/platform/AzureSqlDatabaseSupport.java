@@ -128,17 +128,17 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         if(providerDatabaseIdParts.size() != 2)
             throw new InternalException("Invalid name for the provider database id");
 
-        HttpUriRequest listServersRequest = new AzureSQLDatabaseSupportRequests(this.provider).listServers().build();
+        HttpUriRequest listServersRequest = new AzureSQLDatabaseSupportRequests(this.provider).listServersNonGen().build();
 
-        ServerServiceResourcesModel serversModel = new AzureRequester(provider, listServersRequest).withXmlProcessor(ServerServiceResourcesModel.class).execute();
+        ServersModel serversModel = new AzureRequester(provider, listServersRequest).withXmlProcessor(ServersModel.class).execute();
 
-        if(serversModel == null &&  serversModel.getServerServiceResourcesModels() == null)
+        if(serversModel == null || serversModel.getServers() == null)
             return null;
 
-        Object serverFound = CollectionUtils.find(serversModel.getServerServiceResourcesModels(), new Predicate() {
+        Object serverFound = CollectionUtils.find(serversModel.getServers(), new Predicate() {
             @Override
             public boolean evaluate(Object object) {
-                return providerDatabaseIdParts.get(0).equalsIgnoreCase(((ServerServiceResourceModel)object).getName());
+                return providerDatabaseIdParts.get(0).equalsIgnoreCase(((ServerModel)object).getName());
             }
         });
 
@@ -148,12 +148,16 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         HttpUriRequest httpUriRequest = new AzureSQLDatabaseSupportRequests(provider)
                 .getDatabase(providerDatabaseIdParts.get(0), providerDatabaseIdParts.get(1)).build();
 
-        return new AzureRequester(provider, httpUriRequest).withXmlProcessor(new DriverToCoreMapper<DatabaseServiceResourceModel, Database>() {
+        Database database = new AzureRequester(provider, httpUriRequest).withXmlProcessor(new DriverToCoreMapper<DatabaseServiceResourceModel, Database>() {
             @Override
             public Database mapFrom(DatabaseServiceResourceModel entity) {
                 return databaseFrom(entity, providerDatabaseIdParts.get(0));
             }
         }, DatabaseServiceResourceModel.class).execute();
+
+        //getDatabase is a global search so set server location for database
+        database.setProviderRegionId(((ServerModel)serverFound).getLocation());
+        return database;
     }
 
     @Override
@@ -290,14 +294,22 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
     public Iterable<Database> listDatabases() throws CloudException, InternalException {
         ArrayList<Database> databases = new ArrayList<Database>();
 
-        HttpUriRequest httpUriRequest = new AzureSQLDatabaseSupportRequests(this.provider).listServers().build();
+        HttpUriRequest httpUriRequest = new AzureSQLDatabaseSupportRequests(this.provider).listServersNonGen().build();
 
-        ServerServiceResourcesModel serversModel = new AzureRequester(provider, httpUriRequest).withXmlProcessor(ServerServiceResourcesModel.class).execute();
+        ServersModel serversModel = new AzureRequester(provider, httpUriRequest).withXmlProcessor(ServersModel.class).execute();
 
-        if(serversModel == null || serversModel.getServerServiceResourcesModels() == null)
+        if(serversModel == null || serversModel.getServers() == null)
             return databases;
 
-        for (ServerServiceResourceModel serverModel : serversModel.getServerServiceResourcesModels()){
+        List<ServerModel> servers = serversModel.getServers();
+        CollectionUtils.filter(servers, new Predicate() {
+            @Override
+            public boolean evaluate(Object object) {
+                return provider.getContext().getRegionId().equalsIgnoreCase(((ServerModel)object).getLocation());
+            }
+        });
+
+        for (ServerModel serverModel : servers){
             HttpUriRequest serverHttpUriRequest = new AzureSQLDatabaseSupportRequests(this.provider).listDatabases(serverModel.getName()).build();
             DatabaseServiceResourcesModel databaseServiceResourcesModel =
                     new AzureRequester(provider, serverHttpUriRequest).withXmlProcessor(DatabaseServiceResourcesModel.class).execute();
@@ -327,6 +339,7 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         database.setEngine(DatabaseEngine.SQLSERVER_EE);
         database.setCreationTimestamp(new DateTime(databaseServiceResourceModel.getCreationDate()).getMillis());
         database.setCurrentState(databaseServiceResourceModel.getState().equalsIgnoreCase("normal") ? DatabaseState.AVAILABLE : DatabaseState.UNKNOWN);
+        database.setProductSize(databaseServiceResourceModel.getEdition());
         return database;
     }
 

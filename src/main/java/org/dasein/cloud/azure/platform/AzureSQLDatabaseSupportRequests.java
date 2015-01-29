@@ -14,6 +14,7 @@ public class AzureSQLDatabaseSupportRequests{
     private Azure provider;
 
     private final String RESOURCE_SERVERS = "https://management.core.windows.net/%s/services/sqlservers/servers?contentview=generic";
+    private final String RESOURCE_SERVERS_NONGEN = "https://management.core.windows.net/%s/services/sqlservers/servers";
     private final String RESOURCE_SERVER = "https://management.core.windows.net/%s/services/sqlservers/servers/%s";
     private final String RESOURCE_DATABASES = "https://management.core.windows.net/%s/services/sqlservers/servers/%s/databases";
     private final String RESOURCE_DATABASE = "https://management.core.windows.net/%s/services/sqlservers/servers/%s/databases/%s";
@@ -38,6 +39,13 @@ public class AzureSQLDatabaseSupportRequests{
         RequestBuilder requestBuilder = RequestBuilder.get();
         addAzureCommonHeaders(requestBuilder);
         requestBuilder.setUri(String.format(RESOURCE_SERVERS, this.provider.getContext().getAccountNumber()));
+        return requestBuilder;
+    }
+
+    public RequestBuilder listServersNonGen(){
+        RequestBuilder requestBuilder = RequestBuilder.get();
+        addAzureCommonHeaders(requestBuilder);
+        requestBuilder.setUri(String.format(RESOURCE_SERVERS_NONGEN, this.provider.getContext().getAccountNumber()));
         return requestBuilder;
     }
 
