@@ -7,6 +7,7 @@ import org.apache.http.client.methods.HttpUriRequest;
 import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureRequester;
+import org.dasein.cloud.azure.IpUtils;
 import org.dasein.cloud.azure.platform.model.*;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.platform.*;
@@ -30,7 +31,21 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
     @Override
     public void addAccess(String providerDatabaseId, String sourceCidr) throws CloudException, InternalException {
+        Database database = getDatabase(providerDatabaseId);
+        if(database == null)
+            throw new InternalException("Invaid database provider Id");
 
+        IpUtils.IpRange ipRange = IpUtils.IpRange.fromCidrString(sourceCidr);
+
+        ServerServiceResourceModel firewallRule = new ServerServiceResourceModel();
+        firewallRule.setName(String.format("%s_%s", database.getName(), ipRange.getLow().toDotted()));
+        firewallRule.setStartIpAddress(ipRange.getLow().toDotted());
+        firewallRule.setEndIpAddress(ipRange.getHigh().toDotted());
+
+        String serverName = Arrays.asList(database.getProviderDatabaseId().split(":")).get(0);
+
+        HttpUriRequest createRuleRequest = new AzureSQLDatabaseSupportRequests(provider).addFirewallRule(serverName, firewallRule).build();
+        new AzureRequester(provider, createRuleRequest).execute();
     }
 
     @Override
@@ -156,7 +171,7 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         }, DatabaseServiceResourceModel.class).execute();
 
         //getDatabase is a global search so set server location for database
-        database.setProviderRegionId(((ServerModel)serverFound).getLocation());
+        database.setProviderRegionId(((ServerModel) serverFound).getLocation());
         return database;
     }
 
@@ -276,7 +291,33 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
     @Override
     public Iterable<String> listAccess(String toProviderDatabaseId) throws CloudException, InternalException {
-        return null;
+        final ArrayList<String> rules = new ArrayList<String>();
+
+        Database database = getDatabase(toProviderDatabaseId);
+        if(database == null)
+            throw new InternalException("Invaid database provider Id");
+
+        String serverName = Arrays.asList(database.getProviderDatabaseId().split(":")).get(0);
+
+        HttpUriRequest listRulesRequest = new AzureSQLDatabaseSupportRequests(provider).listFirewallRules(serverName).build();
+        ServerServiceResourcesModel rulesModel = new AzureRequester(provider, listRulesRequest).withXmlProcessor(ServerServiceResourcesModel.class).execute();
+
+        if(rulesModel == null || rulesModel.getServerServiceResourcesModels() == null)
+            return rules;
+
+        CollectionUtils.forAllDo(rulesModel.getServerServiceResourcesModels(), new Closure() {
+            @Override
+            public void execute(Object input) {
+                ServerServiceResourceModel firewallRule = (ServerServiceResourceModel) input;
+                String endIpAddress = firewallRule.getEndIpAddress();
+                if(endIpAddress == null)
+                    endIpAddress = firewallRule.getStartIpAddress();
+
+                rules.add(String.format("%s:%s", firewallRule.getStartIpAddress(), endIpAddress));
+            }
+        });
+
+        return rules;
     }
 
     @Override
@@ -340,6 +381,8 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         database.setCreationTimestamp(new DateTime(databaseServiceResourceModel.getCreationDate()).getMillis());
         database.setCurrentState(databaseServiceResourceModel.getState().equalsIgnoreCase("normal") ? DatabaseState.AVAILABLE : DatabaseState.UNKNOWN);
         database.setProductSize(databaseServiceResourceModel.getEdition());
+        database.setHostName(String.format("%s.database.windows.net", serverName));
+        database.setHostPort(1433);
         return database;
     }
 
@@ -402,7 +445,17 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
     @Override
     public void revokeAccess(String providerDatabaseId, String sourceCide) throws CloudException, InternalException {
+        Database database = getDatabase(providerDatabaseId);
+        if(database == null)
+            throw new InternalException("Invaid database provider Id");
 
+        IpUtils.IpRange ipRange = IpUtils.IpRange.fromCidrString(sourceCide);
+
+        String ruleName = String.format("%s_%s", database.getName(), ipRange.getLow().toDotted());
+        String serverName = Arrays.asList(database.getProviderDatabaseId().split(":")).get(0);
+
+        HttpUriRequest deleteRuleRequest = new AzureSQLDatabaseSupportRequests(provider).deleteFirewallRule(serverName, ruleName).build();
+        new AzureRequester(provider, deleteRuleRequest).execute();
     }
 
     @Override
