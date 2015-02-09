@@ -5,6 +5,7 @@ import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.platform.model.CreateDatabaseRestoreModel;
 import org.dasein.cloud.azure.platform.model.DatabaseServiceResourceModel;
 import org.dasein.cloud.azure.platform.model.ServerModel;
+import org.dasein.cloud.azure.platform.model.ServerServiceResourceModel;
 import org.dasein.cloud.util.requester.entities.DaseinObjectToXmlEntity;
 
 /**
@@ -22,6 +23,8 @@ public class AzureSQLDatabaseSupportRequests{
     private final String RESOURCE_SUBSCRIPTION_META = "https://management.core.windows.net/%s/services/sqlservers/subscriptioninfo";
     private final String RESOURCE_LIST_RECOVERABLE_DATABASES = "https://management.core.windows.net/%s/services/sqlservers/servers/%s/recoverabledatabases?contentview=generic";
     private final String RESOURCE_RESTORE_DATABASE_OPERATIONS = "https://management.core.windows.net/%s/services/sqlservers/servers/%s/restoredatabaseoperations";
+    private final String RESOURCE_SERVER_FIREWALL = "https://management.core.windows.net/%s/services/sqlservers/servers/%s/firewallrules";
+    private final String RESOURCE_FIREWALL_RULE = "https://management.core.windows.net/%s/services/sqlservers/servers/%s/firewallrules/%s";
 
     public AzureSQLDatabaseSupportRequests(Azure provider){
         this.provider = provider;
@@ -106,6 +109,27 @@ public class AzureSQLDatabaseSupportRequests{
         return requestBuilder;
     }
 
+    public RequestBuilder addFirewallRule(String serverName, ServerServiceResourceModel firewallRule){
+        RequestBuilder requestBuilder = RequestBuilder.post();
+        addAzureCommonHeaders(requestBuilder);
+        requestBuilder.setUri(String.format(RESOURCE_SERVER_FIREWALL, this.provider.getContext().getAccountNumber(), serverName));
+        requestBuilder.setEntity(new DaseinObjectToXmlEntity<ServerServiceResourceModel>(firewallRule));
+        return requestBuilder;
+    }
+
+    public RequestBuilder listFirewallRules(String serveName){
+        RequestBuilder requestBuilder = RequestBuilder.get();
+        addAzureCommonHeaders(requestBuilder);
+        requestBuilder.setUri(String.format(RESOURCE_SERVER_FIREWALL, this.provider.getContext().getAccountNumber(), serveName));
+        return requestBuilder;
+    }
+
+    public RequestBuilder deleteFirewallRule(String serverName, String ruleName){
+        RequestBuilder requestBuilder = RequestBuilder.delete();
+        addAzureCommonHeaders(requestBuilder);
+        requestBuilder.setUri(String.format(RESOURCE_FIREWALL_RULE, this.provider.getContext().getAccountNumber(), serverName, ruleName));
+        return requestBuilder;
+    }
 
     private void addAzureCommonHeaders(RequestBuilder requestBuilder){
         requestBuilder.addHeader("x-ms-version", "2012-03-01");
