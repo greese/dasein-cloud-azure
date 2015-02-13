@@ -313,7 +313,7 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
                 if(endIpAddress == null)
                     endIpAddress = firewallRule.getStartIpAddress();
 
-                rules.add(String.format("%s:%s", firewallRule.getStartIpAddress(), endIpAddress));
+                rules.addAll(IpUtils.RangeToCidr.range2cidrlist(firewallRule.getStartIpAddress(), endIpAddress));
             }
         });
 
