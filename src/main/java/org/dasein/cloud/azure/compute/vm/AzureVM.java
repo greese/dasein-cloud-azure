@@ -658,7 +658,7 @@ public class AzureVM extends AbstractVMSupport {
             windowsConfigurationSetModel.setEnableAutomaticUpdates("true");
             windowsConfigurationSetModel.setTimeZone("UTC");
             windowsConfigurationSetModel.setAdminUsername((options.getBootstrapUser() == null || options.getBootstrapUser().trim().length() == 0 || options.getBootstrapUser().equalsIgnoreCase("root") || options.getBootstrapUser().equalsIgnoreCase("admin") || options.getBootstrapUser().equalsIgnoreCase("administrator") ? "dasein" : options.getBootstrapUser()));
-            windowsConfigurationSetModel.setCustomData(new String(Base64.encodeBase64(options.getUserData().getBytes())));
+            if(options.getUserData() != null && !options.getUserData().equals(""))windowsConfigurationSetModel.setCustomData(new String(Base64.encodeBase64(options.getUserData().getBytes())));
             configurations.add(windowsConfigurationSetModel);
         }
         else
@@ -670,7 +670,7 @@ public class AzureVM extends AbstractVMSupport {
             unixConfigurationSetModel.setUserName((options.getBootstrapUser() == null || options.getBootstrapUser().trim().length() == 0 || options.getBootstrapUser().equals("root") ? "dasein" : options.getBootstrapUser()));
             unixConfigurationSetModel.setUserPassword(password);
             unixConfigurationSetModel.setDisableSshPasswordAuthentication("false");
-            unixConfigurationSetModel.setCustomData(new String(Base64.encodeBase64(options.getUserData().getBytes())));
+            if(options.getUserData() != null && !options.getUserData().equals(""))unixConfigurationSetModel.setCustomData(new String(Base64.encodeBase64(options.getUserData().getBytes())));
             configurations.add(unixConfigurationSetModel);
 
         }
