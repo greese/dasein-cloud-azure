@@ -35,7 +35,14 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         if(database == null)
             throw new InternalException("Invaid database provider Id");
 
-        IpUtils.IpRange ipRange = IpUtils.IpRange.fromCidrString(sourceCidr);
+        if(sourceCidr == null)
+            throw new InternalException("Invalid parameter sourceCirs. The parameter cannot be null");
+
+        List<String> ruleParts = Arrays.asList(sourceCidr.split("::"));
+        if(ruleParts.size() != 2)
+            throw new InternalException("Invalid parameter sourceCidr");
+
+        IpUtils.IpRange ipRange = new IpUtils.IpRange(ruleParts.get(0), ruleParts.get(1));
 
         ServerServiceResourceModel firewallRule = new ServerServiceResourceModel();
         firewallRule.setName(String.format("%s_%s", database.getName(), ipRange.getLow().toDotted()));
@@ -313,7 +320,7 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
                 if(endIpAddress == null)
                     endIpAddress = firewallRule.getStartIpAddress();
 
-                rules.addAll(IpUtils.RangeToCidr.range2cidrlist(firewallRule.getStartIpAddress(), endIpAddress));
+                rules.add(String.format("%s::%s::%s", firewallRule.getName(), firewallRule.getStartIpAddress(), endIpAddress));
             }
         });
 
@@ -449,9 +456,11 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         if(database == null)
             throw new InternalException("Invaid database provider Id");
 
-        IpUtils.IpRange ipRange = IpUtils.IpRange.fromCidrString(sourceCide);
+        List<String> ruleParts = Arrays.asList(sourceCide.split("::"));
+        if(ruleParts.size() != 3)
+            throw new InternalError("Invalid parameter sourceCidr");
 
-        String ruleName = String.format("%s_%s", database.getName(), ipRange.getLow().toDotted());
+        String ruleName = ruleParts.get(0);
         String serverName = Arrays.asList(database.getProviderDatabaseId().split(":")).get(0);
 
         HttpUriRequest deleteRuleRequest = new AzureSQLDatabaseSupportRequests(provider).deleteFirewallRule(serverName, ruleName).build();
