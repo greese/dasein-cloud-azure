@@ -136,6 +136,11 @@ public class AzureLoadBalancerCapabilities extends AbstractCapabilities<Azure> i
         return Requirement.NONE;
     }
 
+    @Override
+    public @Nonnull Requirement identifyHealthCheckOnCreateRequirement() throws CloudException, InternalException {
+        return Requirement.REQUIRED;
+    }
+
     /**
      * @return whether or not you are expected to provide an address as part of the create process or one gets assigned
      * by the provider
