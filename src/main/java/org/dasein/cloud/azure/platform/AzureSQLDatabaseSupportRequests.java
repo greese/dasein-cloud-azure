@@ -1,12 +1,15 @@
 package org.dasein.cloud.azure.platform;
 
 import org.apache.http.client.methods.RequestBuilder;
+import org.dasein.cloud.InternalException;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.platform.model.CreateDatabaseRestoreModel;
 import org.dasein.cloud.azure.platform.model.DatabaseServiceResourceModel;
 import org.dasein.cloud.azure.platform.model.ServerModel;
 import org.dasein.cloud.azure.platform.model.ServerServiceResourceModel;
 import org.dasein.cloud.util.requester.entities.DaseinObjectToXmlEntity;
+
+import java.net.*;
 
 /**
  * Created by Vlad_Munthiu on 11/19/2014.
@@ -82,10 +85,10 @@ public class AzureSQLDatabaseSupportRequests{
         return requestBuilder;
     }
 
-    public RequestBuilder deleteDatabase(String serverName, String databaseName){
+    public RequestBuilder deleteDatabase(String serverName, String databaseName) throws InternalException {
         RequestBuilder requestBuilder = RequestBuilder.delete();
         addAzureCommonHeaders(requestBuilder);
-        requestBuilder.setUri(String.format(RESOURCE_DATABASE, this.provider.getContext().getAccountNumber(), serverName, databaseName));
+        requestBuilder.setUri(getEncodedUri(String.format(RESOURCE_DATABASE, this.provider.getContext().getAccountNumber(), serverName, databaseName)));
         return requestBuilder;
     }
     public RequestBuilder subscriptionMetaRequest(){
@@ -95,10 +98,10 @@ public class AzureSQLDatabaseSupportRequests{
         return requestBuilder;
     }
 
-    public RequestBuilder getDatabase(String serverName, String databaseName){
+    public RequestBuilder getDatabase(String serverName, String databaseName) throws InternalException {
         RequestBuilder requestBuilder = RequestBuilder.get();
         addAzureCommonHeaders(requestBuilder);
-        requestBuilder.setUri(String.format(RESOURCE_DATABASE, this.provider.getContext().getAccountNumber(), serverName, databaseName));
+        requestBuilder.setUri(getEncodedUri(String.format(RESOURCE_DATABASE, this.provider.getContext().getAccountNumber(), serverName, databaseName)));
         return requestBuilder;
     }
 
@@ -124,11 +127,20 @@ public class AzureSQLDatabaseSupportRequests{
         return requestBuilder;
     }
 
-    public RequestBuilder deleteFirewallRule(String serverName, String ruleName){
+    public RequestBuilder deleteFirewallRule(String serverName, String ruleName) throws InternalException {
         RequestBuilder requestBuilder = RequestBuilder.delete();
         addAzureCommonHeaders(requestBuilder);
-        requestBuilder.setUri(String.format(RESOURCE_FIREWALL_RULE, this.provider.getContext().getAccountNumber(), serverName, ruleName));
+        requestBuilder.setUri(getEncodedUri(String.format(RESOURCE_FIREWALL_RULE, this.provider.getContext().getAccountNumber(), serverName, ruleName)));
         return requestBuilder;
+    }
+
+    private String getEncodedUri(String urlString) throws InternalException {
+        try {
+            URL url = new URL(urlString);
+            return new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef()).toString();
+        } catch (Exception e) {
+            throw new InternalException(e.getMessage());
+        }
     }
 
     private void addAzureCommonHeaders(RequestBuilder requestBuilder){
