@@ -43,6 +43,8 @@ public class ConfigurationSetModel {
     private String timeZone;
     @XmlElement(name="AdminUsername")
     private String adminUsername;
+    @XmlElement(name="CustomData")
+    private String customData;
 
     @XmlElement(name="HostName")
     private String hostName;
@@ -107,6 +109,10 @@ public class ConfigurationSetModel {
     public void setAdminUsername(String adminUsername) {
         this.adminUsername = adminUsername;
     }
+
+    public String getCustomData() { return customData; }
+
+    public void setCustomData(String customData) { this.customData = customData; }
 
     public String getHostName() {
         return hostName;

@@ -20,6 +20,7 @@ package org.dasein.cloud.azure.compute.vm;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
+import org.bouncycastle.util.encoders.Base64Encoder;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
@@ -615,6 +616,7 @@ public class AzureVM implements VirtualMachineSupport {
             windowsConfigurationSetModel.setEnableAutomaticUpdates("true");
             windowsConfigurationSetModel.setTimeZone("UTC");
             windowsConfigurationSetModel.setAdminUsername((options.getBootstrapUser() == null || options.getBootstrapUser().trim().length() == 0 || options.getBootstrapUser().equalsIgnoreCase("root") || options.getBootstrapUser().equalsIgnoreCase("admin") || options.getBootstrapUser().equalsIgnoreCase("administrator") ? "dasein" : options.getBootstrapUser()));
+            if(options.getUserData() != null && !options.getUserData().equals(""))windowsConfigurationSetModel.setCustomData(new String(Base64.encodeBase64(options.getUserData().getBytes())));
             configurations.add(windowsConfigurationSetModel);
         }
         else
@@ -626,6 +628,7 @@ public class AzureVM implements VirtualMachineSupport {
             unixConfigurationSetModel.setUserName((options.getBootstrapUser() == null || options.getBootstrapUser().trim().length() == 0 || options.getBootstrapUser().equals("root") ? "dasein" : options.getBootstrapUser()));
             unixConfigurationSetModel.setUserPassword(password);
             unixConfigurationSetModel.setDisableSshPasswordAuthentication("false");
+            if(options.getUserData() != null && !options.getUserData().equals(""))unixConfigurationSetModel.setCustomData(new String(Base64.encodeBase64(options.getUserData().getBytes())));
             configurations.add(unixConfigurationSetModel);
 
         }
