@@ -45,7 +45,7 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         IpUtils.IpRange ipRange = new IpUtils.IpRange(ruleParts.get(0), ruleParts.get(1));
 
         ServerServiceResourceModel firewallRule = new ServerServiceResourceModel();
-        firewallRule.setName(String.format("%s_%s", database.getName(), ipRange.getLow().toDotted()));
+        firewallRule.setName(String.format("%s_%s", database.getName(), new Date().getTime()));
         firewallRule.setStartIpAddress(ipRange.getLow().toDotted());
         firewallRule.setEndIpAddress(ipRange.getHigh().toDotted());
 
