@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013-2014 Dell, Inc
+ * Copyright (C) 2013-2015 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -134,6 +134,11 @@ public class AzureLoadBalancerCapabilities extends AbstractCapabilities<Azure> i
     @Override
     public Requirement identifyVlanOnCreateRequirement() throws CloudException, InternalException {
         return Requirement.NONE;
+    }
+
+    @Override
+    public @Nonnull Requirement identifyHealthCheckOnCreateRequirement() throws CloudException, InternalException {
+        return Requirement.REQUIRED;
     }
 
     /**

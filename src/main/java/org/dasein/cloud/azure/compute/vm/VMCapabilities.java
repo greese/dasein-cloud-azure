@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013-2014 Dell, Inc
+ * Copyright (C) 2013-2015 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -217,6 +217,15 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
     public boolean supportsSpotVirtualMachines() throws InternalException, CloudException {
         return false;
     }
+
+    @Override
+    public boolean supportsClientRequestToken() throws InternalException, CloudException {return false;}
+
+    @Override
+    public boolean supportsCloudStoredShellKey() throws InternalException, CloudException {return false;}
+
+    @Override
+    public boolean isVMProductDCConstrained() { return false; }
 
     /**
      * Non VMState Defined lifecycle supported operations
