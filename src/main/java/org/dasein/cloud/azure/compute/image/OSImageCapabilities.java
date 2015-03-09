@@ -146,4 +146,7 @@ public class OSImageCapabilities extends AbstractCapabilities<Azure> implements 
     public boolean supportsPublicLibrary(@Nonnull ImageClass cls) throws CloudException, InternalException {
         return true;
     }
+
+    @Override
+    public boolean imageCaptureDestroysVM() throws CloudException, InternalException{ return true; }
 }

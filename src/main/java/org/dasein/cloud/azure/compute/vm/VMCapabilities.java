@@ -218,6 +218,15 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
         return false;
     }
 
+    @Override
+    public boolean supportsClientRequestToken() throws InternalException, CloudException {return false;}
+
+    @Override
+    public boolean supportsCloudStoredShellKey() throws InternalException, CloudException {return false;}
+
+    @Override
+    public boolean isVMProductDCConstrained() { return false; }
+
     /**
      * Non VMState Defined lifecycle supported operations
      * The 'can' operations return similar values but based on a specific VM state. These return whether or not there is support at all.
