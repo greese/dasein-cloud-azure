@@ -638,4 +638,22 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
         return serviceLevelObjective.getId();
     }
+
+    @Override
+    public void removeTags(@Nonnull String providerDatabaseId, @Nonnull Tag... tags) throws CloudException, InternalException{}
+
+    @Override
+    public void removeTags(@Nonnull String[] providerDatabaseIds, @Nonnull Tag ... tags) throws CloudException, InternalException{}
+
+    @Override
+    public void updateTags(@Nonnull String providerDatabaseId, @Nonnull Tag... tags) throws CloudException, InternalException{}
+
+    @Override
+    public void updateTags(@Nonnull String[] providerDatabaseIds, @Nonnull Tag... tags) throws CloudException, InternalException{}
+
+    @Override
+    public void setTags( @Nonnull String providerDatabaseId, @Nonnull Tag... tags ) throws CloudException, InternalException{}
+
+    @Override
+    public void setTags( @Nonnull String[] providerDatabaseIds, @Nonnull Tag... tags ) throws CloudException, InternalException{}
 }
