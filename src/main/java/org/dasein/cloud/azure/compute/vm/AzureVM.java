@@ -52,7 +52,11 @@ import org.dasein.cloud.network.VLAN;
 import org.dasein.cloud.util.APITrace;
 import org.dasein.util.CalendarWrapper;
 import org.dasein.util.uom.storage.Gigabyte;
+import org.dasein.util.uom.storage.Megabyte;
 import org.dasein.util.uom.storage.Storage;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -67,8 +71,7 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import java.io.StringWriter;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
@@ -766,59 +769,109 @@ public class AzureVM extends AbstractVMSupport {
         if( architecture.equals(Architecture.I32) ) {
             return Collections.emptyList();
         }
-        
-        ArrayList<VirtualMachineProduct> list = new ArrayList<VirtualMachineProduct>();
-        VirtualMachineProduct product = new VirtualMachineProduct();
 
-        product.setCpuCount(1);
-        product.setDescription("Extra Small");
-        product.setRootVolumeSize(new Storage<Gigabyte>(15, Storage.GIGABYTE));
-        product.setName("Extra Small");
-        product.setProviderProductId("ExtraSmall");
-        product.setRamSize(new Storage<Gigabyte>(1, Storage.GIGABYTE));
-        list.add(product);
-        
-        product = new VirtualMachineProduct();
+        //if( products == null ) {
+            List<VirtualMachineProduct> list = new ArrayList<VirtualMachineProduct>();
 
-        product.setCpuCount(1);
-        product.setDescription("Small");
-        product.setRootVolumeSize(new Storage<Gigabyte>(15, Storage.GIGABYTE));
-        product.setName("Small");
-        product.setProviderProductId("Small");
-        product.setRamSize(new Storage<Gigabyte>(2, Storage.GIGABYTE));
-        list.add(product);
-        
-        product = new VirtualMachineProduct();
+            try {
+                String resource = ((Azure)getProvider()).getVMProductsResource();
+                InputStream input = AzureVM.class.getResourceAsStream(resource);
 
-        product.setCpuCount(2);
-        product.setDescription("Medium");
-        product.setRootVolumeSize(new Storage<Gigabyte>(15, Storage.GIGABYTE));
-        product.setName("Medium");
-        product.setProviderProductId("Medium");
-        product.setRamSize(new Storage<Gigabyte>(4, Storage.GIGABYTE)); //3.5G
-        list.add(product);
-        
-        product = new VirtualMachineProduct();
+                if( input != null ) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(input));
+                    StringBuilder json = new StringBuilder();
+                    String line;
 
-        product.setCpuCount(4);
-        product.setDescription("Large");
-        product.setRootVolumeSize(new Storage<Gigabyte>(15, Storage.GIGABYTE));
-        product.setName("Large");
-        product.setProviderProductId("Large");
-        product.setRamSize(new Storage<Gigabyte>(7, Storage.GIGABYTE)); //3.5G
-        list.add(product);
-        
-        product = new VirtualMachineProduct();
+                    while( (line = reader.readLine()) != null ) {
+                        json.append(line);
+                        json.append("\n");
+                    }
+                    JSONArray arr = new JSONArray(json.toString());
+                    JSONObject toCache = null;
 
-        product.setCpuCount(8);
-        product.setDescription("Extra Large");
-        product.setRootVolumeSize(new Storage<Gigabyte>(15, Storage.GIGABYTE));
-        product.setName("Extra Large");
-        product.setProviderProductId("ExtraLarge");
-        product.setRamSize(new Storage<Gigabyte>(14, Storage.GIGABYTE)); //3.5G
-        list.add(product);
-        
-        return Collections.unmodifiableList(list);
+                    for( int i=0; i<arr.length(); i++ ) {
+                        JSONObject productSet = arr.getJSONObject(i);
+                        String cloud, provider;
+
+                        if( productSet.has("cloud") ) {
+                            cloud = productSet.getString("cloud");
+                        }
+                        else {
+                            continue;
+                        }
+                        if( productSet.has("provider") ) {
+                            provider = productSet.getString("provider");
+                        }
+                        else {
+                            continue;
+                        }
+                        if( !productSet.has("products") ) {
+                            continue;
+                        }
+                        if( toCache == null || (getProvider().equals("default") && cloud.equals("default")) ) {
+                            toCache = productSet;
+                        }
+                        if( provider.equalsIgnoreCase(getProvider().getProviderName()) && cloud.equalsIgnoreCase(getProvider().getCloudName()) ) {
+                            toCache = productSet;
+                            break;
+                        }
+                    }
+                    if( toCache == null ) {
+                        logger.warn("No products were defined");
+                        return Collections.emptyList();
+                    }
+                    JSONArray plist = toCache.getJSONArray("products");
+
+                    for( int i=0; i<plist.length(); i++ ) {
+                        JSONObject product = plist.getJSONObject(i);
+                        boolean supported = false;
+
+                        if( product.has("architectures") ) {
+                            JSONArray architectures = product.getJSONArray("architectures");
+
+                            for( int j=0; j<architectures.length(); j++ ) {
+                                String a = architectures.getString(j);
+
+                                if( architecture.name().equals(a) ) {
+                                    supported = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if( !supported ) {
+                            continue;
+                        }
+                        if( product.has("excludesRegions") ) {
+                            JSONArray regions = product.getJSONArray("excludesRegions");
+
+                            for( int j=0; j<regions.length(); j++ ) {
+                                String r = regions.getString(j);
+
+                                if( r.equals(getContext().getRegionId()) ) {
+                                    supported = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if( !supported ) {
+                            continue;
+                        }
+                        VirtualMachineProduct prd = toProduct(product);
+                        list.add(prd);
+                    }
+                }
+                else {
+                    logger.warn("No standard products resource exists for " + resource);
+                }
+            }
+            catch( IOException e ) {
+                throw new InternalException(e);
+            }
+            catch( JSONException e ) {
+                throw new InternalException(e);
+            }
+        return list;
+        //}
     }
 
     @Override
@@ -1866,6 +1919,64 @@ public class AzureVM extends AbstractVMSupport {
         }
 
         return list;
+    }
+
+    private @Nullable VirtualMachineProduct toProduct(@Nonnull JSONObject json) throws InternalException {
+        VirtualMachineProduct prd = new VirtualMachineProduct();
+
+        try {
+            if( json.has("id") ) {
+                prd.setProviderProductId(json.getString("id"));
+            }
+            else {
+                return null;
+            }
+            if( json.has("name") ) {
+                prd.setName(json.getString("name"));
+            }
+            else {
+                prd.setName(prd.getProviderProductId());
+            }
+            if( json.has("description") ) {
+                prd.setDescription(json.getString("description"));
+            }
+            else {
+                prd.setDescription(prd.getName());
+            }
+            if( json.has("cpuCount") ) {
+                prd.setCpuCount(json.getInt("cpuCount"));
+            }
+            else {
+                prd.setCpuCount(1);
+            }
+            if( json.has("rootVolumeSizeInGb") ) {
+                prd.setRootVolumeSize(new Storage<Gigabyte>(json.getInt("rootVolumeSizeInGb"), Storage.GIGABYTE));
+            }
+            else {
+                prd.setRootVolumeSize(new Storage<Gigabyte>(1, Storage.GIGABYTE));
+            }
+            if( json.has("ramSizeInMb") ) {
+                prd.setRamSize(new Storage<Megabyte>(json.getInt("ramSizeInMb"), Storage.MEGABYTE));
+            }
+            else {
+                prd.setRamSize(new Storage<Megabyte>(512, Storage.MEGABYTE));
+            }
+            if( json.has("standardHourlyRates") ) {
+                JSONArray rates = json.getJSONArray("standardHourlyRates");
+
+                for( int i=0; i<rates.length(); i++ ) {
+                    JSONObject rate = rates.getJSONObject(i);
+
+                    if( rate.has("rate") ) {
+                        prd.setStandardHourlyRate((float)rate.getDouble("rate"));
+                    }
+                }
+            }
+        }
+        catch( JSONException e ) {
+            throw new InternalException(e);
+        }
+        return prd;
     }
 
     @Override
