@@ -1,0 +1,388 @@
+[
+    {
+        "provider":"Azure",
+        "cloud":"Azure",
+        "products":[
+            {
+                "architectures":["I64"],
+                "id":"Basic_A0",
+                "name":"Basic A0",
+                "description":"Basic Tier A0",
+                "cpuCount":1,
+                "rootVolumeSizeInGb":20,
+                "ramSizeInMb":768,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Basic_A1",
+                "name":"Basic A1",
+                "description":"Basic Tier A1",
+                "cpuCount":1,
+                "rootVolumeSizeInGb":40,
+                "ramSizeInMb":1792,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Basic_A2",
+                "name":"Basic A2",
+                "description":"Basic Tier A2",
+                "cpuCount":2,
+                "rootVolumeSizeInGb":60,
+                "ramSizeInMb":3584,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Basic_A3",
+                "name":"Basic A3",
+                "description":"Basic Tier A3",
+                "cpuCount":4,
+                "rootVolumeSizeInGb":120,
+                "ramSizeInMb":7168,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Basic_A4",
+                "name":"Basic A4",
+                "description":"Basic Tier A4",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":240,
+                "ramSizeInMb":14336,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Extra Small",
+                "name":"A0",
+                "description":"Standard Tier A0",
+                "cpuCount":1,
+                "rootVolumeSizeInGb":20,
+                "ramSizeInMb":768,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Small",
+                "name":"A1",
+                "description":"Standard Tier A1",
+                "cpuCount":1,
+                "rootVolumeSizeInGb":70,
+                "ramSizeInMb":1792,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"medium",
+                "name":"A2",
+                "description":"Standard Tier A2",
+                "cpuCount":2,
+                "rootVolumeSizeInGb":135,
+                "ramSizeInMb":3584,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"large",
+                "name":"A3",
+                "description":"Standard Tier A3",
+                "cpuCount":4,
+                "rootVolumeSizeInGb":285,
+                "ramSizeInMb":7168,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"extra large",
+                "name":"A4",
+                "description":"Standard Tier A4",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":605,
+                "ramSizeInMb":14336,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"A5",
+                "name":"A5",
+                "description":"Standard Tier A5",
+                "cpuCount":2,
+                "rootVolumeSizeInGb":135,
+                "ramSizeInMb":14336,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"A6",
+                "name":"A6",
+                "description":"Standard Tier A6",
+                "cpuCount":4,
+                "rootVolumeSizeInGb":285,
+                "ramSizeInMb":28672,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"A7",
+                "name":"A7",
+                "description":"Standard Tier A7",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":605,
+                "ramSizeInMb":57344,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"A8",
+                "name":"A8",
+                "description":"Standard Tier A8",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":382,
+                "ramSizeInMb":57344,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"A9",
+                "name":"A9",
+                "description":"Standard Tier A9",
+                "cpuCount":16,
+                "rootVolumeSizeInGb":382,
+                "ramSizeInMb":114688,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"A10",
+                "name":"A10",
+                "description":"Standard Tier A10",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":382,
+                "ramSizeInMb":57344,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"A11",
+                "name":"A11",
+                "description":"Standard Tier A11",
+                "cpuCount":16,
+                "rootVolumeSizeInGb":382,
+                "ramSizeInMb":114688,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D1",
+                "name":"D1",
+                "description":"Standard Tier D1",
+                "cpuCount":1,
+                "rootVolumeSizeInGb":50,
+                "ramSizeInMb":3584,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D2",
+                "name":"D2",
+                "description":"Standard Tier D2",
+                "cpuCount":2,
+                "rootVolumeSizeInGb":100,
+                "ramSizeInMb":7168,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D3",
+                "name":"D3",
+                "description":"Standard Tier D3",
+                "cpuCount":4,
+                "rootVolumeSizeInGb":200,
+                "ramSizeInMb":14336,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D4",
+                "name":"D4",
+                "description":"Standard Tier D4",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":400,
+                "ramSizeInMb":28672,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D11",
+                "name":"D11",
+                "description":"Standard Tier D11",
+                "cpuCount":2,
+                "rootVolumeSizeInGb":100,
+                "ramSizeInMb":14336,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D12",
+                "name":"D12",
+                "description":"Standard Tier D12",
+                "cpuCount":4,
+                "rootVolumeSizeInGb":200,
+                "ramSizeInMb":28672,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D13",
+                "name":"D13",
+                "description":"Standard Tier D13",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":400,
+                "ramSizeInMb":57344,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_D14",
+                "name":"D14",
+                "description":"Standard Tier D14",
+                "cpuCount":16,
+                "rootVolumeSizeInGb":800,
+                "ramSizeInMb":114688,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_DS1",
+                "name":"DS1",
+                "description":"Standard Tier DS1",
+                "cpuCount":1,
+                "rootVolumeSizeInGb":7,
+                "ramSizeInMb":3584,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_DS2",
+                "name":"DS2",
+                "description":"Standard Tier DS2",
+                "cpuCount":2,
+                "rootVolumeSizeInGb":14,
+                "ramSizeInMb":7168,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_DS3",
+                "name":"DS3",
+                "description":"Standard Tier DS3",
+                "cpuCount":4,
+                "rootVolumeSizeInGb":28,
+                "ramSizeInMb":14336,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_DS4",
+                "name":"DS4",
+                "description":"Standard Tier DS4",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":56,
+                "ramSizeInMb":28672,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_DS11",
+                "name":"DS11",
+                "description":"Standard Tier DS11",
+                "cpuCount":2,
+                "rootVolumeSizeInGb":28,
+                "ramSizeInMb":14336,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_DS12",
+                "name":"DS12",
+                "description":"Standard Tier DS12",
+                "cpuCount":4,
+                "rootVolumeSizeInGb":56,
+                "ramSizeInMb":28672,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_DS13",
+                "name":"DS13",
+                "description":"Standard Tier DS13",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":112,
+                "ramSizeInMb":57344,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_DS14",
+                "name":"DS14",
+                "description":"Standard Tier DS14",
+                "cpuCount":16,
+                "rootVolumeSizeInGb":224,
+                "ramSizeInMb":114688,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_G1",
+                "name":"G1",
+                "description":"Standard Tier G1",
+                "cpuCount":2,
+                "rootVolumeSizeInGb":384,
+                "ramSizeInMb":28672,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_G2",
+                "name":"G2",
+                "description":"Standard Tier G2",
+                "cpuCount":4,
+                "rootVolumeSizeInGb":768,
+                "ramSizeInMb":57344,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_G3",
+                "name":"G3",
+                "description":"Standard Tier G3",
+                "cpuCount":8,
+                "rootVolumeSizeInGb":1536,
+                "ramSizeInMb":114688,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_G4",
+                "name":"G4",
+                "description":"Standard Tier G4",
+                "cpuCount":16,
+                "rootVolumeSizeInGb":3072,
+                "ramSizeInMb":229376,
+                "generation":"current"
+            },
+            {
+                "architectures":["I64"],
+                "id":"Standard_G5",
+                "name":"G5",
+                "description":"Standard Tier G5",
+                "cpuCount":32,
+                "rootVolumeSizeInGb":6144,
+                "ramSizeInMb":458752,
+                "generation":"current"
+            }
+        ]
+    }
+]
