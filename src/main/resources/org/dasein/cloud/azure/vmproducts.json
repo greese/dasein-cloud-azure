@@ -55,7 +55,7 @@
             },
             {
                 "architectures":["I64"],
-                "id":"Extra Small",
+                "id":"extrasmall",
                 "name":"A0",
                 "description":"Standard Tier A0",
                 "cpuCount":1,
@@ -65,7 +65,7 @@
             },
             {
                 "architectures":["I64"],
-                "id":"Small",
+                "id":"small",
                 "name":"A1",
                 "description":"Standard Tier A1",
                 "cpuCount":1,
@@ -95,7 +95,7 @@
             },
             {
                 "architectures":["I64"],
-                "id":"extra large",
+                "id":"extralarge",
                 "name":"A4",
                 "description":"Standard Tier A4",
                 "cpuCount":8,
