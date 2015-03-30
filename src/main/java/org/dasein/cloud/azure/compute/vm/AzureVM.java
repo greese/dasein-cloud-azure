@@ -20,7 +20,6 @@ package org.dasein.cloud.azure.compute.vm;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
-import org.bouncycastle.util.encoders.Base64Encoder;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
@@ -36,7 +35,6 @@ import org.dasein.cloud.azure.compute.vm.model.ConfigurationSetModel;
 import org.dasein.cloud.azure.compute.vm.model.CreateHostedServiceModel;
 import org.dasein.cloud.azure.compute.vm.model.DeploymentModel;
 import org.dasein.cloud.azure.compute.vm.model.Operation;
-import org.dasein.cloud.azure.network.model.PersistentVMRoleModel;
 import org.dasein.cloud.compute.*;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
@@ -91,6 +89,8 @@ import java.util.*;
  */
 public class AzureVM extends AbstractVMSupport<Azure> {
     static private final Logger logger = Azure.getLogger(AzureVM.class);
+
+    static public final String DEFAULT_USERNAME = "dasein";
 
     static public final String HOSTED_SERVICES = "/services/hostedservices";
     static public final String DEPLOYMENT_RESOURCE = "/services/hostedservices/%s/deployments/%s";
@@ -496,6 +496,7 @@ public class AzureVM extends AbstractVMSupport<Azure> {
             CreateHostedService(options.getDescription(), ctx.getRegionId(), label, hostName, affinityGroupId);
 
 
+            String username = (options.getBootstrapUser() == null || (options.getBootstrapUser().isEmpty()) ? DEFAULT_USERNAME : options.getBootstrapUser());
             String password = (options.getBootstrapPassword() == null ? getProvider().generateToken(8, 15) : options.getBootstrapPassword());
 
             Subnet subnet = null;
@@ -538,7 +539,7 @@ public class AzureVM extends AbstractVMSupport<Azure> {
                     try { vm = getVirtualMachine(hostName + ":" + hostName+":"+hostName); }
                     catch( Throwable ignore ) { }
                     if( vm != null ) {
-                        vm.setRootUser("dasein");
+                        vm.setRootUser(username);
                         vm.setRootPassword(password);
                     }
                 }
@@ -548,7 +549,7 @@ public class AzureVM extends AbstractVMSupport<Azure> {
                     try { vm = getVirtualMachine(hostName + ":" + hostName+":"+hostName); }
                     catch( Throwable ignore ) { }
                     if( vm != null ) {
-                        vm.setRootUser("dasein");
+                        vm.setRootUser(username);
                         vm.setRootPassword(password);
                         break;
                     }
