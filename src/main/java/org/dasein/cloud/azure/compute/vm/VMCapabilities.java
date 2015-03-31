@@ -201,7 +201,7 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
 
     @Override
     public boolean isUserDataSupported() throws CloudException, InternalException {
-        return false;
+        return true;
     }
 
     @Override
