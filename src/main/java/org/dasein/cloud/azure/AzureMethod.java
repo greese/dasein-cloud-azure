@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 enStratus Networks Inc
+ * Copyright (C) 2013-2014 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -632,6 +632,12 @@ public class AzureMethod {
             //dmayne version is older for anything to do with images and for disk deletion
             if (url.indexOf("/services/images") > -1 || (httpMethod instanceof HttpDelete && url.indexOf("/services/disks") > -1)) {
                 httpMethod.addHeader("x-ms-version", "2012-08-01");
+            }
+            else if(httpMethod instanceof HttpDelete && url.indexOf("services/vmimages") > -1 ){
+                httpMethod.addHeader("x-ms-version", "2014-06-01");
+            }
+            else if(httpMethod instanceof HttpDelete && url.contains("deployments") && url.endsWith("?comp=media")){
+                httpMethod.addHeader("x-ms-version", "2013-08-01");
             }
             else {
                 httpMethod.addHeader("x-ms-version", "2012-03-01");

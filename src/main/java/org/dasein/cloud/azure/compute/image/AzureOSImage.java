@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 enStratus Networks Inc
+ * Copyright (C) 2013-2014 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -77,6 +77,7 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
     static private final Logger logger = Azure.getLogger(AzureOSImage.class);
 
     static private final String IMAGES = "/services/images";
+    static private final String VMIMAGES = "/services/vmimages";
     static private final String RESOURCE_VMIMAGES = "/services/vmimages?location=%s&category=%s";
     static private final String MICROSOFT = "--microsoft--";
 
@@ -206,7 +207,7 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
         if(machineImageId == null)
             throw new InternalException("The parameter machineImageId cannot be null");
 
-        final Iterable<MachineImage> allImages = getAllImages(false, true, false);
+        final Iterable<MachineImage> allImages = getAllImages(false, true, true);
         for( MachineImage img : allImages ) {
             if( machineImageId.equals(img.getProviderMachineImageId()) ) {
                 logger.debug("Found image i'm looking for "+machineImageId);
@@ -441,16 +442,19 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
                 throw new AzureConfigException("No context was specified for this request");
             }
 
-            MachineImage image = getMachineImage(machineImageId);
+            AzureMachineImage image = (AzureMachineImage )getMachineImage(machineImageId);
 
             if( image == null ) {
                 throw new CloudException("No such machine image: " + machineImageId);
             }
 
-            AzureMethod method = new AzureMethod(provider);
+            String url = VMIMAGES;
+            if(image.getAzureImageType().equalsIgnoreCase("osimage")) {
+                url = IMAGES;
+            }
 
-            //dmayne 20130425: delete image blob too
-            method.invoke("DELETE",ctx.getAccountNumber(), IMAGES + "/" + machineImageId+"?comp=media", null);
+            AzureMethod method = new AzureMethod(provider);
+            method.invoke("DELETE", ctx.getAccountNumber(), url + "/" + machineImageId + "?comp=media", null);
         }
         finally {
             if( logger.isTraceEnabled() ) {
@@ -760,6 +764,7 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
 
         azureMachineImage.setAzureImageType("VMImage");
         azureMachineImage.setMediaLink(vmImageModel.getOsDiskConfiguration().getMediaLink());
+        azureMachineImage.setTag("public", Boolean.toString(isPublicImage(azureMachineImage)));
 
         return azureMachineImage;
     }
@@ -810,6 +815,15 @@ public class AzureOSImage extends AbstractImageSupport<Azure> {
         }
         azureMachineImage.setSoftware(descriptor.contains("SQL Server") ? "SQL Server" : "");
         azureMachineImage.setAzureImageType("OSImage");
+        azureMachineImage.setTag("public", Boolean.toString(isPublicImage(azureMachineImage)));
+
         return azureMachineImage;
+    }
+
+    private boolean isPublicImage(AzureMachineImage image){
+        if (this.provider.getContext().getAccountNumber().equalsIgnoreCase(image.getProviderOwnerId())) {
+            return false;
+        }
+        return true;
     }
 }

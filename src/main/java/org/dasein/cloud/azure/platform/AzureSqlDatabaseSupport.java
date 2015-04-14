@@ -7,6 +7,7 @@ import org.apache.http.client.methods.HttpUriRequest;
 import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureRequester;
+import org.dasein.cloud.azure.IpUtils;
 import org.dasein.cloud.azure.platform.model.*;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.platform.*;
@@ -30,7 +31,28 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
     @Override
     public void addAccess(String providerDatabaseId, String sourceCidr) throws CloudException, InternalException {
+        Database database = getDatabase(providerDatabaseId);
+        if(database == null)
+            throw new InternalException("Invaid database provider Id");
 
+        if(sourceCidr == null)
+            throw new InternalException("Invalid parameter sourceCirs. The parameter cannot be null");
+
+        List<String> ruleParts = Arrays.asList(sourceCidr.split("::"));
+        if(ruleParts.size() != 2)
+            throw new InternalException("Invalid parameter sourceCidr");
+
+        IpUtils.IpRange ipRange = new IpUtils.IpRange(ruleParts.get(0), ruleParts.get(1));
+
+        ServerServiceResourceModel firewallRule = new ServerServiceResourceModel();
+        firewallRule.setName(String.format("%s_%s", database.getName(), new Date().getTime()));
+        firewallRule.setStartIpAddress(ipRange.getLow().toDotted());
+        firewallRule.setEndIpAddress(ipRange.getHigh().toDotted());
+
+        String serverName = Arrays.asList(database.getProviderDatabaseId().split(":")).get(0);
+
+        HttpUriRequest createRuleRequest = new AzureSQLDatabaseSupportRequests(provider).addFirewallRule(serverName, firewallRule).build();
+        new AzureRequester(provider, createRuleRequest).execute();
     }
 
     @Override
@@ -56,15 +78,24 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         HttpUriRequest createServerRequest =  new AzureSQLDatabaseSupportRequests(provider).createServer(serverToCreate).build();
         ServerNameModel resultServerName = new AzureRequester(provider, createServerRequest).withXmlProcessor(ServerNameModel.class).execute();
 
-        String productGUID = getProductGUID(product);
+        try {
+            String productGUID = getProductGUID(product);
 
-        DatabaseServiceResourceModel dbToCreate = new DatabaseServiceResourceModel();
-        dbToCreate.setName(dataSourceName);
-        dbToCreate.setServiceObjectiveId(productGUID);
+            DatabaseServiceResourceModel dbToCreate = new DatabaseServiceResourceModel();
+            dbToCreate.setName(dataSourceName);
+            dbToCreate.setEdition(product.getName());
+            dbToCreate.setServiceObjectiveId(productGUID);
 
-        HttpUriRequest createDatabaseRequest = new AzureSQLDatabaseSupportRequests(provider).createDatabase(resultServerName.getName(), dbToCreate).build();
-        DatabaseServiceResourceModel database = new AzureRequester(provider, createDatabaseRequest).withXmlProcessor(DatabaseServiceResourceModel.class).execute();
-        return String.format("%s:%s", resultServerName.getName(), database.getName());
+            HttpUriRequest createDatabaseRequest = new AzureSQLDatabaseSupportRequests(provider).createDatabase(resultServerName.getName(), dbToCreate).build();
+            DatabaseServiceResourceModel database = new AzureRequester(provider, createDatabaseRequest).withXmlProcessor(DatabaseServiceResourceModel.class).execute();
+            return String.format("%s:%s", resultServerName.getName(), database.getName());
+        }
+        catch (Exception ex) {
+            //delete server
+            HttpUriRequest deleteServerRequest = new AzureSQLDatabaseSupportRequests(provider).deleteServer(resultServerName.getName()).build();
+            new AzureRequester(provider, deleteServerRequest).execute();
+            throw new CloudException("Could not create database. " + ex.getMessage());
+        }
     }
 
     private boolean isValidAdminUserName(String name){
@@ -119,17 +150,17 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         if(providerDatabaseIdParts.size() != 2)
             throw new InternalException("Invalid name for the provider database id");
 
-        HttpUriRequest listServersRequest = new AzureSQLDatabaseSupportRequests(this.provider).listServers().build();
+        HttpUriRequest listServersRequest = new AzureSQLDatabaseSupportRequests(this.provider).listServersNonGen().build();
 
-        ServerServiceResourcesModel serversModel = new AzureRequester(provider, listServersRequest).withXmlProcessor(ServerServiceResourcesModel.class).execute();
+        ServersModel serversModel = new AzureRequester(provider, listServersRequest).withXmlProcessor(ServersModel.class).execute();
 
-        if(serversModel == null &&  serversModel.getServerServiceResourcesModels() == null)
+        if(serversModel == null || serversModel.getServers() == null)
             return null;
 
-        Object serverFound = CollectionUtils.find(serversModel.getServerServiceResourcesModels(), new Predicate() {
+        Object serverFound = CollectionUtils.find(serversModel.getServers(), new Predicate() {
             @Override
             public boolean evaluate(Object object) {
-                return providerDatabaseIdParts.get(0).equalsIgnoreCase(((ServerServiceResourceModel)object).getName());
+                return providerDatabaseIdParts.get(0).equalsIgnoreCase(((ServerModel)object).getName());
             }
         });
 
@@ -139,12 +170,16 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         HttpUriRequest httpUriRequest = new AzureSQLDatabaseSupportRequests(provider)
                 .getDatabase(providerDatabaseIdParts.get(0), providerDatabaseIdParts.get(1)).build();
 
-        return new AzureRequester(provider, httpUriRequest).withXmlProcessor(new DriverToCoreMapper<DatabaseServiceResourceModel, Database>() {
+        Database database = new AzureRequester(provider, httpUriRequest).withXmlProcessor(new DriverToCoreMapper<DatabaseServiceResourceModel, Database>() {
             @Override
             public Database mapFrom(DatabaseServiceResourceModel entity) {
                 return databaseFrom(entity, providerDatabaseIdParts.get(0));
             }
         }, DatabaseServiceResourceModel.class).execute();
+
+        //getDatabase is a global search so set server location for database
+        database.setProviderRegionId(((ServerModel) serverFound).getLocation());
+        return database;
     }
 
     @Override
@@ -207,6 +242,7 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
                     DatabaseProduct product = new DatabaseProduct(serviceLevelObjective.getName(), edition.getName());
                     product.setProviderDataCenterId(provider.getDataCenterId(provider.getContext().getRegionId()));
                     product.setEngine(DatabaseEngine.SQLSERVER_EE);
+                    product.setLicenseModel(DatabaseLicenseModel.LICENSE_INCLUDED);
                     products.add(product);
                 }
             }
@@ -232,7 +268,7 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
     @Override
     public boolean isSubscribed() throws CloudException, InternalException {
-        return false;
+        return true;
     }
 
     @Override
@@ -262,7 +298,33 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
     @Override
     public Iterable<String> listAccess(String toProviderDatabaseId) throws CloudException, InternalException {
-        return null;
+        final ArrayList<String> rules = new ArrayList<String>();
+
+        Database database = getDatabase(toProviderDatabaseId);
+        if(database == null)
+            throw new InternalException("Invaid database provider Id");
+
+        String serverName = Arrays.asList(database.getProviderDatabaseId().split(":")).get(0);
+
+        HttpUriRequest listRulesRequest = new AzureSQLDatabaseSupportRequests(provider).listFirewallRules(serverName).build();
+        ServerServiceResourcesModel rulesModel = new AzureRequester(provider, listRulesRequest).withXmlProcessor(ServerServiceResourcesModel.class).execute();
+
+        if(rulesModel == null || rulesModel.getServerServiceResourcesModels() == null)
+            return rules;
+
+        CollectionUtils.forAllDo(rulesModel.getServerServiceResourcesModels(), new Closure() {
+            @Override
+            public void execute(Object input) {
+                ServerServiceResourceModel firewallRule = (ServerServiceResourceModel) input;
+                String endIpAddress = firewallRule.getEndIpAddress();
+                if(endIpAddress == null)
+                    endIpAddress = firewallRule.getStartIpAddress();
+
+                rules.add(String.format("%s::%s::%s", firewallRule.getName(), firewallRule.getStartIpAddress(), endIpAddress));
+            }
+        });
+
+        return rules;
     }
 
     @Override
@@ -280,14 +342,22 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
     public Iterable<Database> listDatabases() throws CloudException, InternalException {
         ArrayList<Database> databases = new ArrayList<Database>();
 
-        HttpUriRequest httpUriRequest = new AzureSQLDatabaseSupportRequests(this.provider).listServers().build();
+        HttpUriRequest httpUriRequest = new AzureSQLDatabaseSupportRequests(this.provider).listServersNonGen().build();
 
-        ServerServiceResourcesModel serversModel = new AzureRequester(provider, httpUriRequest).withXmlProcessor(ServerServiceResourcesModel.class).execute();
+        ServersModel serversModel = new AzureRequester(provider, httpUriRequest).withXmlProcessor(ServersModel.class).execute();
 
-        if(serversModel == null)
+        if(serversModel == null || serversModel.getServers() == null)
             return databases;
 
-        for (ServerServiceResourceModel serverModel : serversModel.getServerServiceResourcesModels()){
+        List<ServerModel> servers = serversModel.getServers();
+        CollectionUtils.filter(servers, new Predicate() {
+            @Override
+            public boolean evaluate(Object object) {
+                return provider.getContext().getRegionId().equalsIgnoreCase(((ServerModel)object).getLocation());
+            }
+        });
+
+        for (ServerModel serverModel : servers){
             HttpUriRequest serverHttpUriRequest = new AzureSQLDatabaseSupportRequests(this.provider).listDatabases(serverModel.getName()).build();
             DatabaseServiceResourcesModel databaseServiceResourcesModel =
                     new AzureRequester(provider, serverHttpUriRequest).withXmlProcessor(DatabaseServiceResourcesModel.class).execute();
@@ -317,6 +387,9 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
         database.setEngine(DatabaseEngine.SQLSERVER_EE);
         database.setCreationTimestamp(new DateTime(databaseServiceResourceModel.getCreationDate()).getMillis());
         database.setCurrentState(databaseServiceResourceModel.getState().equalsIgnoreCase("normal") ? DatabaseState.AVAILABLE : DatabaseState.UNKNOWN);
+        database.setProductSize(databaseServiceResourceModel.getEdition());
+        database.setHostName(String.format("%s.database.windows.net", serverName));
+        database.setHostPort(1433);
         return database;
     }
 
@@ -379,7 +452,19 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
     @Override
     public void revokeAccess(String providerDatabaseId, String sourceCide) throws CloudException, InternalException {
+        Database database = getDatabase(providerDatabaseId);
+        if(database == null)
+            throw new InternalException("Invaid database provider Id");
 
+        List<String> ruleParts = Arrays.asList(sourceCide.split("::"));
+        if(ruleParts.size() != 3)
+            throw new InternalError("Invalid parameter sourceCidr");
+
+        String ruleName = ruleParts.get(0);
+        String serverName = Arrays.asList(database.getProviderDatabaseId().split(":")).get(0);
+
+        HttpUriRequest deleteRuleRequest = new AzureSQLDatabaseSupportRequests(provider).deleteFirewallRule(serverName, ruleName).build();
+        new AzureRequester(provider, deleteRuleRequest).execute();
     }
 
     @Override
@@ -553,4 +638,22 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
 
         return serviceLevelObjective.getId();
     }
+
+    @Override
+    public void removeTags(@Nonnull String providerDatabaseId, @Nonnull Tag... tags) throws CloudException, InternalException{}
+
+    @Override
+    public void removeTags(@Nonnull String[] providerDatabaseIds, @Nonnull Tag ... tags) throws CloudException, InternalException{}
+
+    @Override
+    public void updateTags(@Nonnull String providerDatabaseId, @Nonnull Tag... tags) throws CloudException, InternalException{}
+
+    @Override
+    public void updateTags(@Nonnull String[] providerDatabaseIds, @Nonnull Tag... tags) throws CloudException, InternalException{}
+
+    @Override
+    public void setTags( @Nonnull String providerDatabaseId, @Nonnull Tag... tags ) throws CloudException, InternalException{}
+
+    @Override
+    public void setTags( @Nonnull String[] providerDatabaseIds, @Nonnull Tag... tags ) throws CloudException, InternalException{}
 }

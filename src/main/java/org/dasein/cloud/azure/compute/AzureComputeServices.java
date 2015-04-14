@@ -1,6 +1,5 @@
 /**
- * Copyright (C) 2009-2014 Dell, Inc.
- * See annotations for authorship information
+ * Copyright (C) 2013-2014 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +15,7 @@
  * limitations under the License.
  * ====================================================================
  */
+
 package org.dasein.cloud.azure.compute;
 
 import org.dasein.cloud.azure.Azure;
@@ -35,29 +35,27 @@ import javax.annotation.Nullable;
  * @since 2012.04.1
  * @version 2014.07.1
  */
-public class AzureComputeServices extends AbstractComputeServices {
-    private Azure provider;
-
-    public AzureComputeServices(@Nonnull Azure provider) { this.provider = provider; }
+public class AzureComputeServices extends AbstractComputeServices<Azure> {
+    public AzureComputeServices(@Nonnull Azure provider) { super(provider); }
 
     @Override
     public @Nullable AffinityGroupSupport getAffinityGroupSupport() {
-        return new AzureAffinityGroupSupport(this.provider);
+        return new AzureAffinityGroupSupport(getProvider());
     }
 
     @Override
     public AzureOSImage getImageSupport() {
-        return new AzureOSImage(provider);
+        return new AzureOSImage(getProvider());
     }
 
     @Override
     public AzureVM getVirtualMachineSupport() {
-        return new AzureVM(provider);
+        return new AzureVM(getProvider());
     }
     
     @Override
     public AzureDisk getVolumeSupport() {
-        return new AzureDisk(provider);
+        return new AzureDisk(getProvider());
     }
 
     @Override

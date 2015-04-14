@@ -18,6 +18,11 @@ public class ServerServiceResourceModel {
     private String databaseQuota;
     @XmlElement(name="ServerQuota", namespace ="http://schemas.microsoft.com/windowsazure")
     private String serverQuota;
+    @XmlElement(name="StartIPAddress", namespace ="http://schemas.microsoft.com/windowsazure")
+    private String startIpAddress;
+    @XmlElement(name="EndIPAddress", namespace ="http://schemas.microsoft.com/windowsazure")
+    private String endIpAddress;
+
     @XmlElementWrapper(name = "Versions", namespace = "http://schemas.microsoft.com/windowsazure")
     @XmlElement(name="Version", namespace ="http://schemas.microsoft.com/windowsazure")
     private List<Version> versions;
@@ -60,6 +65,22 @@ public class ServerServiceResourceModel {
 
     public void setVersions(List<Version> versions) {
         this.versions = versions;
+    }
+
+    public String getStartIpAddress() {
+        return startIpAddress;
+    }
+
+    public void setStartIpAddress(String startIpAddress) {
+        this.startIpAddress = startIpAddress;
+    }
+
+    public String getEndIpAddress() {
+        return endIpAddress;
+    }
+
+    public void setEndIpAddress(String endIpAddress) {
+        this.endIpAddress = endIpAddress;
     }
 
     @XmlRootElement(name="Version", namespace ="http://schemas.microsoft.com/windowsazure")

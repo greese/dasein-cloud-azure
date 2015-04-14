@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2012 enStratus Networks Inc
+ * Copyright (C) 2013-2014 Dell, Inc
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,7 +35,6 @@ import org.dasein.cloud.azure.compute.vm.model.ConfigurationSetModel;
 import org.dasein.cloud.azure.compute.vm.model.CreateHostedServiceModel;
 import org.dasein.cloud.azure.compute.vm.model.DeploymentModel;
 import org.dasein.cloud.azure.compute.vm.model.Operation;
-import org.dasein.cloud.azure.network.model.PersistentVMRoleModel;
 import org.dasein.cloud.compute.*;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
@@ -77,10 +76,8 @@ import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 /**
  * Implements virtual machine support for Microsoft Azure.
@@ -90,17 +87,17 @@ import java.util.List;
  * @version 2012.04.1
  * @version 2012.09 updated for model changes
  */
-public class AzureVM extends AbstractVMSupport {
+public class AzureVM extends AbstractVMSupport<Azure> {
     static private final Logger logger = Azure.getLogger(AzureVM.class);
 
-    static public final String HOSTED_SERVICES = "/services/hostedservices";
-    static public final String OPERATIONS_RESOURCES = "/services/hostedservices/%s/deployments/%s/roleInstances/%s/Operations";
+    static public final String DEFAULT_USERNAME = "dasein";
 
-    private Azure provider;
+    static public final String HOSTED_SERVICES = "/services/hostedservices";
+    static public final String DEPLOYMENT_RESOURCE = "/services/hostedservices/%s/deployments/%s";
+    static public final String OPERATIONS_RESOURCES = "/services/hostedservices/%s/deployments/%s/roleInstances/%s/Operations";
 
     public AzureVM(Azure provider) {
         super(provider);
-        this.provider = provider;
     }
 
     @Override
@@ -113,7 +110,7 @@ public class AzureVM extends AbstractVMSupport {
         if( vm == null ) {
             throw new CloudException("No such virtual machine: " + vmId);
         }
-        ProviderContext ctx = provider.getContext();
+        ProviderContext ctx = getProvider().getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was set for this request");
@@ -121,7 +118,7 @@ public class AzureVM extends AbstractVMSupport {
 
         String resourceUrl = String.format(OPERATIONS_RESOURCES, vm.getTag("serviceName").toString(),
                 vm.getTag("deploymentName").toString(), vm.getTag("roleName").toString());
-        AzureMethod azureMethod = new AzureMethod(this.provider);
+        AzureMethod azureMethod = new AzureMethod(getProvider());
 
         try
         {
@@ -135,50 +132,24 @@ public class AzureVM extends AbstractVMSupport {
     }
 
     @Override
-    public VirtualMachine alterVirtualMachine(@Nonnull String vmId, @Nonnull VMScalingOptions options) throws InternalException, CloudException {
+    public VirtualMachine alterVirtualMachineProduct(@Nonnull String virtualMachineId, @Nonnull String productId) throws InternalException, CloudException{
         if( logger.isTraceEnabled() ) {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".alterVM()");
         }
 
-        if (vmId == null || options.getProviderProductId() == null) {
-            throw new AzureConfigException("No vmid and/or product id set for this operation");
+        if (virtualMachineId == null || productId == null) {
+            throw new AzureConfigException("No virtual machine id and/or product id set for this operation");
         }
 
-        String[] parts = options.getProviderProductId().split(":");
-        String productId = null;
-        String disks = "";
-        if (parts.length == 1)  {
-            productId=parts[0];
-        }
-        else if (parts.length == 2) {
-            productId = parts[0];
-            disks = parts[1].replace("[","").replace("]","");
-        }
-        else {
-            throw new InternalException("Invalid product id string. Product id format is PRODUCT_NAME or PRODUCT_NAME:[disk_0_size,disk_1_size,disk_n_size]");
-        }
-        //check the product id is legitimate
-        boolean found = false;
-        Iterable<VirtualMachineProduct> products = listProducts(Architecture.I64);
-        for (VirtualMachineProduct p : products) {
-            if (p.getProviderProductId().equals(productId)) {
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
+        if(!isValidProductId(productId))
             throw new InternalException("Product id invalid: should be one of ExtraSmall, Small, Medium, Large, ExtraLarge");
-        }
 
-        String[] diskSizes = disks.split(",");
-
-        VirtualMachine vm = getVirtualMachine(vmId);
+        VirtualMachine vm = getVirtualMachine(virtualMachineId);
 
         if( vm == null ) {
-            throw new CloudException("No such virtual machine: " + vmId);
+            throw new CloudException("No such virtual machine: " + virtualMachineId);
         }
-        ProviderContext ctx = provider.getContext();
+        ProviderContext ctx = getProvider().getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was set for this request");
@@ -192,7 +163,7 @@ public class AzureVM extends AbstractVMSupport {
         String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName + "/roles/" + roleName;
 
         try{
-            AzureMethod method = new AzureMethod(provider);
+            AzureMethod method = new AzureMethod(getProvider());
 
             Document doc = method.getAsXML(ctx.getAccountNumber(), resourceDir);
             StringBuilder xml = new StringBuilder();
@@ -258,47 +229,26 @@ public class AzureVM extends AbstractVMSupport {
                         httpCode = method.getOperationStatus(requestId);
                     }
                 }
-                if (httpCode == HttpServletResponse.SC_OK || requestId.equals("noChange")) {
-
-                    String storageEndpoint = provider.getStorageEndpoint();
-                    if( storageEndpoint == null || storageEndpoint.isEmpty()) {
-                        throw new CloudException("Cannot find blob storage endpoint in the current region");
-                    }
-
-                    //attach any disks as appropriate
-                    for (int i = 0; i < diskSizes.length; i++) {
-                        if (!diskSizes[i].equals("")) {
-                            xml = new StringBuilder();
-                            xml.append("<DataVirtualHardDisk  xmlns=\"http://schemas.microsoft.com/windowsazure\" xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">");
-                            xml.append("<HostCaching>ReadWrite</HostCaching>");
-                            xml.append("<LogicalDiskSizeInGB>").append(diskSizes[i]).append("</LogicalDiskSizeInGB>");
-                            xml.append("<MediaLink>").append(storageEndpoint).append("vhds/").append(roleName).append(System.currentTimeMillis()%10000).append(".vhd</MediaLink>");
-                            xml.append("</DataVirtualHardDisk>");
-                            logger.debug(xml);
-                            resourceDir = HOSTED_SERVICES + "/" +serviceName+ "/deployments" + "/" +  deploymentName + "/roles"+"/" + roleName+ "/DataDisks";
-                            requestId = method.post(ctx.getAccountNumber(), resourceDir, xml.toString());
-                            if (requestId != null) {
-                                httpCode = method.getOperationStatus(requestId);
-                                while (httpCode == -1) {
-                                    try {
-                                        Thread.sleep(15000L);
-                                    }
-                                    catch (InterruptedException ignored){}
-                                    httpCode = method.getOperationStatus(requestId);
-                                }
-                            }
-                        }
-                    }
-                }
             }
 
-            return getVirtualMachine(vmId);
+            return getVirtualMachine(virtualMachineId);
 
         }finally {
             if( logger.isTraceEnabled() ) {
                 logger.trace("EXIT: " + AzureVM.class.getName() + ".alterVM()");
             }
         }
+    }
+
+    private boolean isValidProductId(String productId) throws CloudException, InternalException {
+        Iterable<VirtualMachineProduct> products = listProducts(Architecture.I64);
+        for (VirtualMachineProduct p : products) {
+            if (p.getProviderProductId().equals(productId)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override
@@ -321,7 +271,7 @@ public class AzureVM extends AbstractVMSupport {
     @Override
     public VirtualMachineCapabilities getCapabilities() throws InternalException, CloudException {
         if( capabilities == null ) {
-            capabilities = new VMCapabilities(provider);
+            capabilities = new VMCapabilities(getProvider());
         }
         return capabilities;
     }
@@ -363,12 +313,12 @@ public class AzureVM extends AbstractVMSupport {
         }
         DataCenter dc = null;
         AffinityGroup ag = null;
-        ProviderContext ctx = provider.getContext();
+        ProviderContext ctx = getProvider().getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was specified for this request");
         }
-        AzureMethod method = new AzureMethod(provider);
+        AzureMethod method = new AzureMethod(getProvider());
 
         Document doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES + "/"+ sName+"?embed-detail=true");
         if (doc == null) {
@@ -400,11 +350,11 @@ public class AzureVM extends AbstractVMSupport {
                             //get the region for this affinity group
                             String affinityGroup = property.getFirstChild().getNodeValue().trim();
                             if (affinityGroup != null && !affinityGroup.equals("")) {
-                                ag = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
+                                ag = getProvider().getComputeServices().getAffinityGroupSupport().get(affinityGroup);
                                 if(ag == null)
                                     return null;
 
-                                dc = provider.getDataCenterServices().getDataCenter(ag.getDataCenterId());
+                                dc = getProvider().getDataCenterServices().getDataCenter(ag.getDataCenterId());
                                 if (dc != null && dc.getRegionId().equals(ctx.getRegionId())) {
                                     mediaLocationFound = true;
                                 }
@@ -450,19 +400,20 @@ public class AzureVM extends AbstractVMSupport {
                             if (depName.equals(deploymentName)) {
                                 parseDeployment(ctx, ctx.getRegionId(), sName + ":" + deploymentName, deployment, list);
                                 if (list != null && list.size() > 0) {
-                                    VirtualMachine vm = list.get(0);
-                                    if (dc != null) {
-                                        vm.setProviderDataCenterId(dc.getProviderDataCenterId());
+                                    for(VirtualMachine vm : list) {
+                                        if (vm.getTag("roleName").toString().equalsIgnoreCase(roleName)) {
+                                            if (dc != null) {
+                                                vm.setProviderDataCenterId(dc.getProviderDataCenterId());
+                                            } else {
+                                                Collection<DataCenter> dcs = getProvider().getDataCenterServices().listDataCenters(ctx.getRegionId());
+                                                vm.setProviderDataCenterId(dcs.iterator().next().getProviderDataCenterId());
+                                            }
+                                            if (ag != null) {
+                                                vm.setAffinityGroupId(ag.getAffinityGroupId());
+                                            }
+                                            return vm;
+                                        }
                                     }
-                                    else {
-                                        Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(ctx.getRegionId());
-                                        vm.setProviderDataCenterId(dcs.iterator().next().getProviderDataCenterId());
-                                    }
-                                    if(ag != null)
-                                    {
-                                        vm.setAffinityGroupId(ag.getAffinityGroupId());
-                                    }
-                                    return vm;
                                 }
                             }
                         }
@@ -485,7 +436,7 @@ public class AzureVM extends AbstractVMSupport {
 
     @Override
     public boolean isSubscribed() throws CloudException, InternalException {
-        return provider.getDataCenterServices().isSubscribed(AzureService.PERSISTENT_VM_ROLE);
+        return getProvider().getDataCenterServices().isSubscribed(AzureService.PERSISTENT_VM_ROLE);
     }
 
     @Override
@@ -494,23 +445,23 @@ public class AzureVM extends AbstractVMSupport {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".launch(" + options + ")");
         }
         try {
-            String storageEndpoint = provider.getStorageEndpoint();
+            String storageEndpoint = getProvider().getStorageEndpoint();
 
             if(storageEndpoint == null || storageEndpoint.isEmpty()) {
-                provider.createDefaultStorageService();
-                storageEndpoint = provider.getStorageEndpoint();
+                getProvider().createDefaultStorageService();
+                storageEndpoint = getProvider().getStorageEndpoint();
             }
 
             logger.debug("----------------------------------------------------------");
             logger.debug("launching vm "+options.getHostName()+" with machine image id: "+options.getMachineImageId());
-            AzureMachineImage image = (AzureMachineImage)provider.getComputeServices().getImageSupport().getMachineImage(options.getMachineImageId());
+            AzureMachineImage image = (AzureMachineImage)getProvider().getComputeServices().getImageSupport().getMachineImage(options.getMachineImageId());
 
             if( image == null ) {
                 throw new CloudException("No such image: " + options.getMachineImageId());
             }
             logger.debug("----------------------------------------------------------");
 
-            ProviderContext ctx = provider.getContext();
+            ProviderContext ctx = getProvider().getContext();
 
             if( ctx == null ) {
                 throw new AzureConfigException("No context was specified for this request");
@@ -523,7 +474,7 @@ public class AzureVM extends AbstractVMSupport {
             catch( UnsupportedEncodingException e ) {
                 throw new InternalException(e);
             }
-            AzureMethod method = new AzureMethod(provider);
+            AzureMethod method = new AzureMethod(getProvider());
             String hostName = toUniqueId(options.getHostName(), method, ctx);
             String deploymentSlot = (String)options.getMetaData().get("environment");
 
@@ -539,16 +490,17 @@ public class AzureVM extends AbstractVMSupport {
             CreateHostedService(options.getDescription(), ctx.getRegionId(), label, hostName, affinityGroupId);
 
 
-            String password = (options.getBootstrapPassword() == null ? provider.generateToken(8, 15) : options.getBootstrapPassword());
+            String username = (options.getBootstrapUser() == null || (options.getBootstrapUser().isEmpty()) ? DEFAULT_USERNAME : options.getBootstrapUser());
+            String password = (options.getBootstrapPassword() == null ? getProvider().generateToken(8, 15) : options.getBootstrapPassword());
 
             Subnet subnet = null;
             String vlanName = null;
             if (options.getVlanId() != null) {
-                subnet = provider.getNetworkServices().getVlanSupport().getSubnet(options.getSubnetId());
+                subnet = getProvider().getNetworkServices().getVlanSupport().getSubnet(options.getSubnetId());
                 if (subnet != null) {
                     vlanName = subnet.getTags().get("vlanName");
                 } else {
-                    VLAN vlan = provider.getNetworkServices().getVlanSupport().getVlan(options.getVlanId());
+                    VLAN vlan = getProvider().getNetworkServices().getVlanSupport().getVlan(options.getVlanId());
                     if (vlan != null) {
                         vlanName = vlan.getName();
                     }
@@ -581,7 +533,7 @@ public class AzureVM extends AbstractVMSupport {
                     try { vm = getVirtualMachine(hostName + ":" + hostName+":"+hostName); }
                     catch( Throwable ignore ) { }
                     if( vm != null ) {
-                        vm.setRootUser("dasein");
+                        vm.setRootUser(username);
                         vm.setRootPassword(password);
                     }
                 }
@@ -591,7 +543,7 @@ public class AzureVM extends AbstractVMSupport {
                     try { vm = getVirtualMachine(hostName + ":" + hostName+":"+hostName); }
                     catch( Throwable ignore ) { }
                     if( vm != null ) {
-                        vm.setRootUser("dasein");
+                        vm.setRootUser(username);
                         vm.setRootPassword(password);
                         break;
                     }
@@ -622,8 +574,8 @@ public class AzureVM extends AbstractVMSupport {
                 if( logger.isInfoEnabled() ) {
                     logger.info("Deleting hosted service " + hostName);
                 }
-                AzureMethod method = new AzureMethod(provider);
-                method.invoke("DELETE", provider.getContext().getAccountNumber(), resourceDir, "");
+                AzureMethod method = new AzureMethod(getProvider());
+                method.invoke("DELETE", getProvider().getContext().getAccountNumber(), resourceDir, "");
                 break;
             }
             catch( CloudException err ) {
@@ -657,6 +609,7 @@ public class AzureVM extends AbstractVMSupport {
             windowsConfigurationSetModel.setEnableAutomaticUpdates("true");
             windowsConfigurationSetModel.setTimeZone("UTC");
             windowsConfigurationSetModel.setAdminUsername((options.getBootstrapUser() == null || options.getBootstrapUser().trim().length() == 0 || options.getBootstrapUser().equalsIgnoreCase("root") || options.getBootstrapUser().equalsIgnoreCase("admin") || options.getBootstrapUser().equalsIgnoreCase("administrator") ? "dasein" : options.getBootstrapUser()));
+            if(options.getUserData() != null && !options.getUserData().equals(""))windowsConfigurationSetModel.setCustomData(new String(Base64.encodeBase64(options.getUserData().getBytes())));
             configurations.add(windowsConfigurationSetModel);
         }
         else
@@ -668,6 +621,7 @@ public class AzureVM extends AbstractVMSupport {
             unixConfigurationSetModel.setUserName((options.getBootstrapUser() == null || options.getBootstrapUser().trim().length() == 0 || options.getBootstrapUser().equals("root") ? "dasein" : options.getBootstrapUser()));
             unixConfigurationSetModel.setUserPassword(password);
             unixConfigurationSetModel.setDisableSshPasswordAuthentication("false");
+            if(options.getUserData() != null && !options.getUserData().equals(""))unixConfigurationSetModel.setCustomData(new String(Base64.encodeBase64(options.getUserData().getBytes())));
             configurations.add(unixConfigurationSetModel);
 
         }
@@ -709,7 +663,8 @@ public class AzureVM extends AbstractVMSupport {
             DeploymentModel.OSVirtualHardDiskModel osVirtualHardDiskModel = new DeploymentModel.OSVirtualHardDiskModel();
             osVirtualHardDiskModel.setHostCaching("ReadWrite");
             osVirtualHardDiskModel.setDiskLabel("OS");
-            osVirtualHardDiskModel.setMediaLink(storageEndpoint + "vhds/" + hostName + ".vhd");
+            String vhdFileName = String.format("%s-%s-%s-%s.vhd", hostName, hostName, hostName, new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+            osVirtualHardDiskModel.setMediaLink(storageEndpoint + "vhds/" + vhdFileName);
             osVirtualHardDiskModel.setSourceImageName(options.getMachineImageId());
             roleModel.setOsVirtualDisk(osVirtualHardDiskModel);
         }
@@ -729,7 +684,7 @@ public class AzureVM extends AbstractVMSupport {
         }
 
         try {
-            AzureMethod method = new AzureMethod(provider);
+            AzureMethod method = new AzureMethod(getProvider());
             return method.post(HOSTED_SERVICES + "/" + hostName + "/deployments", deploymentModel);
         } catch (JAXBException e) {
             logger.error(e.getMessage());
@@ -749,7 +704,7 @@ public class AzureVM extends AbstractVMSupport {
         }
 
         try {
-            AzureMethod method = new AzureMethod(provider);
+            AzureMethod method = new AzureMethod(getProvider());
             method.post(HOSTED_SERVICES, createHostedServiceModel);
         } catch (JAXBException e) {
             logger.error(e.getMessage());
@@ -807,7 +762,7 @@ public class AzureVM extends AbstractVMSupport {
                             if( !productSet.has("products") ) {
                                 continue;
                             }
-                            if( toCache == null || (provider.equals("default") && cloud.equals("default")) ) {
+                            if( toCache == null || (getProvider().equals("default") && cloud.equals("default")) ) {
                                 toCache = productSet;
                             }
                             if( provider.equalsIgnoreCase(getProvider().getProviderName()) && cloud.equalsIgnoreCase(getProvider().getCloudName()) ) {
@@ -895,12 +850,12 @@ public class AzureVM extends AbstractVMSupport {
     @Nonnull
     @Override
     public Iterable<ResourceStatus> listVirtualMachineStatus() throws InternalException, CloudException {
-        ProviderContext ctx = provider.getContext();
+        ProviderContext ctx = getProvider().getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was specified for this request");
         }
-        AzureMethod method = new AzureMethod(provider);
+        AzureMethod method = new AzureMethod(getProvider());
 
         Document doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES);
 
@@ -918,12 +873,12 @@ public class AzureVM extends AbstractVMSupport {
 
     @Override
     public @Nonnull Iterable<VirtualMachine> listVirtualMachines() throws InternalException, CloudException {
-        ProviderContext ctx = provider.getContext();
+        ProviderContext ctx = getProvider().getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was specified for this request");
         }
-        AzureMethod method = new AzureMethod(provider);
+        AzureMethod method = new AzureMethod(getProvider());
 
         Document doc = method.getAsXML(ctx.getAccountNumber(), HOSTED_SERVICES);
 
@@ -1236,7 +1191,7 @@ public class AzureVM extends AbstractVMSupport {
                     vm.setPlatform(Platform.guess(vm.getProviderMachineImageId()));
                     if( vm.getPlatform().equals(Platform.UNKNOWN) ) {
                         try {
-                            MachineImage img = provider.getComputeServices().getImageSupport().getMachineImage(vm.getProviderMachineImageId());
+                            MachineImage img = getProvider().getComputeServices().getImageSupport().getMachineImage(vm.getProviderMachineImageId());
 
                             if( img != null ) {
                                 vm.setPlatform(img.getPlatform());
@@ -1255,7 +1210,7 @@ public class AzureVM extends AbstractVMSupport {
                     String providerVlanId = null;
 
                     try {
-                        providerVlanId = provider.getNetworkServices().getVlanSupport().getVlan(vlan).getProviderVlanId();
+                        providerVlanId = getProvider().getNetworkServices().getVlanSupport().getVlan(vlan).getProviderVlanId();
                         vm.setProviderVlanId(providerVlanId);
                     }
                     catch (CloudException e) {
@@ -1416,11 +1371,11 @@ public class AzureVM extends AbstractVMSupport {
                         //get the region for this affinity group
                         String affinityGroup = property.getFirstChild().getNodeValue().trim();
                         if (affinityGroup != null && !affinityGroup.equals("")) {
-                            AffinityGroup affinityGroupModel = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
+                            AffinityGroup affinityGroupModel = getProvider().getComputeServices().getAffinityGroupSupport().get(affinityGroup);
                             if(affinityGroupModel == null)
                                 return;
 
-                            dc = provider.getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
+                            dc = getProvider().getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
                             if (dc != null && dc.getRegionId().equals(regionId)) {
                                 mediaLocationFound = true;
                             }
@@ -1437,7 +1392,7 @@ public class AzureVM extends AbstractVMSupport {
 
                     }
                     else if( property.getNodeName().equalsIgnoreCase("datecreated") && property.hasChildNodes() ) {
-                        created = provider.parseTimestamp(property.getFirstChild().getNodeValue().trim());
+                        created = getProvider().parseTimestamp(property.getFirstChild().getNodeValue().trim());
                     }
                 }
             }
@@ -1446,7 +1401,7 @@ public class AzureVM extends AbstractVMSupport {
             return;
         }
 
-        AzureMethod method = new AzureMethod(provider);
+        AzureMethod method = new AzureMethod(getProvider());
 
         //dmayne 20130416: get the deployment names for each hosted service so we can then extract the detail
         String deployURL = HOSTED_SERVICES + "/"+ service+"?embed-detail=true";
@@ -1485,7 +1440,7 @@ public class AzureVM extends AbstractVMSupport {
                                     vm.setProviderDataCenterId(dc.getProviderDataCenterId());
                                 }
                                 else {
-                                    Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(regionId);
+                                    Collection<DataCenter> dcs = getProvider().getDataCenterServices().listDataCenters(regionId);
                                     vm.setProviderDataCenterId(dcs.iterator().next().getProviderDataCenterId());
                                 }
                             }
@@ -1536,11 +1491,11 @@ public class AzureVM extends AbstractVMSupport {
                         //get the region for this affinity group
                         String affinityGroup = property.getFirstChild().getNodeValue().trim();
                         if (affinityGroup != null && !affinityGroup.equals("")) {
-                            AffinityGroup affinityGroupModel = provider.getComputeServices().getAffinityGroupSupport().get(affinityGroup);
+                            AffinityGroup affinityGroupModel = getProvider().getComputeServices().getAffinityGroupSupport().get(affinityGroup);
                             if(affinityGroupModel == null)
                                 return;
 
-                            DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
+                            DataCenter dc = getProvider().getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
                             if (dc != null && dc.getRegionId().equals(regionId)) {
                                 mediaLocationFound = true;
                             }
@@ -1562,7 +1517,7 @@ public class AzureVM extends AbstractVMSupport {
             return;
         }
 
-        AzureMethod method = new AzureMethod(provider);
+        AzureMethod method = new AzureMethod(getProvider());
 
         //dmayne 20130416: get the deployment names for each hosted service so we can then extract the detail
         String deployURL = HOSTED_SERVICES + "/"+ service+"?embed-detail=true";
@@ -1605,7 +1560,7 @@ public class AzureVM extends AbstractVMSupport {
         if(vmId == null)
             throw new InternalException("The id of the Virtual Machine to reboot cannot be null.");
 
-        ProviderContext ctx = provider.getContext();
+        ProviderContext ctx = getProvider().getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was set for this request");
@@ -1617,7 +1572,7 @@ public class AzureVM extends AbstractVMSupport {
         }
         String resourceUrl = String.format(OPERATIONS_RESOURCES, vm.getTag("serviceName").toString(),
                 vm.getTag("deploymentName").toString(), vm.getTag("roleName").toString());
-        AzureMethod azureMethod = new AzureMethod(this.provider);
+        AzureMethod azureMethod = new AzureMethod(getProvider());
 
         try
         {
@@ -1645,7 +1600,7 @@ public class AzureVM extends AbstractVMSupport {
         if(vmId == null)
             throw new InternalException("The id of the Virtual Machine to stop cannot be null.");
 
-        ProviderContext ctx = provider.getContext();
+        ProviderContext ctx = getProvider().getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was set for this request");
@@ -1657,7 +1612,7 @@ public class AzureVM extends AbstractVMSupport {
         }
         String resourceUrl = String.format(OPERATIONS_RESOURCES, vm.getTag("serviceName").toString(),
                 vm.getTag("deploymentName").toString(), vm.getTag("roleName").toString());
-        AzureMethod azureMethod = new AzureMethod(this.provider);
+        AzureMethod azureMethod = new AzureMethod(getProvider());
 
         Operation.ShutdownRoleOperation shutdownRoleOperation = new Operation.ShutdownRoleOperation();
         shutdownRoleOperation.setPostShutdownAction("Stopped");
@@ -1677,7 +1632,7 @@ public class AzureVM extends AbstractVMSupport {
         if(vmId == null)
             throw new InternalException("The id of the Virtual Machine to suspend cannot be null.");
 
-        ProviderContext ctx = provider.getContext();
+        ProviderContext ctx = getProvider().getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was set for this request");
@@ -1689,7 +1644,7 @@ public class AzureVM extends AbstractVMSupport {
         }
         String resourceUrl = String.format(OPERATIONS_RESOURCES, vm.getTag("serviceName").toString(),
                 vm.getTag("deploymentName").toString(), vm.getTag("roleName").toString());
-        AzureMethod azureMethod = new AzureMethod(this.provider);
+        AzureMethod azureMethod = new AzureMethod(getProvider());
 
         Operation.ShutdownRoleOperation shutdownRoleOperation = new Operation.ShutdownRoleOperation();
         shutdownRoleOperation.setPostShutdownAction("StoppedDeallocated");
@@ -1710,76 +1665,25 @@ public class AzureVM extends AbstractVMSupport {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".terminate()");
         }
         try {
-            VirtualMachine vm = getVirtualMachine(vmId);
-
-            if( vm == null ) {
-                throw new CloudException("No such virtual machine: " + vmId);
-            }
-
-            ArrayList<String> disks = getAttachedDisks(vm);
-            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
-
-            while( timeout > System.currentTimeMillis() ) {
-                if( vm == null || VmState.TERMINATED.equals(vm.getCurrentState()) ) {
-                    return;
-                }
-                if( !VmState.PENDING.equals(vm.getCurrentState()) && !VmState.STOPPING.equals(vm.getCurrentState()) ) {
-                    break;
-                }
-                try { Thread.sleep(15000L); }
-                catch( InterruptedException ignore ) { }
-                try { vm = getVirtualMachine(vmId); }
-                catch( Throwable ignore ) { }
-            }
-            ProviderContext ctx = provider.getContext();
+            ProviderContext ctx = getProvider().getContext();
 
             if( ctx == null ) {
                 throw new AzureConfigException("No context was set for this request");
             }
-            String serviceName, deploymentName;
 
-            serviceName = vm.getTag("serviceName").toString();
-            deploymentName = vm.getTag("deploymentName").toString();
+            waitForVMTerminableState(vmId);
 
-            String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName;
-            AzureMethod method = new AzureMethod(provider);
+            AzureRoleDetails azureNames = AzureRoleDetails.fromString(vmId);
+            String serviceName = azureNames.getServiceName();
+            String deploymentName = azureNames.getDeploymentName();
+            String roleName = azureNames.getRoleName();
 
-            timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE*10L);
-            while( timeout > System.currentTimeMillis() ) {
-                if( logger.isInfoEnabled() ) {
-                    logger.info("Deleting deployments for " + serviceName);
-                }
-                try {
-                    method.invoke("DELETE", ctx.getAccountNumber(), resourceDir, "");
-                    break;
-                }
-                catch( CloudException e ) {
-                    if( e.getProviderCode() != null && e.getProviderCode().equals("ConflictError") ) {
-                        logger.warn("Conflict error, maybe retrying in 30 seconds");
-                        try { Thread.sleep(30000L); }
-                        catch( InterruptedException ignore ) { }
-                        continue;
-                    }
-                    throw e;
-                }
+            if(canDeleteDeployment(serviceName, deploymentName, roleName)) {
+                deleteVirtualMachineDeployment(vmId, serviceName, deploymentName, roleName);
+                terminateService(serviceName, explanation);
             }
-
-            timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE*10L);
-            while( timeout > System.currentTimeMillis() ) {
-                if( vm == null || VmState.TERMINATED.equals(vm.getCurrentState()) ) {
-                    break;
-                }
-                try { Thread.sleep(15000L); }
-                catch( InterruptedException ignore ) { }
-                try { vm = getVirtualMachine(vmId); }
-                catch( Throwable ignore ) { }
-            }
-
-            terminateService(serviceName, explanation);
-
-            //now delete the orphaned disks
-            for (String disk : disks) {
-                provider.getComputeServices().getVolumeSupport().remove(disk);
+            else {
+                deleteVirtualMachineRole(vmId, serviceName, deploymentName, roleName);
             }
         }
         finally {
@@ -1789,15 +1693,82 @@ public class AzureVM extends AbstractVMSupport {
         }
     }
 
+    private boolean canDeleteDeployment(String serviceName, String deploymentName, String roleName) throws CloudException, InternalException {
+        AzureMethod azureMethod = new AzureMethod(getProvider());
+        DeploymentModel deploymentModel = azureMethod.get(DeploymentModel.class, String.format(DEPLOYMENT_RESOURCE, serviceName, deploymentName));
+
+        if(deploymentModel.getRoles() == null)
+            return true;
+
+        if(deploymentModel.getRoles().size() == 1 && deploymentModel.getRoles().get(0).getRoleName().equalsIgnoreCase(roleName))
+            return true;
+
+        return false;
+    }
+
+    private void deleteVirtualMachineRole(String vmId, String serviceName, String deploymentName, String roleName) throws CloudException, InternalException {
+        String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" + deploymentName + "/roles/" + roleName + "?comp=media";
+        AzureMethod method = new AzureMethod(getProvider());
+        method.invoke("DELETE", getProvider().getContext().getAccountNumber(), resourceDir, "");
+        waitForVMTerminated(vmId);
+    }
+
+    private void deleteVirtualMachineDeployment(String vmId, String serviceName, String deploymentName, String roleName) throws CloudException, InternalException {
+        String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" + deploymentName + "?comp=media";
+        AzureMethod method = new AzureMethod(getProvider());
+        method.invoke("DELETE", getProvider().getContext().getAccountNumber(), resourceDir, "");
+        waitForVMTerminated(vmId);
+    }
+
+    private void waitForVMTerminableState(String vmId) throws CloudException, InternalException {
+        VirtualMachine vm = getVirtualMachine(vmId);
+        if( vm == null ) {
+            throw new CloudException("No such virtual machine: " + vmId);
+        }
+
+        long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+
+        while( timeout > System.currentTimeMillis() ) {
+            if( vm == null || VmState.TERMINATED.equals(vm.getCurrentState()) ) {
+                return;
+            }
+            if( !VmState.PENDING.equals(vm.getCurrentState()) && !VmState.STOPPING.equals(vm.getCurrentState()) ) {
+                break;
+            }
+            try { Thread.sleep(15000L); }
+            catch( InterruptedException ignore ) { }
+            try { vm = getVirtualMachine(vmId); }
+            catch( Throwable ignore ) { }
+        }
+    }
+
+    private void waitForVMTerminated(String vmId) throws CloudException, InternalException {
+        VirtualMachine vm = getVirtualMachine(vmId);
+        long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
+        while (timeout > System.currentTimeMillis()) {
+            if (vm == null || VmState.TERMINATED.equals(vm.getCurrentState())) {
+                break;
+            }
+            try {
+                Thread.sleep(15000L);
+            } catch (InterruptedException ignore) {
+            }
+            try {
+                vm = getVirtualMachine(vmId);
+            } catch (Throwable ignore) {
+            }
+        }
+    }
+
     public void terminateService(String serviceName, String explanation) throws InternalException, CloudException {
         APITrace.begin(getProvider(), "VM.terminateService");
         try {
-            ProviderContext ctx = provider.getContext();
+            ProviderContext ctx = getProvider().getContext();
 
             if( ctx == null ) {
                 throw new AzureConfigException("No context was set for this request");
             }
-            AzureMethod method = new AzureMethod(provider);
+            AzureMethod method = new AzureMethod(getProvider());
             String resourceDir = HOSTED_SERVICES + "/" + serviceName;
             long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
             while( timeout > System.currentTimeMillis() ) {
@@ -1828,7 +1799,7 @@ public class AzureVM extends AbstractVMSupport {
 
 
     private ArrayList<String> getAttachedDisks(VirtualMachine vm) throws InternalException, CloudException {
-        ProviderContext ctx = provider.getContext();
+        ProviderContext ctx = getProvider().getContext();
 
         if( ctx == null ) {
             throw new AzureConfigException("No context was set for this request");
@@ -1842,7 +1813,7 @@ public class AzureVM extends AbstractVMSupport {
         deploymentName = vm.getTag("deploymentName").toString();
 
         String resourceDir = HOSTED_SERVICES + "/" + serviceName + "/deployments/" +  deploymentName;
-        AzureMethod method = new AzureMethod(provider);
+        AzureMethod method = new AzureMethod(getProvider());
 
         Document doc = method.getAsXML(ctx.getAccountNumber(),resourceDir);
 

@@ -1,3 +1,21 @@
+/**
+ * Copyright (C) 2013-2014 Dell, Inc
+ *
+ * ====================================================================
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ====================================================================
+ */
+
 package org.dasein.cloud.azure.compute.vm;
 
 import org.dasein.cloud.*;
@@ -97,7 +115,7 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
     @Nullable
     @Override
     public VMScalingCapabilities getVerticalScalingCapabilities() throws CloudException, InternalException {
-        return VMScalingCapabilities.getInstance(false, true, Requirement.REQUIRED, Requirement.NONE);
+        return VMScalingCapabilities.getInstance(false, true, false);
     }
 
     @Nonnull
@@ -183,7 +201,7 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
 
     @Override
     public boolean isUserDataSupported() throws CloudException, InternalException {
-        return false;
+        return true;
     }
 
     @Override
@@ -199,6 +217,15 @@ public class VMCapabilities extends AbstractCapabilities<Azure> implements Virtu
     public boolean supportsSpotVirtualMachines() throws InternalException, CloudException {
         return false;
     }
+
+    @Override
+    public boolean supportsClientRequestToken() throws InternalException, CloudException {return false;}
+
+    @Override
+    public boolean supportsCloudStoredShellKey() throws InternalException, CloudException {return false;}
+
+    @Override
+    public boolean isVMProductDCConstrained() { return false; }
 
     /**
      * Non VMState Defined lifecycle supported operations
