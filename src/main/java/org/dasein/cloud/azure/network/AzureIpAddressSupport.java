@@ -18,11 +18,14 @@
 
 package org.dasein.cloud.azure.network;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.Predicate;
 import org.apache.log4j.Logger;
 import org.bouncycastle.util.IPAddress;
 import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureMethod;
+import org.dasein.cloud.azure.compute.vm.AzureRoleDetails;
 import org.dasein.cloud.azure.network.model.PersistentVMRoleModel;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.identity.ServiceAction;
@@ -39,7 +42,7 @@ import java.util.concurrent.Future;
 /**
  * Created by Vlad_Munthiu on 7/31/2014.
  */
-public class AzureIpAddressSupport implements IpAddressSupport{
+public class AzureIpAddressSupport extends AbstractIpAddressSupport<Azure>{
     static private final Logger logger = Logger.getLogger(AzureIpAddressSupport.class);
     static private final Logger wire   = Azure.getWireLogger(AzureIpAddressSupport.class);
 
@@ -49,6 +52,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
 
     public AzureIpAddressSupport(Azure provider)
     {
+        super(provider);
         this.provider = provider;
     }
     /**
@@ -105,31 +109,9 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Nonnull
     @Override
     public String forward(@Nonnull String addressId, int publicPort, @Nonnull Protocol protocol, int privatePort, @Nonnull String onServerId) throws InternalException, CloudException {
-        VirtualMachine server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(onServerId);
-        if(server == null)
+        PersistentVMRoleModel persistentVMRoleModel = getVMRole(onServerId);
+        if(persistentVMRoleModel == null)
             throw new InternalException("Cannot find Azure virtual machine with id: " + onServerId);
-
-        String[] parts = server.getProviderVirtualMachineId().split(":");
-        String sName, deploymentName, roleName;
-
-        if (parts.length == 3)    {
-            sName = parts[0];
-            deploymentName = parts[1];
-            roleName= parts[2];
-        }
-        else if( parts.length == 2 ) {
-            sName = parts[0];
-            deploymentName = parts[1];
-            roleName = sName;
-        }
-        else {
-            sName = server.getProviderVirtualMachineId();
-            deploymentName = server.getProviderVirtualMachineId();
-            roleName = server.getProviderVirtualMachineId();
-        }
-
-        AzureMethod azureMethod = new AzureMethod(this.provider);
-        PersistentVMRoleModel persistentVMRoleModel = azureMethod.get(PersistentVMRoleModel.class, String.format(RESOURCE_ROLE, sName, deploymentName,roleName ));
 
         PersistentVMRoleModel.InputEndpoint inputEndpoint = new PersistentVMRoleModel.InputEndpoint();
         inputEndpoint.setLocalPort(String.valueOf(privatePort));
@@ -142,12 +124,7 @@ public class AzureIpAddressSupport implements IpAddressSupport{
 
         persistentVMRoleModel.getConfigurationSets().get(0).getInputEndpoints().add(inputEndpoint);
 
-        try {
-            azureMethod.put(String.format(RESOURCE_ROLE, sName, deploymentName,roleName), persistentVMRoleModel);
-        } catch (JAXBException e) {
-            logger.error(e.getMessage());
-            throw new InternalException(e);
-        }
+        updateVMRole(onServerId, persistentVMRoleModel);
 
         return inputEndpoint.getName();
     }
@@ -417,8 +394,34 @@ public class AzureIpAddressSupport implements IpAddressSupport{
      */
     @Nonnull
     @Override
+    @Deprecated
     public Iterable<IpForwardingRule> listRules(@Nonnull String addressId) throws InternalException, CloudException {
         return Collections.emptyList();
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<IpForwardingRule> listRules(@Nullable String addressId, @Nullable String serverId) throws InternalException, CloudException {
+        PersistentVMRoleModel persistentVMRoleModel = getVMRole(serverId);
+        if(persistentVMRoleModel == null)
+            throw new InternalException("Cannot find Azure virtual machine with id: " + serverId);
+
+        ArrayList<IpForwardingRule> rules = new ArrayList<IpForwardingRule>();
+
+        if(persistentVMRoleModel.getConfigurationSets().get(0).getInputEndpoints() != null)
+        {
+            for (PersistentVMRoleModel.InputEndpoint endpoint : persistentVMRoleModel.getConfigurationSets().get(0).getInputEndpoints())
+            {
+                IpForwardingRule rule = new IpForwardingRule();
+                rule.setProviderRuleId(endpoint.getName());
+                rule.setPublicPort(Integer.parseInt(endpoint.getPort()));
+                rule.setPrivatePort(Integer.parseInt(endpoint.getLocalPort()));
+                rule.setServerId(serverId);
+                rules.add(rule);
+            }
+        }
+
+        return rules;
     }
 
     /**
@@ -539,8 +542,19 @@ public class AzureIpAddressSupport implements IpAddressSupport{
      * @throws org.dasein.cloud.OperationNotSupportedException this cloud provider does not support address forwarding
      */
     @Override
-    public void stopForward(@Nonnull String ruleId) throws InternalException, CloudException {
-        throw new OperationNotSupportedException("AzureIpAddressSupport#stopForward not supported");
+    public void stopForward(@Nullable final String ruleId, @Nullable String serverId) throws InternalException, CloudException {
+        PersistentVMRoleModel persistentVMRoleModel = getVMRole(serverId);
+        if(persistentVMRoleModel == null)
+            throw new InternalException("Cannot find Azure virtual machine with id: " + serverId);
+
+        CollectionUtils.filter(persistentVMRoleModel.getConfigurationSets().get(0).getInputEndpoints(), new Predicate() {
+            @Override
+            public boolean evaluate(Object object) {
+                return ((PersistentVMRoleModel.InputEndpoint) object).getName().equalsIgnoreCase(ruleId) == false;
+            }
+        });
+
+        updateVMRole(serverId, persistentVMRoleModel);
     }
 
     /**
@@ -569,5 +583,27 @@ public class AzureIpAddressSupport implements IpAddressSupport{
     @Override
     public String[] mapServiceAction(@Nonnull ServiceAction action) {
         return new String[0];
+    }
+
+    private void updateVMRole(String vmId, PersistentVMRoleModel persistentVMRoleModel) throws CloudException, InternalException {
+        AzureRoleDetails roleDetails = AzureRoleDetails.fromString(vmId);
+
+        try {
+            new AzureMethod(this.provider).put(String.format(RESOURCE_ROLE, roleDetails.getServiceName(), roleDetails.getDeploymentName(), roleDetails.getRoleName()), persistentVMRoleModel);
+        } catch (JAXBException e) {
+            logger.error(e.getMessage());
+            throw new InternalException(e);
+        }
+    }
+
+    private PersistentVMRoleModel getVMRole(String vmId)
+    {
+        AzureRoleDetails roleDetails = AzureRoleDetails.fromString(vmId);
+
+        try {
+            return new AzureMethod(this.provider).get(PersistentVMRoleModel.class, String.format(RESOURCE_ROLE, roleDetails.getServiceName(), roleDetails.getDeploymentName(), roleDetails.getRoleName()));
+        } catch (Exception ex){
+            return null;
+        }
     }
 }
