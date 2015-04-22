@@ -387,20 +387,13 @@ public class AzureIpAddressSupport extends AbstractIpAddressSupport<Azure>{
      * is safe to call even when requested on a private IP address or when IP forwarding is not supported.
      * In those situations, {@link java.util.Collections#emptyList()} will be returned.
      *
-     * @param addressId the unique ID of the public address whose forwarding rules will be sought
+     * @param serverId the unique ID of the virtual machine whose forwarding rules will be sought
      * @return all IP forwarding rules for the specified IP address
      * @throws org.dasein.cloud.InternalException an internal error occurred inside the Dasein Cloud implementation
      * @throws org.dasein.cloud.CloudException    an error occurred processing the request in the cloud
      */
-    @Nonnull
     @Override
-    @Deprecated
-    public Iterable<IpForwardingRule> listRules(@Nonnull String addressId) throws InternalException, CloudException {
-        return Collections.emptyList();
-    }
-
-    @Nonnull @Override
-    public Iterable<IpForwardingRule> listRules(@Nullable String addressId, @Nullable String serverId) throws InternalException, CloudException {
+    public @Nonnull Iterable<IpForwardingRule> listRulesForServer(@Nonnull String serverId) throws InternalException, CloudException {
         PersistentVMRoleModel persistentVMRoleModel = getVMRole(serverId);
         if(persistentVMRoleModel == null)
             throw new InternalException("Cannot find Azure virtual machine with id: " + serverId);
