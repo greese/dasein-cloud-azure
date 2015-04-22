@@ -215,7 +215,7 @@ public class AzureIpAddressSupport extends AbstractIpAddressSupport<Azure>{
 
     /**
      * When addresses are assignable, they may be assigned at launch, post-launch, or both.
-     * {@link VirtualMachineSupport#identifyStaticIPRequirement()} will tell you what must be done
+     * {@link org.dasein.cloud.compute.VirtualMachineCapabilities#identifyStaticIPRequirement()} will tell you what must be done
      * at launch time. This method indicates whether or not assignable IPs may be assigned after launch. This
      * method should never return true when {@link #isAssigned(org.dasein.cloud.network.IPVersion)} returns false.
      *
@@ -399,8 +399,7 @@ public class AzureIpAddressSupport extends AbstractIpAddressSupport<Azure>{
         return Collections.emptyList();
     }
 
-    @Nonnull
-    @Override
+    @Nonnull @Override
     public Iterable<IpForwardingRule> listRules(@Nullable String addressId, @Nullable String serverId) throws InternalException, CloudException {
         PersistentVMRoleModel persistentVMRoleModel = getVMRole(serverId);
         if(persistentVMRoleModel == null)
@@ -542,7 +541,7 @@ public class AzureIpAddressSupport extends AbstractIpAddressSupport<Azure>{
      * @throws org.dasein.cloud.OperationNotSupportedException this cloud provider does not support address forwarding
      */
     @Override
-    public void stopForward(@Nullable final String ruleId, @Nullable String serverId) throws InternalException, CloudException {
+    public void stopForwardToServer(@Nonnull final String ruleId, @Nonnull String serverId) throws InternalException, CloudException {
         PersistentVMRoleModel persistentVMRoleModel = getVMRole(serverId);
         if(persistentVMRoleModel == null)
             throw new InternalException("Cannot find Azure virtual machine with id: " + serverId);
