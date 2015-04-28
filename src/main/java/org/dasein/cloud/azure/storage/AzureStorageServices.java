@@ -22,12 +22,13 @@ package org.dasein.cloud.azure.storage;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.storage.AbstractStorageServices;
 
-public class AzureStorageServices extends AbstractStorageServices {
-    private Azure azure;
-    
-    public AzureStorageServices(Azure azure) { this.azure = azure; }
-    
+public class AzureStorageServices extends AbstractStorageServices<Azure> {
+
+    public AzureStorageServices(Azure provider) {
+        super(provider);
+    }
+
     public BlobStore getOnlineStorageSupport() {
-        return new BlobStore(azure);
+        return new BlobStore(getProvider());
     }
 }
