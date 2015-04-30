@@ -30,6 +30,7 @@ import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.compute.disk.model.DataVirtualHardDiskModel;
+import org.dasein.cloud.azure.compute.vm.AzureRoleDetails;
 import org.dasein.cloud.azure.compute.vm.model.DeploymentModel;
 import org.dasein.cloud.compute.*;
 
@@ -260,7 +261,9 @@ public class AzureDisk extends AbstractVolumeSupport {
                 logger.trace("Can not identify the lun number");
                 throw new InternalException("logical unit number of disk is null, detach operation can not be continue!");
             }
-            String resourceDir = HOSTED_SERVICES + "/" + vm.getTag("serviceName") + "/deployments" + "/" +  vm.getTag("deploymentName") + "/roles"+"/" + vm.getTag("roleName") + "/DataDisks" + "/" + lun;
+
+            AzureRoleDetails azureRoleDetails = AzureRoleDetails.fromString(providerVirtualMachineId);
+            String resourceDir = HOSTED_SERVICES + "/" + azureRoleDetails.getServiceName() + "/deployments" + "/" +  azureRoleDetails.getDeploymentName() + "/roles"+"/" + azureRoleDetails.getRoleName() + "/DataDisks" + "/" + lun;
 
             AzureMethod method = new AzureMethod(provider);
 
@@ -287,8 +290,12 @@ public class AzureDisk extends AbstractVolumeSupport {
         AzureMethod method = new AzureMethod(provider);
 
         VirtualMachine vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(providerVirtualMachineId);
+        if(vm == null)
+            return null;
 
-     	String resourceDir =  HOSTED_SERVICES + "/"+ vm.getTag("serviceName") + "/deployments" + "/" + vm.getTag("deploymentName");
+        AzureRoleDetails azureRoleDetails = AzureRoleDetails.fromString(providerVirtualMachineId);
+
+     	String resourceDir =  HOSTED_SERVICES + "/"+ azureRoleDetails.getServiceName() + "/deployments" + "/" + azureRoleDetails.getDeploymentName();
      	
      	Document doc = method.getAsXML(provider.getContext().getAccountNumber(),resourceDir);
 		
