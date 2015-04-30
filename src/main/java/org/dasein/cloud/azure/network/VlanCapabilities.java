@@ -119,7 +119,7 @@ public class VlanCapabilities extends AbstractCapabilities<Azure> implements VLA
     @Nonnull
     @Override
     public Requirement identifySubnetDCRequirement() throws CloudException, InternalException {
-        return Requirement.OPTIONAL;
+        return Requirement.NONE;
     }
 
     @Override
