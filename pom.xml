@@ -3,7 +3,7 @@
 
     <groupId>org.dasein</groupId>
     <artifactId>dasein-cloud-azure</artifactId>
-    <version>2015.03.8</version>
+    <version>2015.03.9-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>dasein-cloud-azure</name>
