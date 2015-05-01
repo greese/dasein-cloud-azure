@@ -818,6 +818,9 @@ public class AzureVlanSupport implements VLANSupport {
             }
 
             VLAN vlan = getVlan(vlanId);
+            if(vlan == null)
+                throw new InternalException("Network with the id " + vlanId + " does not exist.");
+
             String vlanName = vlan.getName();
 
             AzureMethod method = new AzureMethod(provider);
