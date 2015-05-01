@@ -291,6 +291,9 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
 
         for (String serverToAddId : serverIdsToAdd)
         {
+            if(serverToAddId == null)
+                throw new InternalException("Cannot add server to load balancer. Server ID must not be null.");
+
             String[] parts = serverToAddId.split(":");
             DefinitionModel.EndPointModel endPointModel = new DefinitionModel.EndPointModel();
             endPointModel.setDomainName(parts[0] + ".cloudapp.net");
