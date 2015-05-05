@@ -254,6 +254,7 @@
                 "generation":"current"
             },
             {
+                "excludesRegions": ["Central US", "South Central US", "East US", "North Central US", "North Europe", "West Europe", "Southeast Asia", "East Asia", "Japan West", "Japan East", "Brazil South"],
                 "architectures":["I64"],
                 "id":"Standard_G1",
                 "name":"G1 (2 core, 28 GB memory)",
@@ -264,6 +265,7 @@
                 "generation":"current"
             },
             {
+                "excludesRegions": ["Central US", "South Central US", "East US", "North Central US", "North Europe", "West Europe", "Southeast Asia", "East Asia", "Japan West", "Japan East", "Brazil South"],
                 "architectures":["I64"],
                 "id":"Standard_G2",
                 "name":"G2 (4 core, 56 GB memory)",
@@ -274,6 +276,7 @@
                 "generation":"current"
             },
             {
+                "excludesRegions": ["Central US", "South Central US", "East US", "North Central US", "North Europe", "West Europe", "Southeast Asia", "East Asia", "Japan West", "Japan East", "Brazil South"],
                 "architectures":["I64"],
                 "id":"Standard_G3",
                 "name":"G3 (8 core, 112 GB memory)",
@@ -284,6 +287,7 @@
                 "generation":"current"
             },
             {
+                "excludesRegions": ["Central US", "South Central US", "East US", "North Central US", "North Europe", "West Europe", "Southeast Asia", "East Asia", "Japan West", "Japan East", "Brazil South"],
                 "architectures":["I64"],
                 "id":"Standard_G4",
                 "name":"G4 (16 core, 224 GB memory)",
@@ -294,6 +298,7 @@
                 "generation":"current"
             },
             {
+                "excludesRegions": ["Central US", "South Central US", "East US", "North Central US", "North Europe", "West Europe", "Southeast Asia", "East Asia", "Japan West", "Japan East", "Brazil South"],
                 "architectures":["I64"],
                 "id":"Standard_G5",
                 "name":"G5 (32 core, 448 GB memory)",
