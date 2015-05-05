@@ -355,7 +355,7 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
         ArrayList<VirtualMachine> virtualMachinesFound = new ArrayList<VirtualMachine>();
         for (VirtualMachine virtualMachine : virtualMachines)
         {
-            if(virtualMachine.getPublicDnsAddress().equalsIgnoreCase(dnsName))
+            if(virtualMachine.getPublicDnsAddress() != null && virtualMachine.getPublicDnsAddress().equalsIgnoreCase(dnsName))
                 virtualMachinesFound.add(virtualMachine);
         }
         return virtualMachinesFound;
