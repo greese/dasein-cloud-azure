@@ -625,7 +625,7 @@ public class AzureDisk extends AbstractVolumeSupport {
                         return null;
 
                     DataCenter dc = provider.getDataCenterServices().getDataCenter(affinityGroupModel.getDataCenterId());
-                    if (dc.getRegionId().equals(disk.getProviderRegionId())) {
+                    if (dc != null && dc.getRegionId() != null && dc.getRegionId().equals(disk.getProviderRegionId())) {
                         disk.setProviderDataCenterId(dc.getProviderDataCenterId());
                         mediaLocationFound = true;
                     }

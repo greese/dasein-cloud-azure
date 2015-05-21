@@ -336,14 +336,15 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
 
         ArrayList<LoadBalancerEndpoint> endpoints = new ArrayList<LoadBalancerEndpoint>();
 
-        for (DefinitionModel.EndPointModel endPoint : definitionModel.getPolicy().getEndPoints())
-        {
-            LbEndpointState lbState = endPoint.getStatus().equalsIgnoreCase("enabled") ? LbEndpointState.ACTIVE : LbEndpointState.INACTIVE;
+        if(definitionModel != null && definitionModel.getPolicy() != null && definitionModel.getPolicy().getEndPoints() != null) {
+            for (DefinitionModel.EndPointModel endPoint : definitionModel.getPolicy().getEndPoints()) {
+                LbEndpointState lbState = endPoint.getStatus().equalsIgnoreCase("enabled") ? LbEndpointState.ACTIVE : LbEndpointState.INACTIVE;
 
-            ArrayList<VirtualMachine> vmsWithEndpointDNS = findVMsForDNS(virtualMachines, endPoint.getDomainName());
-            for(VirtualMachine vm : vmsWithEndpointDNS) {
-                LoadBalancerEndpoint lbEndpoint = LoadBalancerEndpoint.getInstance(LbEndpointType.VM, vm.getProviderVirtualMachineId(), lbState);
-                endpoints.add(lbEndpoint);
+                ArrayList<VirtualMachine> vmsWithEndpointDNS = findVMsForDNS(virtualMachines, endPoint.getDomainName());
+                for (VirtualMachine vm : vmsWithEndpointDNS) {
+                    LoadBalancerEndpoint lbEndpoint = LoadBalancerEndpoint.getInstance(LbEndpointType.VM, vm.getProviderVirtualMachineId(), lbState);
+                    endpoints.add(lbEndpoint);
+                }
             }
         }
 
