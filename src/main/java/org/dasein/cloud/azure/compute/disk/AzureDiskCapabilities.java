@@ -167,4 +167,9 @@ public class AzureDiskCapabilities extends AbstractCapabilities<Azure> implement
     public Requirement requiresVMOnCreate() throws InternalException, CloudException {
         return Requirement.REQUIRED;
     }
+
+    @Override
+    public @Nonnull Requirement getDeviceIdOnAttachRequirement() throws InternalException, CloudException{
+        return Requirement.REQUIRED;
+    }
 }

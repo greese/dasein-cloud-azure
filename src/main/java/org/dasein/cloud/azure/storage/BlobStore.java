@@ -44,6 +44,7 @@ import org.dasein.cloud.azure.AzureStorageMethod;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.storage.AbstractBlobStoreSupport;
 import org.dasein.cloud.storage.Blob;
+import org.dasein.cloud.storage.BlobStoreCapabilities;
 import org.dasein.cloud.storage.FileTransfer;
 import org.dasein.cloud.util.NamingConstraints;
 import org.dasein.util.CalendarWrapper;
@@ -87,6 +88,28 @@ public class BlobStore extends AbstractBlobStoreSupport<Azure> {
     @Override
     public boolean allowsPublicSharing() throws CloudException, InternalException {
         return false;
+    }
+
+    /*
+    @Nonnull
+    @Override
+    public AzureBlobStoreCapabilities getCapabilities() throws CloudException, InternalException {
+        if( capabilities == null ) {
+            capabilities = new S3Capabilities(getProvider());
+        }
+        return capabilities;
+    }
+     */
+
+    //private transient volatile S3Capabilities capabilities;
+    private transient volatile AzureBlobStoreCapabilities capabilities;
+
+    @Override
+    public @Nonnull BlobStoreCapabilities getCapabilities() throws CloudException, InternalException{
+        if(capabilities == null){
+            capabilities = new AzureBlobStoreCapabilities(getProvider());
+        }
+        return capabilities;
     }
 
     private void commitBlocks(@Nonnull String bucket, @Nonnull String object, @Nonnull Collection<String> blockIds) throws InternalException, CloudException {

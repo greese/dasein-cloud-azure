@@ -29,13 +29,13 @@ import org.dasein.cloud.network.IpAddressSupport;
 import org.dasein.cloud.network.LoadBalancerSupport;
 import org.dasein.cloud.network.NetworkFirewallSupport;
 
-public class AzureNetworkServices implements NetworkServices {
-	
-	private Azure provider;
+public class AzureNetworkServices extends AbstractNetworkServices<Azure> {
 
-	public AzureNetworkServices(@Nonnull Azure provider) { this.provider = provider; }
+    public AzureNetworkServices(Azure provider) {
+        super(provider);
+    }
 
-	@Override
+    @Override
 	public DNSSupport getDnsSupport() {
 		// TODO Auto-generated method stub
 		return null;
@@ -50,23 +50,23 @@ public class AzureNetworkServices implements NetworkServices {
 	@Override
 	public IpAddressSupport getIpAddressSupport() {
 		// TODO Auto-generated method stub
-		return new AzureIpAddressSupport(provider);
+		return new AzureIpAddressSupport(getProvider());
 	}
 
 	@Override
 	public LoadBalancerSupport getLoadBalancerSupport() {
 		// TODO Auto-generated method stub
-		return new AzureLoadBalancerSupport(provider);
+		return new AzureLoadBalancerSupport(getProvider());
 	}
 
     @Override
 	public AzureVlanSupport getVlanSupport() {
-		return new AzureVlanSupport(provider);
+		return new AzureVlanSupport(getProvider());
 	}
 
 	@Override
 	public AzureVPNSupport getVpnSupport() {
-		return new AzureVPNSupport(provider);
+		return new AzureVPNSupport(getProvider());
 	}
 
 	@Override

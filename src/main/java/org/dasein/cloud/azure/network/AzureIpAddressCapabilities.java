@@ -71,6 +71,12 @@ public class AzureIpAddressCapabilities extends AbstractCapabilities<Azure> impl
     @Override
     public @Nonnull Requirement identifyVlanForIPRequirement() throws CloudException, InternalException {return Requirement.NONE;}
 
+    @Nonnull
+    @Override
+    public Requirement identifyVMForPortForwarding() throws CloudException, InternalException {
+        return Requirement.REQUIRED;
+    }
+
    /* *//**
      * Indicates whether you need to specify which VLAN you are tying a static IP address to when creating any
      * IP address. REQUIRED means you must specify the VLAN, OPTIONAL means you may, and NONE

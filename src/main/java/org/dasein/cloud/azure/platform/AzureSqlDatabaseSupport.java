@@ -223,21 +223,6 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
      * @return iteration of the database products supported by the engine
      * @throws org.dasein.cloud.CloudException
      * @throws org.dasein.cloud.InternalException
-     * @see org.dasein.cloud.platform.RelationalDatabaseSupport#listDatabaseProducts(org.dasein.cloud.platform.DatabaseEngine)
-     * @deprecated since 2014.08 for consistency
-     */
-    @Override
-    public Iterable<DatabaseProduct> getDatabaseProducts(DatabaseEngine forEngine) throws CloudException, InternalException {
-        return listDatabaseProducts(forEngine);
-    }
-
-    /**
-     * List supported database products
-     *
-     * @param forEngine database engine, e.g. MySQL, SQL Server EE, etc.
-     * @return iteration of the database products supported by the engine
-     * @throws org.dasein.cloud.CloudException
-     * @throws org.dasein.cloud.InternalException
      * @since 2014.08 for consistency
      */
     @Nonnull
@@ -270,16 +255,6 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
     }
 
     @Override
-    public String getProviderTermForDatabase(Locale locale) {
-        return null;
-    }
-
-    @Override
-    public String getProviderTermForSnapshot(Locale locale) {
-        return null;
-    }
-
-    @Override
     public DatabaseSnapshot getSnapshot(String providerDbSnapshotId) throws CloudException, InternalException {
         return null;
     }
@@ -287,31 +262,6 @@ public class AzureSqlDatabaseSupport implements RelationalDatabaseSupport {
     @Override
     public boolean isSubscribed() throws CloudException, InternalException {
         return true;
-    }
-
-    @Override
-    public boolean isSupportsFirewallRules() {
-        return false;
-    }
-
-    @Override
-    public boolean isSupportsHighAvailability() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean isSupportsLowAvailability() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean isSupportsMaintenanceWindows() {
-        return false;
-    }
-
-    @Override
-    public boolean isSupportsSnapshots() {
-        return false;
     }
 
     @Override
