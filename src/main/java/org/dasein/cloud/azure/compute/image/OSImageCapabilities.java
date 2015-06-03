@@ -25,6 +25,7 @@ import org.dasein.cloud.compute.ImageClass;
 import org.dasein.cloud.compute.MachineImageFormat;
 import org.dasein.cloud.compute.MachineImageType;
 import org.dasein.cloud.compute.VmState;
+import org.dasein.cloud.util.NamingConstraints;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -149,4 +150,10 @@ public class OSImageCapabilities extends AbstractCapabilities<Azure> implements 
 
     @Override
     public boolean imageCaptureDestroysVM() throws CloudException, InternalException{ return true; }
+
+    @Override
+    public @Nonnull
+    NamingConstraints getImageNamingConstraints() throws CloudException, InternalException {
+        return NamingConstraints.getAlphaNumeric(3, 128).constrainedBy('(', ')', '.', '-', '/', '_');
+    }
 }

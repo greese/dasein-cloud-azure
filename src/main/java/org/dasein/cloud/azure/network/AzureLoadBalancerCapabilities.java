@@ -21,6 +21,7 @@ package org.dasein.cloud.azure.network;
 import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.network.*;
+import org.dasein.cloud.util.NamingConstraints;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -270,6 +271,16 @@ public class AzureLoadBalancerCapabilities extends AbstractCapabilities<Azure> i
      */
     @Override
     public boolean supportsMultipleTrafficTypes() throws CloudException, InternalException {
+        return false;
+    }
+
+    @Override
+    public @Nonnull NamingConstraints getLoadBalancerNamingConstraints() {
+        return NamingConstraints.getStrictInstance(3, 15).constrainedBy(new char[]{'-'});
+    }
+
+    @Override
+    public boolean supportsSslCertificateStore(){
         return false;
     }
 }

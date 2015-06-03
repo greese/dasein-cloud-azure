@@ -22,6 +22,7 @@ import org.dasein.cloud.*;
 import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.network.IPVersion;
 import org.dasein.cloud.network.VLANCapabilities;
+import org.dasein.cloud.util.NamingConstraints;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -151,5 +152,10 @@ public class VlanCapabilities extends AbstractCapabilities<Azure> implements VLA
     @Override
     public boolean supportsRawAddressRouting() throws CloudException, InternalException {
         return false;
+    }
+
+    @Override
+    public @Nonnull NamingConstraints getVlanNamingConstraints() {
+        return NamingConstraints.getStrictInstance(3, 15).constrainedBy(new char[]{'-'});
     }
 }
