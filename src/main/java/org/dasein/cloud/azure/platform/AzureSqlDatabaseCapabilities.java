@@ -3,6 +3,7 @@ package org.dasein.cloud.azure.platform;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.platform.RelationalDatabaseCapabilities;
+import org.dasein.cloud.util.NamingConstraints;
 
 import javax.annotation.Nonnull;
 import java.util.Locale;
@@ -89,34 +90,9 @@ public class AzureSqlDatabaseCapabilities implements RelationalDatabaseCapabilit
         return false;
     }
 
-    @Override
-    public boolean isSupportsFirewallRules() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean isSupportsHighAvailability() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean isSupportsLowAvailability() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean isSupportsMaintenanceWindows() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean isSupportsAlterDatabase() throws CloudException, InternalException {
-        return false;
-    }
-
-    @Override
-    public boolean isSupportsSnapshots() throws CloudException, InternalException {
-        return false;
+    public @Nonnull
+    NamingConstraints getRelationalDatabaseNamingConstraints(){
+        return NamingConstraints.getStrictInstance(3, 15).constrainedBy(new char[]{'-'});
     }
 
     @Nonnull
