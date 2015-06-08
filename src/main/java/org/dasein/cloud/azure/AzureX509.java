@@ -52,7 +52,7 @@ public class AzureX509 {
     static {
         Security.addProvider(new BouncyCastleProvider());
     }
-    
+
     private KeyStore        keystore;
 
     public AzureX509(Azure provider) throws InternalException {
@@ -71,8 +71,8 @@ public class AzureX509 {
                 }
             }
             catch (UnsupportedEncodingException ignore) {}
-          //  System.out.println(apiShared);
-          //  System.out.println(apiSecret);
+            //  System.out.println(apiShared);
+            //  System.out.println(apiSecret);
 
             X509Certificate certificate = certFromString(apiShared);
             PrivateKey privateKey = keyFromString(apiSecret);
@@ -98,7 +98,7 @@ public class AzureX509 {
     private KeyStore createJavaKeystore(X509Certificate cert, PrivateKey key) throws NoSuchProviderException, KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
         KeyStore store = KeyStore.getInstance("JKS", "SUN");
         char[] pw = PASSWORD.toCharArray();
-        
+
         store.load(null, pw);
         store.setKeyEntry(ENTRY_ALIAS, key, pw, new Certificate[] {cert});
         return store;
