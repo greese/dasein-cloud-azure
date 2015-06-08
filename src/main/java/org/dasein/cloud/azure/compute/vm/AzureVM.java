@@ -293,6 +293,9 @@ public class AzureVM extends AbstractVMSupport<Azure> {
 
     @Override
     public @Nullable VirtualMachine getVirtualMachine(@Nonnull String vmId) throws InternalException, CloudException {
+        if(vmId == null)
+            throw new InternalException("The id of the Virtual Machine cannot be null.");
+
         String[] parts = vmId.split(":");
         String sName, deploymentName, roleName;
 
@@ -1665,6 +1668,9 @@ public class AzureVM extends AbstractVMSupport<Azure> {
             logger.trace("ENTER: " + AzureVM.class.getName() + ".terminate()");
         }
         try {
+            if(vmId == null)
+                throw new InternalException("The id of the Virtual Machine to terminate cannot be null.");
+
             ProviderContext ctx = getProvider().getContext();
 
             if( ctx == null ) {
