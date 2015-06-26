@@ -411,22 +411,24 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
         {
             DefinitionModel definitionModel = getDefinition(profile.getName());
 
-            DefinitionModel.MonitorModel currentMonitor = definitionModel.getMonitors().get(0);
-            LoadBalancerHealthCheck.HCProtocol protocol =
-                    currentMonitor.getProtocol().equalsIgnoreCase("http") ? LoadBalancerHealthCheck.HCProtocol.HTTP : LoadBalancerHealthCheck.HCProtocol.HTTPS;
+            if(definitionModel != null && definitionModel.getMonitors() != null && definitionModel.getMonitors().get(0) != null) {
+                DefinitionModel.MonitorModel currentMonitor = definitionModel.getMonitors().get(0);
+                LoadBalancerHealthCheck.HCProtocol protocol =
+                        currentMonitor.getProtocol().equalsIgnoreCase("http") ? LoadBalancerHealthCheck.HCProtocol.HTTP : LoadBalancerHealthCheck.HCProtocol.HTTPS;
 
-            LoadBalancerHealthCheck loadBalancerHealthCheck =  LoadBalancerHealthCheck.getInstance(profile.getName(),
-                                                                    protocol,
-                                                                    Integer.parseInt(currentMonitor.getPort()),
-                                                                    currentMonitor.getHttpOptions().getRelativePath(),
-                                                                    Integer.parseInt(currentMonitor.getIntervalInSeconds()),
-                                                                    Integer.parseInt(currentMonitor.getTimeoutInSeconds()),
-                                                                    1,
-                                                                    Integer.parseInt(currentMonitor.getToleratedNumberOfFailures()));
-            loadBalancerHealthCheck.addProviderLoadBalancerId(profile.getName());
+                LoadBalancerHealthCheck loadBalancerHealthCheck = LoadBalancerHealthCheck.getInstance(profile.getName(),
+                        protocol,
+                        Integer.parseInt(currentMonitor.getPort()),
+                        currentMonitor.getHttpOptions().getRelativePath(),
+                        Integer.parseInt(currentMonitor.getIntervalInSeconds()),
+                        Integer.parseInt(currentMonitor.getTimeoutInSeconds()),
+                        1,
+                        Integer.parseInt(currentMonitor.getToleratedNumberOfFailures()));
+                loadBalancerHealthCheck.addProviderLoadBalancerId(profile.getName());
 
-            if(opts == null || (opts.matches(loadBalancerHealthCheck)))
-                loadBalancerHealthChecks.add(loadBalancerHealthCheck);
+                if (opts == null || (opts.matches(loadBalancerHealthCheck)))
+                    loadBalancerHealthChecks.add(loadBalancerHealthCheck);
+            }
         }
 
         return loadBalancerHealthChecks;
