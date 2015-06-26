@@ -921,7 +921,7 @@ public class AzureVM extends AbstractVMSupport<Azure> {
         String mediaLink = null;
         String vlan = null;
         String subnetName = null;
-
+        boolean isLocked = false;
         for( int i=0; i<attributes.getLength(); i++ ) {
             Node attribute = attributes.item(i);
 
@@ -933,6 +933,11 @@ public class AzureVM extends AbstractVMSupport<Azure> {
             }
             else if( attribute.getNodeName().equalsIgnoreCase("privateid") && attribute.hasChildNodes() ) {
                 deploymentId = attribute.getFirstChild().getNodeValue().trim();
+            }
+            else if (attribute.getNodeName().equalsIgnoreCase("locked") && attribute.hasChildNodes()) {
+                if(attribute.getFirstChild().getNodeValue().trim().equalsIgnoreCase("true")){
+                    isLocked = true;
+                }
             }
             else if( attribute.getNodeName().equalsIgnoreCase("url") && attribute.hasChildNodes() ) {
                 try {
@@ -1251,6 +1256,9 @@ public class AzureVM extends AbstractVMSupport<Azure> {
                 vm.setTag("serviceName", sName);
                 vm.setTag("deploymentName", deploymentName);
                 vm.setTag("roleName", roleName);
+                if(isLocked) {
+                    vm.setTag("locked", String.valueOf(isLocked));
+                }
                 if( mediaLink != null ) {
                     vm.setTag("mediaLink", mediaLink);
                 }
