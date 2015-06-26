@@ -63,8 +63,8 @@
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk16</artifactId>
-            <version>1.46</version>
+            <artifactId>bcprov-jdk15on</artifactId>
+            <version>1.51</version>
         </dependency>
         <dependency>
             <groupId>log4j</groupId>
@@ -291,9 +291,6 @@
                     <excludes>
                         <exclude>**/*.java</exclude>
                     </excludes>
-                    <!--<includes>
-                        <include>**/TestSuite.java</include>
-                    </includes>-->
                 </configuration>
             </plugin>
             <plugin>
