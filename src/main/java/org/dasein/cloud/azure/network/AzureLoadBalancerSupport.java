@@ -27,6 +27,7 @@ import org.dasein.cloud.azure.Azure;
 import org.dasein.cloud.azure.AzureConfigException;
 import org.dasein.cloud.azure.AzureMethod;
 import org.dasein.cloud.azure.compute.AzureComputeServices;
+import org.dasein.cloud.azure.compute.vm.AzureRoleDetails;
 import org.dasein.cloud.azure.network.model.*;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.network.*;
@@ -165,8 +166,10 @@ public class AzureLoadBalancerSupport extends AbstractLoadBalancerSupport<Azure>
         ArrayList<DefinitionModel.EndPointModel> endPointsToAdd = new ArrayList<DefinitionModel.EndPointModel>();
         for(LoadBalancerEndpoint endPoint : options.getEndpoints())
         {
+            AzureRoleDetails azureRoleDetails = AzureRoleDetails.fromString(endPoint.getEndpointValue());
+
             DefinitionModel.EndPointModel endPointModel = new DefinitionModel.EndPointModel();
-            endPointModel.setDomainName(endPoint.getEndpointValue());
+            endPointModel.setDomainName(String.format("%s.cloudapp.net", azureRoleDetails.getRoleName()));
             endPointModel.setStatus("Enabled");
             endPointModel.setType("CloudService");
             endPointsToAdd.add(endPointModel);
